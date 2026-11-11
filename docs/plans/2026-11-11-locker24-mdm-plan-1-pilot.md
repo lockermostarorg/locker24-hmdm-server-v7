@@ -30,7 +30,7 @@
 - A `locker24` release build must fail when `locker24.properties` (signing + secrets) is missing. It never falls back to debug signing.
 - The opensource flavor must keep building unchanged (`./gradlew assembleOpensourceDebug`).
 - No secrets in git: keystore, store/key passwords, `REQUEST_SIGNATURE`, `LIBRARY_API_KEY`, DB password, `hash.secret`, JWT secret.
-- Server: ufw allows only 22, 80, 443 and 31000; Tomcat's HTTP connector listens on `127.0.0.1` only; `secure.enrollment=1`; `hash.secret` = the agent's `REQUEST_SIGNATURE`.
+- Server: ufw allows only 22, 80, 443, 8443 and 31000 (8443 because the installer's iptables redirect 443→8443 is a DNAT, and ufw checks the packet after it); Tomcat's HTTP connector listens on `127.0.0.1` only; `secure.enrollment=1`; `hash.secret` = the agent's `REQUEST_SIGNATURE`.
 - Commits: no Co-Authored-By trailers and no tool or generator attribution anywhere.
 - Deploy and server steps are **prepared** by the implementer and **run by the user**. The implementer may run read-only checks over SSH; commands that change the server are handed to the user.
 

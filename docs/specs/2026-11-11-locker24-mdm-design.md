@@ -224,7 +224,7 @@ The kiosk app's logs come through Headwind's existing `devicelog` plugin, which 
   - OpenJDK 21, Tomcat 10 (Ubuntu package), PostgreSQL 16, certbot
   - Headwind's MQTT broker on :31000
 - First install: Headwind's `hmdm_install.sh` from our fork. Release builds are produced by CI; the server never runs Maven after the first install.
-- Firewall (ufw): 22, 80, 443, 31000 only. Tomcat's plain HTTP port is bound to localhost.
+- Firewall (ufw): 22, 80, 443, 8443, 31000 only. 8443 must be open because the installer redirects 443 to 8443 with iptables, and ufw checks the packet after that redirect (DNAT), so it sees port 8443. Tomcat's plain HTTP port is bound to localhost.
 - Secrets set at install and never left at installer defaults:
   - DB password, `hash.secret`, JWT secret
   - `secure.enrollment=1`
@@ -308,3 +308,4 @@ The kiosk app's logs come through Headwind's existing `devicelog` plugin, which 
 
 - Remote view, control and screenshots: an agent-side helper app plus a server plugin. Unattended control differs by brand. On Samsung with Android 15 it needs the device-owner Knox remote-control path. Other brands such as Lenovo have no Knox, and Android 14+ asks for screen-capture consent on every session, so they need a separate approach. Investigate per brand before designing.
 - Tablet health next to each locker in locker24 admin, via a webhook or a small read API from the health plugin.
+- MQTT over TLS (`ssl://`) on port 31000 instead of plain TCP, so pushes and device credentials are encrypted in transit. Planned for Plan 3.

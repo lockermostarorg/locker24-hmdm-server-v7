@@ -5,7 +5,7 @@ Status: approved in conversation, section by section; waiting for review of this
 
 ## 1. Goal
 
-Run our own mobile device management for the locker kiosk tablets (Samsung Galaxy Tab A9, SM-X110) instead of Headwind's paid editions, Headwind Cloud or Bento. We host it, we own the code, and we can still take Headwind's security fixes.
+Run our own mobile device management for the locker kiosk tablets (today Samsung Galaxy Tab A9, SM-X110; other brands such as Lenovo may be added, see 1.1) instead of Headwind's paid editions, Headwind Cloud or Bento. We host it, we own the code, and we can still take Headwind's security fixes.
 
 ### Success criteria
 
@@ -14,6 +14,14 @@ Run our own mobile device management for the locker kiosk tablets (Samsung Galax
 3. A new agent release reaches the tablets the same way.
 4. From the panel we can see, for every tablet, whether it is healthy, and we get an alert within 10 minutes when it is not.
 5. Headwind security releases can be merged and deployed within days, normally without manual conflict resolution.
+
+### 1.1 Supported devices
+
+- Any tablet with Android 9 or newer, Google Mobile Services (GMS) certified (needed for QR enrolment), and that allows fully managed (device owner) enrolment.
+- The agent uses only standard Android Enterprise APIs: lock task, `DevicePolicyManager`, `PackageInstaller`. It uses no Samsung Knox API, so the same APK works on Samsung, Lenovo and other brands.
+- Brand-specific behaviour (for example vendor battery savers that stop background work) is handled by allowlisting the agent and the kiosk app from battery optimisation through device-owner policy, not by brand-specific code.
+- A new tablet model is supported only after it has passed the full device checklist in section 8. The list of checked models is kept in `docs/locker24-supported-devices.md`.
+- Health reports include manufacturer, model and Android build, so the dashboard can filter and compare by model.
 
 ### Out of scope
 
@@ -115,7 +123,7 @@ New class `com.hmdm.launcher.locker24.HealthReporter`:
 | Group | Fields |
 |---|---|
 | Power | battery %, charging (bool + source), battery temperature °C, battery health |
-| System | free storage MB, free RAM MB, uptime s, Android version, security patch level |
+| System | manufacturer, model, Android build, free storage MB, free RAM MB, uptime s, Android version, security patch level |
 | Network | Wi-Fi SSID, RSSI dBm, IP, MQTT connected (bool), last successful config sync (epoch ms) |
 | Kiosk | kiosk running (bool), foreground package, kiosk app version name + code, agent version name + code, kiosk app restarts by the watchdog in the last 24 h |
 | App | the latest values the kiosk app published (3.7) |
@@ -249,7 +257,7 @@ The kiosk app's logs come through Headwind's existing `devicelog` plugin, which 
   - the watchdog's two-misses rule
   - parsing of the reboot time
   - the health report builder and its offline queue
-- **Agent, device checklist** on a Tab A9 before each release:
+- **Agent, device checklist** before each release, run on one tablet of every model in use (today a Tab A9; also once on any new model before it is deployed):
   1. QR enrolment from factory reset.
   2. Kiosk on first start, with no accessibility prompt.
   3. Escape attempts: home, back, recents, status bar, power menu.
@@ -288,5 +296,5 @@ The kiosk app's logs come through Headwind's existing `devicelog` plugin, which 
 
 ## 11. Later projects
 
-- Remote view, control and screenshots: an agent-side helper app plus a server plugin. On Samsung with Android 15, unattended control needs the device-owner Knox remote-control path; investigate before designing.
+- Remote view, control and screenshots: an agent-side helper app plus a server plugin. Unattended control differs by brand. On Samsung with Android 15 it needs the device-owner Knox remote-control path. Other brands such as Lenovo have no Knox, and Android 14+ asks for screen-capture consent on every session, so they need a separate approach. Investigate per brand before designing.
 - Tablet health next to each locker in locker24 admin, via a webhook or a small read API from the health plugin.

@@ -156,14 +156,31 @@ sed -i '0,/<Connector port="8080"/s//<Connector address="127.0.0.1" port="8080"/
 systemctl restart tomcat10
 ```
 
-5. Store the secrets (DB password, `hash.secret`, admin password, agent keystore password) in the team password manager. `hash.secret` must equal the agent's `requestSignature` in `locker24.properties`. Never commit any of them.
+5. Set the MQTT admin password. Without `mqtt.admin.password` in `ROOT.xml`, Headwind's push sender and broker fall back to a hard-coded default that is public in the upstream source. Port 31000 is open to the internet, and anyone with that default can publish pushes (`adminPanel`, `exitKiosk`, `intent`, `runCommand`) that the agent executes.
+
+```bash
+set +H
+F=/var/lib/tomcat10/conf/Catalina/localhost/ROOT.xml
+P=$(openssl rand -hex 24)
+grep -c mqtt.admin.password $F   # must print 0 before the insert
+sed -i "s#</Context>#    <Parameter name=\"mqtt.admin.password\" value=\"$P\"/>\n</Context>#" $F
+unset P
+systemctl restart tomcat10
+grep -c mqtt.admin.password $F   # must print 1
+```
+
+Devices are not affected: they log in to the broker as `hmdm` with a password derived from `hash.secret`. Only the server uses the admin account. The value does not need to be stored anywhere else; to rotate it, replace the value in `ROOT.xml` and restart Tomcat.
+
+The old server `hwmdm.locker24.app` (5.41.4, Tomcat 9) has the same weakness. Apply the same steps there with `F=/var/lib/tomcat9/conf/Catalina/localhost/ROOT.xml` and `systemctl restart tomcat9`.
+
+6. Store the secrets (DB password, `hash.secret`, admin password, agent keystore password) in the team password manager. `hash.secret` must equal the agent's `requestSignature` in `locker24.properties`. Never commit any of them.
 
 ### Verify (read-only)
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" https://mdm.locker24.app/
 curl -s -m 5 -o /dev/null -w "%{http_code}\n" http://159.89.110.163:8080/ || echo blocked
-ssh root@159.89.110.163 'ss -ltn | grep -E ":(8080|8443|31000) "; grep -o "secure.enrollment\" value=\"[01]\"" /var/lib/tomcat10/conf/Catalina/localhost/ROOT.xml'
+ssh root@159.89.110.163 'ss -ltn | grep -E ":(8080|8443|31000) "; grep -o "secure.enrollment\" value=\"[01]\"" /var/lib/tomcat10/conf/Catalina/localhost/ROOT.xml; grep -c mqtt.admin.password /var/lib/tomcat10/conf/Catalina/localhost/ROOT.xml'
 ```
 
 Expected:
@@ -171,5 +188,48 @@ Expected:
 - the second prints `blocked` or `000`
 - 8080 listens on `127.0.0.1` only; 8443 and 31000 listen
 - `secure.enrollment" value="1"`
+- `1` for the `mqtt.admin.password` count (the public default is no longer in use)
 - `jwt.secretkey` is set, and no installer placeholder password remains in `ROOT.xml`
 - `server.xml` has exactly one active 8443 connector (another one may sit inside a comment)
+
+## 5. Backups
+
+Nightly: `deploy/backup.sh` writes a `pg_dump -Fc` of `hmdm` and tarballs of `/var/lib/tomcat10/work/files` and `/var/lib/tomcat10/work/plugins` to `/root/backups/<YYYY-MM-DD>/`, and deletes dated folders older than 14 days. It exits non-zero when any step fails.
+
+Install it from the repo checkout:
+
+```bash
+mkdir -p /opt/locker24
+install -m 700 /root/locker24-hmdm-server-v7/deploy/backup.sh /opt/locker24/backup.sh
+( crontab -l 2>/dev/null; echo '30 3 * * * /opt/locker24/backup.sh >> /var/log/locker24-backup.log 2>&1' ) | crontab -
+crontab -l | grep -c backup.sh   # must print 1
+```
+
+Run it once now and check the result:
+
+```bash
+/opt/locker24/backup.sh; echo "exit $?"
+ls -lh /root/backups/$(date +%F)/
+pg_restore -l /root/backups/$(date +%F)/hmdm.dump | head -5
+```
+
+Expected: `exit 0`; `hmdm.dump`, `files.tar.gz` and `plugins.tar.gz` exist and are not empty; `pg_restore -l` lists the archive header without errors. Check `/var/log/locker24-backup.log` the next morning.
+
+Also turn on DigitalOcean weekly backups for the droplet (Droplet → Backups → Enable, weekly). The nightly dumps live on the same disk, so they do not protect against losing the droplet.
+
+### Restore
+
+Replace `<date>` with the backup folder to restore. This overwrites the current database and files.
+
+```bash
+D=/root/backups/<date>
+systemctl stop tomcat10
+cd /tmp
+sudo -u postgres pg_restore --clean --if-exists -d hmdm "$D/hmdm.dump"
+tar -C /var/lib/tomcat10/work -xzf "$D/files.tar.gz"
+tar -C /var/lib/tomcat10/work -xzf "$D/plugins.tar.gz"
+chown -R tomcat:tomcat /var/lib/tomcat10/work/files /var/lib/tomcat10/work/plugins
+systemctl start tomcat10
+```
+
+On an empty server, create the `hmdm` user and database first (section 1), then restore with `-d hmdm` as above. The dump keeps object ownership, so the `hmdm` user must exist.

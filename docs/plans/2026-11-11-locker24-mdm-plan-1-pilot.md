@@ -396,6 +396,8 @@ Expected: success.
     - admin receiver `com.hmdm.launcher.AdminReceiver`
     - kiosk mode on, content app `com.hpmoqa.tablet_client`
     - home, recents, notifications, status bar info and screen lock all off; lock power button on
+    - keep screen on (`kioskScreenOn`) on; the v7 panel has no checkbox, so it is set in the database (see the agent repo's `docs/locker24-pilot-config.md`)
+    - time zone: manual, `Europe/Sarajevo` (`reboot_time` is device local time)
     - restrictions `no_factory_reset,no_add_user,no_safe_boot,no_usb_file_transfer,no_physical_media`
     - system update: scheduled window 02:00–05:00
     - scheduled app update off for the pilot (immediate)
@@ -407,7 +409,7 @@ Expected: success.
 Expected:
 - `android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME` is `app.locker24.mdm/com.hmdm.launcher.AdminReceiver`.
 - The APK URL is on `mdm.locker24.app`.
-- The checksum matches `apksigner`'s SHA-256 of the uploaded agent.
+- The checksum is the base64url SHA-256 of the APK file (not the signing certificate): `openssl dgst -binary -sha256 app-locker24-release.apk | openssl base64 | tr '+/' '-_' | tr -d '='`. The panel caches it per app version, so a changed APK is always uploaded as a new version.
 
 - [ ] **Step 3: Commit:** `git commit -m "docs: hpmo-qa pilot configuration"`
 
@@ -423,6 +425,7 @@ Expected:
   1. QR enrolment from factory reset.
   2. Kiosk on first start, with no Accessibility prompt.
   3. Home, back, recents, status bar and power menu are all blocked.
+     - 3b. A short power-button press does not leave the screen off (it turns straight back on).
   4. Upload `hpmoqa-1.2.1+16-update-test.apk` as a new version: the tablet updates and is back in kiosk within 60 s.
   5. Build agent `6.40-l24.2` / `1540002`, upload it: the agent updates and is back in kiosk within 60 s.
   6. Reboot: back in kiosk.
@@ -430,6 +433,8 @@ Expected:
   8. Wi-Fi off 15 min, then on: the device syncs again (health queue is Plan 2).
   9. Set `reboot_time` 3 min ahead: the tablet reboots once, and not again that day.
   10. Exit kiosk with the panel password: the tablet stays out of kiosk for 5 minutes (watchdog quiet); a config push re-enters kiosk.
+  11. The `opensource` debug APK on a phone that is not device owner, with kiosk on, does not crash.
+  12. The device time zone is `Europe/Sarajevo`, and the scheduled reboot happens at the configured local time.
 
   Expected: every step passes. Any failure goes back to the owning task as a bug, with the logcat lines.
 

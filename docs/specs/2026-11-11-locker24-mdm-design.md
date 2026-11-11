@@ -202,6 +202,16 @@ The kiosk app's logs come through Headwind's existing `devicelog` plugin, which 
 
 - Product name, logo, favicon and primary colours are set in v7's ui-library theme files and `build.properties`, in one commit that is easy to re-apply after a merge.
 - Our plugin pages use v7's ui-library components only.
+- Dark mode, following the system by default:
+  - v7 already uses Angular Material 3 theming (`projects/core/src/custom-theme.scss`, which sets `color-scheme: light`). We switch it to `color-scheme: light dark`, so the panel follows the operating system by default.
+  - A user setting overrides it with System / Light / Dark. The choice is stored per browser.
+  - Hard-coded Headwind colours in the panel and plugin styles (for example the `#678ca6` header) are replaced with theme tokens, so both modes read correctly.
+- UI polish beyond Headwind's defaults:
+  - The Locker24 palette and typography.
+  - A cleaner navigation header and sidebar.
+  - Consistent spacing and empty states on the main lists (devices, applications, configurations).
+  - The fleet dashboard (4.1) as the landing page.
+  - Changes are kept in theme/style files and in our plugins where possible. Template changes in core pages are listed in `docs/locker24-core-changes.md` to keep upstream merges reviewable.
 
 ## 5. Hosting
 

@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Singleton
 @Path("/public/plugin-locker24-health")
@@ -42,6 +43,9 @@ public class HealthPublicResource {
     static final String ERROR_VALIDATION = "error.validation";
 
     private static final Logger logger = LoggerFactory.getLogger(HealthPublicResource.class);
+    private static final long STACK_TRACE_INTERVAL_MS = 60_000L;
+
+    private final AtomicLong lastStackTraceAt = new AtomicLong(Long.MIN_VALUE / 2);
 
     private final UnsecureDAO unsecureDAO;
     private final PluginStatusCache pluginStatusCache;
@@ -67,9 +71,12 @@ public class HealthPublicResource {
                            @HeaderParam(SIGNATURE_HEADER) String signature,
                            @HeaderParam(HttpHeaders.CONTENT_LENGTH) String contentLength,
                            InputStream body) {
-        String number = printable(deviceNumber);
+        String number = printable(deviceNumber, 64);
         try {
             Device device = unsecureDAO.getDeviceByNumber(deviceNumber);
+            if (device == null) {
+                device = unsecureDAO.getDeviceByOldNumber(deviceNumber);
+            }
             if (device == null) {
                 logger.warn("Health report from unknown device {}", number);
                 return Response.DEVICE_NOT_FOUND_ERROR();
@@ -98,14 +105,25 @@ public class HealthPublicResource {
                     return Response.ERROR(ERROR_VALIDATION);
                 }
                 int stored = ingestService.store(device, batch, System.currentTimeMillis());
-                logger.info("Health reports from device {}: {} received, {} new", number, batch.getReports().size(), stored);
+                logger.debug("Health reports from device {}: {} received, {} new", number, batch.getReports().size(), stored);
                 return Response.OK(Collections.singletonMap("accepted", stored));
             } finally {
                 SecurityContext.release();
             }
         } catch (Exception e) {
-            logger.error("Failed to store health reports from device {}", number, e);
+            logFailure(number, e);
             return Response.INTERNAL_ERROR();
+        }
+    }
+
+    private void logFailure(String number, Exception e) {
+        long now = System.currentTimeMillis();
+        long last = lastStackTraceAt.get();
+        if (now - last >= STACK_TRACE_INTERVAL_MS && lastStackTraceAt.compareAndSet(last, now)) {
+            logger.warn("Failed to store health reports from device {}", number, e);
+        } else {
+            logger.warn("Failed to store health reports from device {}: {}: {}",
+                    number, e.getClass().getName(), printable(String.valueOf(e.getMessage()), 200));
         }
     }
 
@@ -128,14 +146,14 @@ public class HealthPublicResource {
         return new String(bytes, StandardCharsets.UTF_8);
     }
 
-    private static String printable(String s) {
+    static String printable(String s, int max) {
         if (s == null) {
             return "null";
         }
-        StringBuilder b = new StringBuilder(Math.min(s.length(), 64));
-        for (int i = 0; i < s.length() && b.length() < 64; i++) {
+        StringBuilder b = new StringBuilder(Math.min(s.length(), max));
+        for (int i = 0; i < s.length() && b.length() < max; i++) {
             char c = s.charAt(i);
-            b.append(c < 0x20 || c == 0x7F ? '?' : c);
+            b.append(Character.isISOControl(c) || c == 0x2028 || c == 0x2029 ? '?' : c);
         }
         return b.toString();
     }

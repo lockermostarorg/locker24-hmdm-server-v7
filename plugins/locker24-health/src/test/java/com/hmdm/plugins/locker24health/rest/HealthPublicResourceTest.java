@@ -120,6 +120,47 @@ public class HealthPublicResourceTest {
     }
 
     @Test
+    public void renamedDeviceFoundByOldNumber() {
+        Device renamed = new Device();
+        renamed.setId(12);
+        renamed.setCustomerId(2);
+        renamed.setNumber("M-01-NEW");
+        when(unsecureDAO.getDeviceByOldNumber("M-01-OLD")).thenReturn(renamed);
+
+        assertError("error.signature", post("M-01-OLD", sig("M-01-NEW"), null, unreadable()));
+        assertNothingStored();
+
+        Response r = post("M-01-OLD", sig("M-01-OLD"), envelope(1));
+
+        assertEquals(Response.ResponseStatus.OK, r.getStatus());
+        verify(ingest).store(eq(renamed), any(ParsedBatch.class), anyLong());
+    }
+
+    @Test
+    public void unknownDeviceConsultsOldNumberBeforeRejecting() {
+        post("X", sig("X"), null, unreadable());
+
+        verify(unsecureDAO).getDeviceByOldNumber("X");
+    }
+
+    @Test
+    public void deviceLookupFailureIsInternalErrorNotNotFound() {
+        when(unsecureDAO.getDeviceByNumber("M-01")).thenThrow(new RuntimeException("pool exhausted"));
+
+        Response r = post("M-01", sig("M-01"), null, unreadable());
+
+        assertError("error.internal.server", r);
+        assertNothingStored();
+    }
+
+    @Test
+    public void printableMasksControlAndLineSeparators() {
+        assertEquals("a?b?c?d?e", HealthPublicResource.printable("a\nb\u0085c\u2028d\u2029e", 64));
+        assertEquals("abc", HealthPublicResource.printable("abcdef", 3));
+        assertEquals("null", HealthPublicResource.printable(null, 64));
+    }
+
+    @Test
     public void signatureRequired() {
         assertError("error.signature", post("M-01", null, null, unreadable()));
         assertError("error.signature", post("M-01", sig("M-02"), null, unreadable()));

@@ -104,11 +104,8 @@ public final class StatusEvaluator {
     }
 
     private static boolean overdue(ConfiguredKiosk k, EvalContext c, long since) {
-        if (!windowConfigured(k)) {
+        if (!windowConfigured(k) || k.from().equals(k.to())) {
             return c.now() - since > VERSION_GRACE_MS;
-        }
-        if (k.from().equals(k.to())) {
-            return false;
         }
         if (inWindow(k, c.now(), c.zone())) {
             return false;
@@ -130,8 +127,12 @@ public final class StatusEvaluator {
         LocalTime from = k.from().truncatedTo(ChronoUnit.MINUTES);
         LocalTime to = k.to().truncatedTo(ChronoUnit.MINUTES);
         LocalDate day = Instant.ofEpochMilli(since).atZone(zone).toLocalDate();
-        ZonedDateTime start = ZonedDateTime.of(day, from, zone);
-        if (start.toInstant().toEpochMilli() < since) {
+        while (true) {
+            ZonedDateTime start = ZonedDateTime.of(day, from, zone);
+            boolean shownOnClock = start.toLocalTime().equals(from);
+            if (shownOnClock && start.toInstant().toEpochMilli() >= since) {
+                break;
+            }
             day = day.plusDays(1);
         }
         LocalDate endDay = from.isAfter(to) ? day.plusDays(1) : day;

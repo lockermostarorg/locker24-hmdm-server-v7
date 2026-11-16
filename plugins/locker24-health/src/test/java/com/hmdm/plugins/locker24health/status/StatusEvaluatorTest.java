@@ -301,9 +301,20 @@ public class StatusEvaluatorTest {
     }
 
     @Test
-    public void equalFromAndToMeansAlwaysAllowed() {
+    public void equalFromAndToFallsBackToTheTwoHourRule() {
         ConfiguredKiosk win = configured(true, "03:00", "03:00");
-        assertOnly(Status.GREEN, versionEval(outdated(), win, NOW, 10_000L));
+        assertOnly(Status.GREEN, versionEval(outdated(), win, NOW, NOW - 7_200_000));
+        assertOnly(Status.YELLOW, versionEval(outdated(), win, NOW, NOW - 7_200_001), Condition.KIOSK_VERSION);
+    }
+
+    @Test
+    public void windowStartInSpringForwardGapIsSkipped() {
+        ConfiguredKiosk win = configured(true, "02:15", "02:45");
+        long since = ZonedDateTime.of(2026, 3, 28, 10, 0, 0, 0, ZONE).toInstant().toEpochMilli();
+        long gapDay = ZonedDateTime.of(2026, 3, 29, 4, 0, 0, 0, ZONE).toInstant().toEpochMilli();
+        assertOnly(Status.GREEN, versionEval(outdated(), win, gapDay, since));
+        long after = ZonedDateTime.of(2026, 3, 30, 2, 46, 0, 0, ZONE).toInstant().toEpochMilli();
+        assertOnly(Status.YELLOW, versionEval(outdated(), win, after, since), Condition.KIOSK_VERSION);
     }
 
     @Test

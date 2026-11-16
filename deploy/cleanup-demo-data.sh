@@ -22,7 +22,7 @@ fi
 read -r -a PSQL <<< "${CLEANUP_PSQL:-sudo -u postgres psql}"
 cd /tmp
 
-run_sql() { "${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -qtA; }
+run_sql() { "${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -qtA "$@"; }
 
 compute_sql() {
     cat <<'SQL'
@@ -62,10 +62,24 @@ INSERT INTO demo_apps VALUES
     (98, 'com.sec.android.app.sbrowser'), (99, 'com.google.android.GoogleCamera'), (100, 'com.hmdm.kiosk'),
     (101, 'com.hmdm.kioskdemo');
 
-CREATE TEMP TABLE demo_confs (id INT PRIMARY KEY, name TEXT NOT NULL);
+CREATE TEMP TABLE demo_confs (id INT PRIMARY KEY, name TEXT NOT NULL, content_app INT, row_count INT NOT NULL, row_hash TEXT NOT NULL);
 INSERT INTO demo_confs VALUES
-    (1, 'Managed Launcher'), (2, 'MIUI (Xiaomi Redmi)'), (3, 'Background (Agent) Mode'),
-    (4, 'Kiosk Mode'), (5, 'Kiosk Mode - Web Page');
+    (1, 'Managed Launcher', NULL, 73, '5d6d6a60306cafbf5ade84e9bb249030'),
+    (2, 'MIUI (Xiaomi Redmi)', NULL, 35, 'e8ac42410d8090e9db50b483e21d0700'),
+    (3, 'Background (Agent) Mode', NULL, 73, '5d6d6a60306cafbf5ade84e9bb249030'),
+    (4, 'Kiosk Mode', 10101, 73, '246d941ba7647bab08b2e0ac50e94eb7'),
+    (5, 'Kiosk Mode - Web Page', 10100, 73, '181dbd57b5988cfaa06e86607123cfeb');
+
+CREATE TEMP TABLE conf_edited AS
+    SELECT c.id FROM configurations c
+    JOIN demo_confs dc ON dc.id = c.id AND dc.name = c.name
+    WHERE c.customerId = 1
+      AND (c.mainAppId IS DISTINCT FROM 10045
+           OR c.contentAppId IS DISTINCT FROM dc.content_app
+           OR (SELECT COUNT(*) FROM configurationApplications ca WHERE ca.configurationId = c.id) <> dc.row_count
+           OR md5(COALESCE((SELECT string_agg(ca.applicationId || ':' || ca.applicationVersionId || ':' || ca.remove::text || ':' || ca.showIcon::text || ':' || ca.action,
+                                              ',' ORDER BY ca.applicationId, ca.applicationVersionId)
+                            FROM configurationApplications ca WHERE ca.configurationId = c.id), '')) <> dc.row_hash);
 
 CREATE TEMP TABLE del_devices AS
     SELECT d.id, d.number FROM devices d
@@ -76,6 +90,8 @@ CREATE TEMP TABLE del_confs AS
     SELECT c.id, c.name FROM configurations c
     JOIN demo_confs dc ON dc.id = c.id AND dc.name = c.name
     WHERE c.customerId = 1
+      AND c.id NOT IN (SELECT id FROM conf_edited)
+      AND NOT EXISTS (SELECT 1 FROM settings st WHERE st.newDeviceConfigurationId = c.id)
       AND NOT EXISTS (
           SELECT 1 FROM devices d
           WHERE (d.configurationId = c.id OR d.oldConfigurationId = c.id)
@@ -113,10 +129,42 @@ DO $$
 BEGIN
     IF to_regclass('plugin_devicelog_settings_rules') IS NOT NULL THEN
         DELETE FROM del_apps WHERE id IN (
-            SELECT applicationId FROM plugin_devicelog_settings_rules WHERE name <> 'Headwind MDM');
+            SELECT applicationId FROM plugin_devicelog_settings_rules
+            WHERE NOT (id = 1 AND applicationId = 46 AND name = 'Headwind MDM'));
     END IF;
 END
 $$;
+
+CREATE TEMP TABLE cascades (label TEXT, n BIGINT);
+INSERT INTO cascades SELECT 'application versions', COUNT(*) FROM applicationVersions
+    WHERE applicationId IN (SELECT id FROM del_apps);
+INSERT INTO cascades SELECT 'configuration rows', COUNT(*) FROM configurationApplications
+    WHERE configurationId IN (SELECT id FROM del_confs) OR applicationId IN (SELECT id FROM del_apps);
+INSERT INTO cascades SELECT 'application settings', COUNT(*) FROM configurationApplicationSettings
+    WHERE applicationId IN (SELECT id FROM del_apps) OR extrefId IN (SELECT id FROM del_confs);
+INSERT INTO cascades SELECT 'configuration files', COUNT(*) FROM configurationFiles
+    WHERE configurationId IN (SELECT id FROM del_confs);
+INSERT INTO cascades SELECT 'user access rows', COUNT(*) FROM userConfigurationAccess
+    WHERE configurationId IN (SELECT id FROM del_confs);
+INSERT INTO cascades SELECT 'device group links', COUNT(*) FROM deviceGroups
+    WHERE deviceId IN (SELECT id FROM del_devices);
+DO $$
+BEGIN
+    IF to_regclass('plugin_devicelog_log') IS NOT NULL THEN
+        INSERT INTO cascades SELECT 'device log records', COUNT(*) FROM plugin_devicelog_log
+            WHERE applicationId IN (SELECT id FROM del_apps) OR deviceId IN (SELECT id FROM del_devices);
+    END IF;
+    IF to_regclass('plugin_devicelog_settings_rules') IS NOT NULL THEN
+        INSERT INTO cascades SELECT 'device log rules', COUNT(*) FROM plugin_devicelog_settings_rules
+            WHERE applicationId IN (SELECT id FROM del_apps) OR configurationId IN (SELECT id FROM del_confs);
+    END IF;
+END
+$$;
+
+CREATE TEMP TABLE plan_fp AS
+    SELECT md5(COALESCE((SELECT string_agg(id::text, ',' ORDER BY id) FROM del_devices), '') || '|'
+            || COALESCE((SELECT string_agg(id::text, ',' ORDER BY id) FROM del_confs), '') || '|'
+            || COALESCE((SELECT string_agg(id::text, ',' ORDER BY id) FROM del_apps), '')) AS fp;
 SQL
 }
 
@@ -129,7 +177,12 @@ UNION ALL SELECT 'delete configuration ' || name FROM del_confs
 UNION ALL (SELECT 'delete application ' || pkg || ' (' || name || ')' FROM del_apps ORDER BY pkg);
 SELECT 'keep device ' || number || ' (enrolled)' FROM devices
     WHERE id = 1 AND number = 'h0001' AND customerId = 1 AND id NOT IN (SELECT id FROM del_devices);
-SELECT 'keep configuration ' || c.name || ' (used by a device)' FROM configurations c
+SELECT 'keep configuration ' || c.name || ' (' || concat_ws('; ',
+    CASE WHEN EXISTS (SELECT 1 FROM devices d WHERE (d.configurationId = c.id OR d.oldConfigurationId = c.id)
+                      AND d.id NOT IN (SELECT id FROM del_devices)) THEN 'used by a device' END,
+    CASE WHEN EXISTS (SELECT 1 FROM settings st WHERE st.newDeviceConfigurationId = c.id) THEN 'default for new devices' END,
+    CASE WHEN c.id IN (SELECT id FROM conf_edited) THEN 'edited, kept' END) || ')'
+FROM configurations c
     JOIN demo_confs dc ON dc.id = c.id AND dc.name = c.name
     WHERE c.customerId = 1 AND c.id NOT IN (SELECT id FROM del_confs);
 SELECT 'keep application ' || a.pkg || ': ' || COALESCE(
@@ -140,14 +193,37 @@ SELECT 'keep application ' || a.pkg || ': ' || COALESCE(
     'own version, setting or log rule')
 FROM applications a JOIN demo_apps da ON da.id = a.id AND da.pkg = a.pkg
 WHERE a.customerId = 1 AND a.id NOT IN (SELECT id FROM del_apps) ORDER BY a.pkg;
+SELECT 'also removes ' || n || ' ' || label FROM cascades WHERE n > 0
+    AND EXISTS (SELECT 1 FROM del_devices UNION ALL SELECT 1 FROM del_confs UNION ALL SELECT 1 FROM del_apps);
+SELECT 'lookalikes ' || (
+    (SELECT COUNT(*) FROM configurations c JOIN demo_confs dc ON dc.name = c.name
+        WHERE NOT (c.id = dc.id AND c.customerId = 1))
+  + (SELECT COUNT(*) FROM applications a JOIN demo_apps da ON da.pkg = a.pkg
+        WHERE NOT (a.id = da.id AND a.customerId = 1))
+  + (SELECT COUNT(*) FROM devices d WHERE d.number = 'h0001' AND NOT (d.id = 1 AND d.customerId = 1)));
+SELECT 'fingerprint ' || fp FROM plan_fp;
 ROLLBACK;
 SQL
 }
 
 apply_sql() {
-    echo "BEGIN;"
+    cat <<'SQL'
+BEGIN;
+SET LOCAL lock_timeout = '30s';
+LOCK TABLE devices, configurations, configurationApplications, configurationApplicationSettings,
+    configurationApplicationParameters, deviceApplicationSettings, applications, applicationVersions, settings
+    IN SHARE ROW EXCLUSIVE MODE;
+SQL
     compute_sql
     cat <<'SQL'
+SET LOCAL l24.expected = :'expected';
+DO $$
+BEGIN
+    IF (SELECT fp FROM plan_fp) <> current_setting('l24.expected') THEN
+        RAISE EXCEPTION 'the data changed since the plan was made';
+    END IF;
+END
+$$;
 WITH d AS (DELETE FROM devices WHERE id IN (SELECT id FROM del_devices) RETURNING 1)
     SELECT 'deleted devices: ' || COUNT(*) FROM d;
 WITH d AS (DELETE FROM configurations WHERE id IN (SELECT id FROM del_confs) RETURNING 1)
@@ -165,15 +241,27 @@ if ! echo "SELECT 1 FROM applications LIMIT 1; SELECT 1 FROM devices LIMIT 1; SE
 fi
 
 PLAN=$(plan_sql | run_sql)
+FINGERPRINT=$(sed -n 's/^fingerprint //p' <<< "$PLAN")
+LOOKALIKES=$(sed -n 's/^lookalikes //p' <<< "$PLAN")
+SHOWN=$(grep -v -e '^fingerprint ' -e '^lookalikes ' -e '^also removes ' <<< "$PLAN" || true)
+
 if ! grep -q '^delete ' <<< "$PLAN"; then
-    grep '^keep ' <<< "$PLAN" || true
-    echo "nothing to delete"
+    if [ -n "$SHOWN" ]; then
+        printf '%s\n' "$SHOWN"
+        echo "Nothing to delete: the demo data that remains is in use (see above)."
+    else
+        echo "No Headwind demo data found (matched by id and name)."
+    fi
+    echo "Rows that looked like demo data but did not match: $LOOKALIKES"
     exit 0
 fi
 
 echo "Plan:"
-printf '  %s\n' "${PLAN//$'\n'/$'\n'  }"
+printf '  %s\n' "${SHOWN//$'\n'/$'\n'  }"
+CASCADES=$(grep '^also removes ' <<< "$PLAN" || true)
+[ -z "$CASCADES" ] || printf '  %s\n' "${CASCADES//$'\n'/$'\n'  }"
 echo "Totals: $(grep -c '^delete device ' <<< "$PLAN" || true) device(s), $(grep -c '^delete configuration ' <<< "$PLAN" || true) configuration(s), $(grep -c '^delete application ' <<< "$PLAN" || true) application(s)"
+echo "Rows that looked like demo data but did not match (left alone): $LOOKALIKES"
 
 if [ "$ASSUME_YES" -ne 1 ]; then
     if [ ! -t 0 ]; then
@@ -183,9 +271,12 @@ if [ "$ASSUME_YES" -ne 1 ]; then
     read -r -p "Delete the items above? [y/N] " ANSWER
     case "$ANSWER" in
         y|Y|yes|YES) ;;
-        *) echo "Aborted, nothing deleted."; exit 0 ;;
+        *) echo "Cancelled, nothing deleted."; exit 3 ;;
     esac
 fi
 
-apply_sql | run_sql
+if ! apply_sql | run_sql -v expected="$FINGERPRINT"; then
+    echo "Apply failed or the data changed since the plan; the transaction was rolled back and nothing was deleted." >&2
+    exit 4
+fi
 echo "done"

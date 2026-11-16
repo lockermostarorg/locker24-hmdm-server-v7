@@ -8,17 +8,24 @@
 $brand-blue: #009fd7;
 $brand-orange: #ff6d00;
 $brand-grey: #5c5c5c;
-$primary: $brand-blue;
-$accent: $brand-orange;
+$primary-text: #0077a3;
+$accent-text: #c24e00;
+$primary: var(--l24-primary);
+$accent: var(--l24-accent);
 
 @include mat.form-field-density(-4);
 
 :root {
-  --mat-sys-primary: #{$brand-blue};
+  --l24-brand: #{$brand-blue};
+  --l24-brand-accent: #{$brand-orange};
+  --l24-brand-grey: #{$brand-grey};
+  --l24-primary: #{$primary-text};
+  --l24-accent: #{$accent-text};
+  --mat-sys-primary: var(--l24-primary);
   --mat-sidenav-content-background-color: #e9eaf4;
-  --mat-ripple-color: #{$brand-blue};
+  --mat-ripple-color: var(--l24-brand);
   --mat-sys-success: #2e7d32;
-  --mat-sys-info: #{$brand-orange};
+  --mat-sys-info: var(--l24-accent);
   --mat-dialog-container-max-width: 980px;
 }
 
@@ -84,8 +91,8 @@ html {
   @include mat.menu-overrides(
     (
       container-shape: 8px,
-      item-hover-state-layer-color: $brand-blue,
-      item-focus-state-layer-color: $brand-blue,
+      item-hover-state-layer-color: var(--l24-primary),
+      item-focus-state-layer-color: var(--l24-primary),
     )
   );
 

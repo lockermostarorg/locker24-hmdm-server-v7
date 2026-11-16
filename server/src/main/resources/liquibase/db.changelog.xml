@@ -3191,4 +3191,17 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="17.11.26-09:00-l24-6" author="locker24" context="common">
+        <comment>The xtra plugin only advertises Headwind's paid edition; hide it</comment>
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="plugins"/>
+        </preConditions>
+        <sql>
+            UPDATE plugins SET disabled = TRUE WHERE identifier = 'xtra';
+        </sql>
+        <rollback>
+            UPDATE plugins SET disabled = FALSE WHERE identifier = 'xtra';
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>

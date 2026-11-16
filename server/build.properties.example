@@ -95,8 +95,8 @@ rebranding.vendor.link=https://locker24.app
 # rebranding logo must be a 100x100 PNG file
 rebranding.logo=/home/launcher/logo.png
 rebranding.mobile.name=Locker24 MDM
-rebranding.signup.link=https://mycompany.com/signup/
-rebranding.terms.link=https://mycompany.com/terms/
+rebranding.signup.link=
+rebranding.terms.link=
 
 smtp.host=smtp.mailgun.org
 smtp.port=25

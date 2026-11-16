@@ -5,20 +5,21 @@
 
   &-top {
     display: flex;
-    gap: 10px;
-    align-items: center;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
     margin-bottom: 10px;
   }
 
   &-logo {
-    width: 43px;
-    height: auto;
+    width: auto;
+    height: 32px;
   }
 
   &-title {
-    margin-bottom: 16px;
-    margin-top: 10px;
     margin: 0;
+    font-size: 0.875rem;
+    font-weight: 400;
   }
 
   &-toggle {

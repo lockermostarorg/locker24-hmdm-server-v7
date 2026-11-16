@@ -6,7 +6,7 @@ export const MESSAGE_TYPE_PAYLOADS: Record<string, string> = {
   deleteDir: '{"path": "/path/to/dir"}',
   purgeDir: '{"path": "/path/to/dir", "recursive": "1"}',
   permissiveMode: '',
-  intent: '{"action": "android.intent.action.VIEW", "data": "https://h-mdm.com"}',
+  intent: '{"action": "android.intent.action.VIEW", "data": "https://example.com/"}',
   runCommand: '{"command": "shell command"}',
   reboot: '',
   exitKiosk: '',

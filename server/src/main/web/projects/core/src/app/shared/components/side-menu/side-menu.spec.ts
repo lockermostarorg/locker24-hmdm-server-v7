@@ -59,6 +59,14 @@ describe('SideMenu', () => {
   const links = (el: HTMLElement) =>
     Array.from<HTMLAnchorElement>(el.querySelectorAll('mat-tree-node a.menu-link'));
 
+  it('shows the wordmark with the product name as alt text', async () => {
+    const { el } = await mount();
+    const logo = el.querySelector<HTMLImageElement>('img.menu-logo');
+
+    expect(logo?.getAttribute('src')).toBe('images/logo-wordmark.svg');
+    expect(logo?.getAttribute('alt')).toBe('Locker24 MDM');
+  });
+
   it('renders items as anchors whose href is the full route under home', async () => {
     const { el } = await mount();
     const hrefs = links(el).map((a) => a.getAttribute('href'));

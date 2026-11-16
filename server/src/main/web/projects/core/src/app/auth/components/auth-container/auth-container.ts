@@ -1,7 +1,6 @@
 import {Component, inject, OnInit} from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { RebrandingService } from 'hmdm-ui-kit';
-import { environment } from '../../../../environments/environment';
 import { CookieNotice } from '../../../shared/components/cookie-notice/cookie-notice';
 import {LicenseService} from '../../services/license.service';
 import {Router, RouterLink} from '@angular/router';
@@ -21,7 +20,7 @@ export class AuthContainer implements OnInit {
   pluginLicenseKey = this.licenseService.pluginLicenseKeyData;
   readonly rebranding = this.rebrandingService.rebranding;
   readonly currentYear = new Date().getFullYear();
-  readonly logoUrl = `${environment.baseApiUrl}rest/public/brand/logo`;
+  readonly wordmarkUrl = 'images/logo-wordmark.svg';
 
   ngOnInit() {
     this.licenseService.getPluginLicenseKey().subscribe({

@@ -90,4 +90,14 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="plugin-xtra-17.11.2026-09:01-l24" author="locker24" context="common">
+        <comment>The xtra plugin only advertises Headwind's paid edition; hide it</comment>
+        <sql>
+            UPDATE plugins SET disabled = TRUE WHERE identifier = 'xtra';
+        </sql>
+        <rollback>
+            UPDATE plugins SET disabled = FALSE WHERE identifier = 'xtra';
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>

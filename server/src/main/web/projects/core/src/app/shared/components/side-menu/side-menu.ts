@@ -9,7 +9,6 @@ import { RebrandingService } from 'hmdm-ui-kit';
 import { SIDE_MENU_TREE } from '../../const/side-menu-tree.const';
 import { AuthService } from '../../services/auth.service';
 import { TSideMenuNode } from '../../types/side-menu-node.type';
-import { environment } from '../../../../environments/environment';
 import {LicenseService} from '../../../auth/services/license.service';
 
 type TSideMenuNodeExtended = TSideMenuNode & {
@@ -41,7 +40,7 @@ export class SideMenu implements OnInit {
   private hasLicensePermission: boolean | undefined = false;
 
   readonly rebranding = this.rebrandingService.rebranding;
-  readonly logoUrl = `${environment.baseApiUrl}rest/public/brand/logo`;
+  readonly wordmarkUrl = 'images/logo-wordmark.svg';
   private pluginLicenses = this.licenseService.pluginLicenses;
 
   dataSource: WritableSignal<TSideMenuNode[]> = signal([]);

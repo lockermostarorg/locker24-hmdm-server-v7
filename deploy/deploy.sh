@@ -55,8 +55,8 @@ done
 [ -n "$REF" ] || usage
 
 step() { echo; echo "==> $*"; }
-note() { echo "    $*"; }
-loud() { echo; echo "!!!!!! $*" >&2; }
+note() { echo "    $*" || true; }
+loud() { { echo; echo "!!!!!! $*" >&2; } || true; }
 
 # Runs a mutating command, or only prints it under --dry-run.
 run() {
@@ -71,7 +71,8 @@ if [ "$DRY_RUN" -eq 0 ]; then
     [ "$(id -u)" -eq 0 ] || { echo "run as root" >&2; exit 1; }
     exec 9>"$LOCK_FILE"
     flock -n 9 || { echo "another deploy is running" >&2; exit 1; }
-    exec > >(tee -a "$LOG_FILE") 2>&1
+    # tee ignores the signals, so it outlives them and the rollback can still write
+    exec > >(trap '' INT HUP TERM; exec tee -a "$LOG_FILE") 2>&1
 fi
 
 SAFE_REF=${REF//[^A-Za-z0-9._-]/-}
@@ -119,6 +120,12 @@ else
     if [ -n "$(git status --porcelain)" ]; then
         echo "working tree in $SRC_DIR is dirty or has untracked files; refusing to deploy:" >&2
         git status --short >&2
+        exit 1
+    fi
+    ORIGIN=$(git remote get-url origin)
+    if [ "$ORIGIN" != "$REPO_URL" ]; then
+        echo "origin of $SRC_DIR is $ORIGIN, expected $REPO_URL; fix it with:" >&2
+        echo "    git -C $SRC_DIR remote set-url origin $REPO_URL" >&2
         exit 1
     fi
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -221,7 +228,10 @@ else
         # newest first; skip the newest KEEP_MIN, delete the rest only when old enough
         find "$BACKUP_DIR" -maxdepth 1 -name "$pattern" -printf '%T@ %p\n' | sort -rn | tail -n +$((KEEP_MIN + 1)) | cut -d' ' -f2- |
             while IFS= read -r old; do
-                [ -n "$(find "$old" -mtime +"$KEEP_DAYS")" ] && { note "pruning $old"; rm -f "$old"; }
+                if [ -n "$(find "$old" -mtime +"$KEEP_DAYS")" ]; then
+                    note "pruning $old"
+                    rm -f "$old"
+                fi
             done
     done
 fi
@@ -237,7 +247,14 @@ wait_healthy() {
     sig=$(signal_file)
     while [ "$(date +%s)" -lt "$deadline" ]; do
         sig_ok=0
-        [ -f "$sig" ] && [ "$(cat "$sig")" = OK ] && sig_ok=1
+        if [ -f "$sig" ]; then
+            if [ "$(cat "$sig")" = OK ]; then
+                sig_ok=1
+            else
+                note "signal file reports a failure: $(cat "$sig")"
+                return 1
+            fi
+        fi
         code=$(curl -s -o /dev/null -m 5 -w '%{http_code}' "$URL" || true)
         port_ok=0
         ss -ltn | grep -q ":$MQTT_PORT " && port_ok=1
@@ -261,7 +278,7 @@ install_war() {
 }
 
 rollback() {
-    trap '' HUP INT TERM
+    trap '' HUP INT TERM PIPE
     loud "DEPLOY FAILED OR INTERRUPTED: restoring the previous WAR and restarting $TOMCAT_SERVICE"
     if install_war "$WAR_BACKUP" && wait_healthy; then
         loud "ROLLED BACK to the previous WAR; $URL is serving again"

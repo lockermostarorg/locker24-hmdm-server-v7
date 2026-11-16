@@ -91,5 +91,7 @@ systemctl start tomcat10
 
 - The build runs as root, so a malicious build step or dependency would run as root. Accepted for now; move the build to an unprivileged build user later.
 - Shared libraries: `hmdm_install.sh` also copies `server/target/shared-libs/*` into Tomcat's `lib/`. `deploy.sh` does not. If a release changes those libraries, copy them by hand and restart Tomcat.
+- The `build` job uses `paths-ignore` for docs-only changes. If `build` ever becomes a required status check, docs-only pull requests would wait for it forever; adjust the filter then.
+- Gitleaks: `.gitleaksignore` suppresses one fingerprint, the sample `jwt.secretkey` in Headwind's `server/build.properties.example`.
 - The nightly `backup.sh` is separate and unaffected.
 - The Locker24 Health plugin's menu entry is controlled by its `plugins` row; see `deploy/server-setup.md`.

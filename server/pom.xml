@@ -43,6 +43,9 @@
         <repository>
             <id>prod-public-maven</id>
             <url>https://prod.h-mdm.com/api/v4/projects/21/packages/maven</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
     </repositories>
 

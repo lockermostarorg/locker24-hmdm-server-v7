@@ -225,14 +225,15 @@ Replace `<date>` with the backup folder to restore. This overwrites the current 
 D=/root/backups/<date>
 systemctl stop tomcat10
 cd /tmp
-sudo -u postgres pg_restore --clean --if-exists -d hmdm "$D/hmdm.dump"
+sudo -u postgres dropdb hmdm && sudo -u postgres createdb -O hmdm hmdm
+sudo -u postgres pg_restore --exit-on-error --single-transaction -d hmdm "$D/hmdm.dump"
 tar -C /var/lib/tomcat10/work -xzf "$D/files.tar.gz"
 tar -C /var/lib/tomcat10/work -xzf "$D/plugins.tar.gz"
 chown -R tomcat:tomcat /var/lib/tomcat10/work/files /var/lib/tomcat10/work/plugins
 systemctl start tomcat10
 ```
 
-On an empty server, create the `hmdm` user and database first (section 1), then restore with `-d hmdm` as above. The dump keeps object ownership, so the `hmdm` user must exist.
+The restore drops and recreates the database instead of using `pg_restore --clean`: after a migration added foreign keys, the clean-mode DROPs fail and the restore would carry on over a half-old schema. On an empty server, create the `hmdm` user first (section 1); the database is created by the commands above. The dump keeps object ownership, so the `hmdm` user must exist.
 
 ## 6. Updating the server
 

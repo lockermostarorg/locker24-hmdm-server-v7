@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Upstream Headwind example file with a documented sample jwt.secretkey (not a real secret)"
+paths = ['''^server/build\.properties\.example$''']

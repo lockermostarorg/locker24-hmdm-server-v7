@@ -285,7 +285,7 @@ public class UpdateResource {
     private void notifyMoved(Set<Integer> configurationIds) {
         for (Integer configurationId : configurationIds) {
             try {
-                pushService.notifyDevicesOnUpdate(configurationId);
+                pushService.notifyAllDevicesOnUpdate(configurationId);
             } catch (Exception e) {
                 logger.error("Failed to notify devices of configuration #{} on update", configurationId, e);
             }

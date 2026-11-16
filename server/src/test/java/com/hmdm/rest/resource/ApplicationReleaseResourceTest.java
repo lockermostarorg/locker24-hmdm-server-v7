@@ -15,7 +15,6 @@ import com.hmdm.rest.json.ReleaseSummary;
 import com.hmdm.rest.json.ReleaseVersionRequest;
 import com.hmdm.rest.json.Response;
 import com.hmdm.security.SecurityContext;
-import jakarta.ws.rs.WebApplicationException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -109,33 +108,27 @@ public class ApplicationReleaseResourceTest {
         return (ReleaseSummary) response.getData();
     }
 
-    private void assertHttp(int status, String key, Runnable call) {
-        try {
-            call.run();
-            fail("expected HTTP " + status);
-        } catch (WebApplicationException e) {
-            assertEquals(status, e.getResponse().getStatus());
-            Response body = (Response) e.getResponse().getEntity();
-            assertEquals(Response.ResponseStatus.ERROR, body.getStatus());
-            assertEquals(key, body.getMessage());
-        }
+    private void assertError(String key, java.util.function.Supplier<Response> call) {
+        Response body = call.get();
+        assertEquals(Response.ResponseStatus.ERROR, body.getStatus());
+        assertEquals(key, body.getMessage());
     }
 
     @Test
     public void scheduleNotifiesEachMovedConfigurationAndNeverForces() {
         insertReturns("schedule", Arrays.asList(5, 6));
         storedAs("released", "schedule");
-        when(pushService.notifyDevicesOnUpdate(5)).thenReturn(4);
-        when(pushService.notifyDevicesOnUpdate(6)).thenReturn(2);
+        when(pushService.notifyAllDevicesOnUpdate(5)).thenReturn(4);
+        when(pushService.notifyAllDevicesOnUpdate(6)).thenReturn(2);
 
         ReleaseSummary result = summary(resource.updateApplicationVersion(upload("schedule")));
 
         assertEquals(2, result.getConfigurations());
         assertEquals(6, result.getDevices());
         assertEquals("schedule", result.getMode());
-        verify(pushService).notifyDevicesOnUpdate(5);
-        verify(pushService).notifyDevicesOnUpdate(6);
-        verify(pushService, never()).notifyDevicesOnForceUpdate(anyInt());
+        verify(pushService).notifyAllDevicesOnUpdate(5);
+        verify(pushService).notifyAllDevicesOnUpdate(6);
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
     }
 
     @Test
@@ -148,10 +141,10 @@ public class ApplicationReleaseResourceTest {
         assertEquals("immediate", result.getMode());
         InOrder order = inOrder(applicationDAO, pushService);
         order.verify(applicationDAO).insertApplicationVersionWithRelease(any(ApplicationVersion.class), eq("immediate"), eq(3));
-        order.verify(pushService).notifyDevicesOnUpdate(5);
-        order.verify(pushService).notifyDevicesOnForceUpdate(5);
-        order.verify(pushService).notifyDevicesOnUpdate(6);
-        order.verify(pushService).notifyDevicesOnForceUpdate(6);
+        order.verify(pushService).notifyAllDevicesOnUpdate(5);
+        order.verify(pushService).notifyAllDevicesOnForceUpdate(5);
+        order.verify(pushService).notifyAllDevicesOnUpdate(6);
+        order.verify(pushService).notifyAllDevicesOnForceUpdate(6);
     }
 
     @Test
@@ -164,20 +157,20 @@ public class ApplicationReleaseResourceTest {
         assertEquals(0, result.getConfigurations());
         assertEquals(0, result.getDevices());
         assertEquals("hold", result.getMode());
-        verify(pushService, never()).notifyDevicesOnUpdate(anyInt());
-        verify(pushService, never()).notifyDevicesOnForceUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
     }
 
     @Test
     public void aFirstVersionUploadedAsHoldIsReportedWithItsRealMode() {
         insertReturns("hold", Collections.<Integer>emptyList());
-        storedAs("released", "hold");
+        storedAs("released", "schedule");
 
         ReleaseSummary result = summary(resource.updateApplicationVersion(upload("hold")));
 
         assertEquals(0, result.getConfigurations());
-        assertEquals("hold", result.getMode());
-        verify(pushService, never()).notifyDevicesOnUpdate(anyInt());
+        assertEquals("schedule", result.getMode());
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
     }
 
     @Test
@@ -189,8 +182,8 @@ public class ApplicationReleaseResourceTest {
 
         assertEquals(0, result.getConfigurations());
         assertEquals("immediate", result.getMode());
-        verify(pushService, never()).notifyDevicesOnUpdate(anyInt());
-        verify(pushService, never()).notifyDevicesOnForceUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
     }
 
     @Test
@@ -201,13 +194,13 @@ public class ApplicationReleaseResourceTest {
         ReleaseSummary result = summary(resource.updateApplicationVersion(upload(null)));
 
         assertEquals("schedule", result.getMode());
-        verify(pushService).notifyDevicesOnUpdate(5);
-        verify(pushService, never()).notifyDevicesOnForceUpdate(anyInt());
+        verify(pushService).notifyAllDevicesOnUpdate(5);
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
     }
 
     @Test
     public void unknownModeIsABadRequestAndUploadsNothing() {
-        assertHttp(400, "error.release.mode.invalid", () -> resource.updateApplicationVersion(upload("now")));
+        assertError("error.release.mode.invalid", () -> resource.updateApplicationVersion(upload("now")));
         verify(applicationDAO, never()).insertApplicationVersionWithRelease(any(ApplicationVersion.class), anyString(), anyInt());
     }
 
@@ -220,7 +213,7 @@ public class ApplicationReleaseResourceTest {
 
         assertEquals(Response.ResponseStatus.OK, response.getStatus());
         verify(applicationDAO).updateApplicationVersion(version);
-        verify(pushService, never()).notifyDevicesOnUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
     }
 
     private ReleaseVersionRequest mode(String mode) {
@@ -233,8 +226,8 @@ public class ApplicationReleaseResourceTest {
     public void releasingAHeldVersionOnScheduleNotifiesAfterTheTransaction() {
         storedAs("held", null);
         when(applicationDAO.releaseVersion(VERSION, "schedule", 3)).thenReturn(Arrays.asList(5, 6));
-        when(pushService.notifyDevicesOnUpdate(5)).thenReturn(1);
-        when(pushService.notifyDevicesOnUpdate(6)).thenReturn(1);
+        when(pushService.notifyAllDevicesOnUpdate(5)).thenReturn(1);
+        when(pushService.notifyAllDevicesOnUpdate(6)).thenReturn(1);
 
         ReleaseSummary result = summary(resource.releaseApplicationVersion(VERSION, mode("schedule")));
 
@@ -243,9 +236,9 @@ public class ApplicationReleaseResourceTest {
         assertEquals("schedule", result.getMode());
         InOrder order = inOrder(applicationDAO, pushService);
         order.verify(applicationDAO).releaseVersion(VERSION, "schedule", 3);
-        order.verify(pushService).notifyDevicesOnUpdate(5);
-        order.verify(pushService).notifyDevicesOnUpdate(6);
-        verify(pushService, never()).notifyDevicesOnForceUpdate(anyInt());
+        order.verify(pushService).notifyAllDevicesOnUpdate(5);
+        order.verify(pushService).notifyAllDevicesOnUpdate(6);
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
     }
 
     @Test
@@ -257,26 +250,26 @@ public class ApplicationReleaseResourceTest {
 
         assertEquals("immediate", result.getMode());
         InOrder order = inOrder(pushService);
-        order.verify(pushService).notifyDevicesOnUpdate(5);
-        order.verify(pushService).notifyDevicesOnForceUpdate(5);
+        order.verify(pushService).notifyAllDevicesOnUpdate(5);
+        order.verify(pushService).notifyAllDevicesOnForceUpdate(5);
     }
 
     @Test
     public void releasingAReleasedVersionIsABadRequest() {
         storedAs("released", "schedule");
 
-        assertHttp(400, "error.version.already.released", () -> resource.releaseApplicationVersion(VERSION, mode("schedule")));
+        assertError("error.version.already.released", () -> resource.releaseApplicationVersion(VERSION, mode("schedule")));
         verify(applicationDAO, never()).releaseVersion(anyInt(), anyString(), anyInt());
-        verify(pushService, never()).notifyDevicesOnUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
     }
 
     @Test
     public void releaseModesOtherThanScheduleAndImmediateAreBadRequests() {
         storedAs("held", null);
 
-        assertHttp(400, "error.release.mode.invalid", () -> resource.releaseApplicationVersion(VERSION, mode("hold")));
-        assertHttp(400, "error.release.mode.invalid", () -> resource.releaseApplicationVersion(VERSION, mode(null)));
-        assertHttp(400, "error.release.mode.invalid", () -> resource.releaseApplicationVersion(VERSION, null));
+        assertError("error.release.mode.invalid", () -> resource.releaseApplicationVersion(VERSION, mode("hold")));
+        assertError("error.release.mode.invalid", () -> resource.releaseApplicationVersion(VERSION, mode(null)));
+        assertError("error.release.mode.invalid", () -> resource.releaseApplicationVersion(VERSION, null));
         verify(applicationDAO, never()).releaseVersion(anyInt(), anyString(), anyInt());
     }
 
@@ -284,21 +277,21 @@ public class ApplicationReleaseResourceTest {
     public void releasingAnUnknownVersionIsNotFound() {
         when(applicationDAO.findApplicationVersionById(anyInt())).thenReturn(null);
 
-        assertHttp(404, "error.notfound.object", () -> resource.releaseApplicationVersion(VERSION, mode("schedule")));
+        assertError("error.notfound.object", () -> resource.releaseApplicationVersion(VERSION, mode("schedule")));
     }
 
     @Test
     public void aFailingPushDoesNotFailTheCommittedReleaseNorSkipOtherConfigurations() {
         storedAs("held", null);
         when(applicationDAO.releaseVersion(VERSION, "schedule", 3)).thenReturn(Arrays.asList(5, 6));
-        when(pushService.notifyDevicesOnUpdate(5)).thenThrow(new RuntimeException("mqtt down"));
-        when(pushService.notifyDevicesOnUpdate(6)).thenReturn(3);
+        when(pushService.notifyAllDevicesOnUpdate(5)).thenThrow(new RuntimeException("mqtt down"));
+        when(pushService.notifyAllDevicesOnUpdate(6)).thenReturn(3);
 
         ReleaseSummary result = summary(resource.releaseApplicationVersion(VERSION, mode("schedule")));
 
         assertEquals(2, result.getConfigurations());
         assertEquals(3, result.getDevices());
-        verify(pushService, times(1)).notifyDevicesOnUpdate(6);
+        verify(pushService, times(1)).notifyAllDevicesOnUpdate(6);
     }
 
     @Test
@@ -307,8 +300,8 @@ public class ApplicationReleaseResourceTest {
         when(applicationDAO.releaseVersion(VERSION, "schedule", 3))
                 .thenThrow(new RuntimeException("wrapped", new SQLException("deadlock detected", "40P01")));
 
-        assertHttp(409, "error.concurrent.update", () -> resource.releaseApplicationVersion(VERSION, mode("schedule")));
-        verify(pushService, never()).notifyDevicesOnUpdate(anyInt());
+        assertError("error.concurrent.update", () -> resource.releaseApplicationVersion(VERSION, mode("schedule")));
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
     }
 
     @Test
@@ -316,7 +309,7 @@ public class ApplicationReleaseResourceTest {
         when(applicationDAO.insertApplicationVersionWithRelease(any(ApplicationVersion.class), anyString(), anyInt()))
                 .thenThrow(new RuntimeException("a", new RuntimeException("b", new SQLException("could not serialize", "40001"))));
 
-        assertHttp(409, "error.concurrent.update", () -> resource.updateApplicationVersion(upload("schedule")));
+        assertError("error.concurrent.update", () -> resource.updateApplicationVersion(upload("schedule")));
     }
 
     @Test
@@ -336,7 +329,7 @@ public class ApplicationReleaseResourceTest {
         org.mockito.Mockito.doThrow(new LastReleasedVersionException(VERSION))
                 .when(applicationDAO).removeApplicationVersionByIdWithAPKFile(VERSION);
 
-        assertHttp(400, "error.application.version.last.released", () -> resource.removeApplicationVersion(VERSION));
+        assertError("error.application.version.last.released", () -> resource.removeApplicationVersion(VERSION));
     }
 
     @Test
@@ -344,7 +337,7 @@ public class ApplicationReleaseResourceTest {
         LinkConfigurationsToAppRequest request = new LinkConfigurationsToAppRequest();
         request.setConfigurations(new ArrayList<>());
 
-        assertHttp(400, "error.application.id.required", () -> resource.updateApplicationConfigurations(request));
+        assertError("error.application.id.required", () -> resource.updateApplicationConfigurations(request));
         verify(applicationDAO, never()).updateApplicationConfigurations(any(LinkConfigurationsToAppRequest.class));
     }
 
@@ -353,7 +346,7 @@ public class ApplicationReleaseResourceTest {
         LinkConfigurationsToAppVersionRequest request = new LinkConfigurationsToAppVersionRequest();
         request.setConfigurations(new ArrayList<>());
 
-        assertHttp(400, "error.application.version.id.required", () -> resource.updateApplicationVersionConfigurations(request));
+        assertError("error.application.version.id.required", () -> resource.updateApplicationVersionConfigurations(request));
     }
 
     @Test
@@ -363,13 +356,68 @@ public class ApplicationReleaseResourceTest {
         app.setConfigurations(new ArrayList<>());
         org.mockito.Mockito.doThrow(new RuntimeException("x", new SQLException("deadlock", "40P01")))
                 .when(applicationDAO).updateApplicationConfigurations(any(LinkConfigurationsToAppRequest.class));
-        assertHttp(409, "error.concurrent.update", () -> resource.updateApplicationConfigurations(app));
+        assertError("error.concurrent.update", () -> resource.updateApplicationConfigurations(app));
 
         LinkConfigurationsToAppVersionRequest version = new LinkConfigurationsToAppVersionRequest();
         version.setApplicationVersionId(VERSION);
         version.setConfigurations(new ArrayList<>());
         org.mockito.Mockito.doThrow(new RuntimeException("x", new SQLException("deadlock", "40P01")))
                 .when(applicationDAO).updateApplicationVersionConfigurations(any(LinkConfigurationsToAppVersionRequest.class), any(User.class));
-        assertHttp(409, "error.concurrent.update", () -> resource.updateApplicationVersionConfigurations(version));
+        assertError("error.concurrent.update", () -> resource.updateApplicationVersionConfigurations(version));
+    }
+
+    @Test
+    public void aDuplicateReUploadOnScheduleIsNeverForcedByTheStoredMode() {
+        insertReturns("schedule", Arrays.asList(5));
+        storedAs("released", "immediate");
+
+        ReleaseSummary result = summary(resource.updateApplicationVersion(upload("schedule")));
+
+        assertEquals("schedule", result.getMode());
+        verify(pushService).notifyAllDevicesOnUpdate(5);
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
+    }
+
+    @Test
+    public void everyMovedConfigurationIsNotifiedThroughTheUnscopedPath() {
+        storedAs("held", null);
+        when(applicationDAO.releaseVersion(VERSION, "immediate", 3)).thenReturn(Arrays.asList(5, 6));
+
+        resource.releaseApplicationVersion(VERSION, mode("immediate"));
+
+        verify(pushService, never()).notifyDevicesOnUpdate(anyInt());
+        verify(pushService, never()).notifyDevicesOnForceUpdate(anyInt());
+        verify(pushService).notifyAllDevicesOnUpdate(6);
+        verify(pushService).notifyAllDevicesOnForceUpdate(6);
+    }
+
+    @Test
+    public void accessIsCheckedBeforeTheStateOfTheVersionIsRevealed() {
+        storedAs("released", "schedule");
+        org.mockito.Mockito.doThrow(com.hmdm.security.SecurityException.onApplicationAccessViolation(APP))
+                .when(applicationDAO).checkVersionWriteAccess(APP);
+
+        assertError("error.permission.denied", () -> resource.releaseApplicationVersion(VERSION, mode("schedule")));
+    }
+
+    @Test
+    public void releasingWithoutThePermissionIsDenied() {
+        User user = new User();
+        user.setId(4);
+        user.setCustomerId(1);
+        UserRole role = new UserRole();
+        role.setPermissions(new ArrayList<>());
+        user.setUserRole(role);
+        SecurityContext.init(user);
+        storedAs("held", null);
+
+        assertError("error.permission.denied", () -> resource.releaseApplicationVersion(VERSION, mode("schedule")));
+        verify(applicationDAO, never()).releaseVersion(anyInt(), anyString(), anyInt());
+    }
+
+    @Test
+    public void linkDialogsWithoutABodyAreErrorEnvelopes() {
+        assertError("error.application.id.required", () -> resource.updateApplicationConfigurations(null));
+        assertError("error.application.version.id.required", () -> resource.updateApplicationVersionConfigurations(null));
     }
 }

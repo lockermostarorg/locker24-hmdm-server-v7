@@ -87,9 +87,9 @@ public class UpdateResourcePushTest {
 
         InOrder order = inOrder(applicationDAO, pushService);
         order.verify(applicationDAO).updateConfigurationsToVersion(eq(100), eq(101), any(User.class));
-        order.verify(pushService).notifyDevicesOnUpdate(7);
-        order.verify(pushService).notifyDevicesOnUpdate(8);
-        verify(pushService, never()).notifyDevicesOnForceUpdate(anyInt());
+        order.verify(pushService).notifyAllDevicesOnUpdate(7);
+        order.verify(pushService).notifyAllDevicesOnUpdate(8);
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
     }
 
     @Test
@@ -99,7 +99,7 @@ public class UpdateResourcePushTest {
 
         resource.downloadUpdates(request(true));
 
-        verify(pushService, org.mockito.Mockito.times(1)).notifyDevicesOnUpdate(7);
+        verify(pushService, org.mockito.Mockito.times(1)).notifyAllDevicesOnUpdate(7);
     }
 
     @Test
@@ -107,7 +107,7 @@ public class UpdateResourcePushTest {
         resource.downloadUpdates(request(false));
 
         verify(applicationDAO, never()).updateConfigurationsToVersion(anyInt(), anyInt(), any(User.class));
-        verify(pushService, never()).notifyDevicesOnUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
     }
 
     @Test
@@ -117,6 +117,6 @@ public class UpdateResourcePushTest {
 
         resource.downloadUpdates(request(true));
 
-        verify(pushService, never()).notifyDevicesOnUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
     }
 }

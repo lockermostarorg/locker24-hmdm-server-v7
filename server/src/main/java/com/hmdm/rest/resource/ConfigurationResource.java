@@ -248,13 +248,16 @@ public class ConfigurationResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Path("/application/upgrade")
     public Response upgradeConfiguration(UpgradeConfigurationApplicationRequest request) {
+        if (request == null || request.getConfigurationId() == null) {
+            return Response.OBJECT_NOT_FOUND_ERROR();
+        }
         if (!SecurityContext.get().hasPermission("configurations") ||
                 !configurationDAO.hasConfigurationAccess(request.getConfigurationId())) {
             log.error("Unauthorized attempt to upgrade the configuration " + request.getConfigurationId());
             return Response.PERMISSION_DENIED();
         }
         if (request.getApplicationId() == null) {
-            throw ReleaseErrors.badRequest("error.application.id.required");
+            return Response.ERROR("error.application.id.required");
         }
         try {
             final boolean upgraded = this.configurationDAO.upgradeConfigurationApplication(

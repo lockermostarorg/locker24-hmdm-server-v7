@@ -13,6 +13,7 @@
   "plugin.audit.action.remove.application": "Application removed",
   "plugin.audit.action.update.version": "Application version updated",
   "plugin.audit.action.remove.version": "Application version deleted",
+  "plugin.audit.action.release.version": "Application version released",
   "plugin.audit.action.update.file": "File updated",
   "plugin.audit.action.remove.file": "File deleted",
   "plugin.audit.action.update.app.config": "Application configurations changed",

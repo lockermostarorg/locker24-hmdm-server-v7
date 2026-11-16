@@ -148,6 +148,10 @@ public class DeviceDAO extends AbstractDAO<Device> {
         return new PaginatedData<>(devices, totalItemsCount);
     }
 
+    public List<Device> getDeviceIdsByAnyCustomerConfigurationId(int configurationId) {
+        return this.mapper.getDeviceIdsBySoleConfigurationId(configurationId);
+    }
+
     public List<Device> getDeviceIdsByConfigurationId(int configurationId) {
         return getList(customerId -> this.mapper.getDeviceIdsByConfigurationId(customerId, configurationId));
     }

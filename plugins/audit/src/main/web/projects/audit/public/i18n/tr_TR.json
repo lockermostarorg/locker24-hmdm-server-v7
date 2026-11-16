@@ -13,6 +13,7 @@
 	"plugin.audit.action.remove.application": "Uygulama kaldırıldı",
 	"plugin.audit.action.update.version": "Uygulama sürümü güncellendi",
 	"plugin.audit.action.remove.version": "Uygulama sürümü silindi",
+  "plugin.audit.action.release.version": "Application version released",
 	"plugin.audit.action.update.file": "Dosya güncellendi",
 	"plugin.audit.action.remove.file": "Dosya silindi",
 	"plugin.audit.action.update.app.config": "Uygulama yapılandırmaları değiştirildi",

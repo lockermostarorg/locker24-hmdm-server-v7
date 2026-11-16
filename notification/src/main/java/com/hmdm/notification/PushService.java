@@ -57,12 +57,31 @@ public class PushService {
         return notifyDevices(configurationId, PushMessage.TYPE_FORCE_APP_UPDATE);
     }
 
+    /**
+     * <p>Sends the configuration update message to the devices of a configuration of any customer. For releases of
+     * common applications, whose followers belong to other customers than the releasing user.</p>
+     */
+    @Transactional
+    public int notifyAllDevicesOnUpdate(Integer configurationId) {
+        return notifyDevices(this.deviceDAO.getDeviceIdsByAnyCustomerConfigurationId(configurationId),
+                PushMessage.TYPE_CONFIG_UPDATED);
+    }
+
+    @Transactional
+    public int notifyAllDevicesOnForceUpdate(Integer configurationId) {
+        return notifyDevices(this.deviceDAO.getDeviceIdsByAnyCustomerConfigurationId(configurationId),
+                PushMessage.TYPE_FORCE_APP_UPDATE);
+    }
+
     private int notifyDevices(Integer configurationId, String messageType) {
         final Configuration configuration = this.configurationDAO.getConfigurationById(configurationId);
         if (configuration == null) {
             return 0;
         }
-        final List<Device> devices = this.deviceDAO.getDeviceIdsByConfigurationId(configurationId);
+        return notifyDevices(this.deviceDAO.getDeviceIdsByConfigurationId(configurationId), messageType);
+    }
+
+    private int notifyDevices(List<Device> devices, String messageType) {
         devices.forEach(device -> {
             PushMessage message = new PushMessage();
             message.setDeviceId(device.getId());

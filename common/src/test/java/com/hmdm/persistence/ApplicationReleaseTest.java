@@ -120,7 +120,36 @@ public class ApplicationReleaseTest {
         dao.insertApplicationVersionWithRelease(newVersion(), "hold", USER);
 
         assertEquals("released", insertedVersion().getReleaseState());
+        assertEquals("schedule", insertedVersion().getReleaseMode());
         verify(mapper).moveFollowersToLatest(APP, null);
+    }
+
+    @Test
+    public void uploadToAnotherCustomersApplicationIsRefusedBeforeAnythingMoves() {
+        Application foreign = application(LATEST);
+        foreign.setCustomerId(2);
+        when(mapper.findById(APP)).thenReturn(foreign);
+
+        try {
+            dao.insertApplicationVersionWithRelease(newVersion(), "immediate", USER);
+            fail();
+        } catch (com.hmdm.security.SecurityException expected) {
+            verify(mapper, never()).lockApplication(anyInt());
+            verify(mapper, never()).insertApplicationVersion(any(ApplicationVersion.class));
+            verify(mapper, never()).moveFollowersToLatest(any(), any());
+        }
+    }
+
+    @Test
+    public void uploadToAnotherCustomersApplicationIsRefusedForAnUnknownApplicationToo() {
+        when(mapper.findById(APP)).thenReturn(null);
+
+        try {
+            dao.insertApplicationVersionWithRelease(newVersion(), "schedule", USER);
+            fail();
+        } catch (DAOException expected) {
+            verify(mapper, never()).insertApplicationVersion(any(ApplicationVersion.class));
+        }
     }
 
     @Test

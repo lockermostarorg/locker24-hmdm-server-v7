@@ -979,6 +979,8 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
         if (applicationVersion.getApplicationId() == null) {
             throw new IllegalArgumentException("An application version must name its application");
         }
+        final Application requestedApplication = findById(applicationVersion.getApplicationId());
+        guardVersionWriteAccess(requestedApplication, applicationVersion.getApplicationId());
 
         // If an APK-file was set for new app then make the file available in Files area and parse the app parameters
         // from it (package ID, version)
@@ -1025,19 +1027,6 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
             }
         }
 
-        final Application requestedApplication = findById(applicationVersion.getApplicationId());
-        if (requestedApplication == null) {
-            throw new DAOException("The requested application does not exist: #" + applicationVersion.getApplicationId());
-        }
-
-        if (requestedApplication.isCommonApplication()) {
-            if (!SecurityContext.get().isSuperAdmin()) {
-                throw new CommonAppAccessException(
-                        requestedApplication.getPkg(), SecurityContext.get().getCurrentCustomerId().get()
-                );
-            }
-        }
-
         // Check the version package id against application's package id - they must be the same
         if (appPkg.get() != null) {
             if (!requestedApplication.getPkg().equals(appPkg.get())) {
@@ -1053,6 +1042,7 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
         // The user may wish to add the same application and version when he moves
         // the application from h-mdm.com to his own server
         final boolean hold = FollowLatestRules.MODE_HOLD.equals(releaseMode) && existingApplication.getLatestVersion() != null;
+        final String appliedMode = FollowLatestRules.MODE_HOLD.equals(releaseMode) ? FollowLatestRules.MODE_SCHEDULE : releaseMode;
         final long now = System.currentTimeMillis();
 
         int duplicateVersionId = getDuplicateAppVersion(existingApplication, applicationVersion);
@@ -1070,7 +1060,7 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
             }
             this.mapper.updateApplicationVersion(applicationVersion);
             if (!hold) {
-                this.mapper.releaseApplicationVersion(duplicateVersionId, releaseMode, userId, now);
+                this.mapper.releaseApplicationVersion(duplicateVersionId, appliedMode, userId, now);
             }
         } else {
             if (hold) {
@@ -1081,7 +1071,7 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
             } else {
                 applicationVersion.setReleaseState(FollowLatestRules.STATE_RELEASED);
                 applicationVersion.setReleasedAt(now);
-                applicationVersion.setReleaseMode(releaseMode);
+                applicationVersion.setReleaseMode(appliedMode);
                 applicationVersion.setReleasedBy(userId);
             }
             this.mapper.insertApplicationVersion(applicationVersion);
@@ -1096,7 +1086,7 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
 
         final List<Integer> moved = this.mapper.moveFollowersToLatest(existingApplication.getId(), null);
         log.info("Application {} version {} uploaded and released ({}) by user #{}, configurations moved: {}",
-                existingApplication.getPkg(), applicationVersion.getVersion(), releaseMode, userId, moved);
+                existingApplication.getPkg(), applicationVersion.getVersion(), appliedMode, userId, moved);
         return moved;
     }
 
@@ -1130,6 +1120,10 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
     public List<Integer> moveFollowersToLatest(int applicationId) {
         this.mapper.lockApplication(applicationId);
         return this.mapper.moveFollowersToLatest(applicationId, null);
+    }
+
+    public void checkVersionWriteAccess(int applicationId) {
+        guardVersionWriteAccess(findById(applicationId), applicationId);
     }
 
     private void guardVersionWriteAccess(Application application, Integer applicationId) {

@@ -51,24 +51,59 @@ public class ConfigurationUpgradeGuardTest {
         SecurityContext.release();
     }
 
-    @Test
-    public void aRowAlreadyOnLatestIsNotUpgradedBecauseTheFunctionWouldDeleteIt() {
-        when(configurationMapper.countBehindLatest(CONFIG, APP)).thenReturn(0);
-
-        assertFalse(dao.upgradeConfigurationApplication(CONFIG, APP));
-
-        verify(configurationMapper, never()).upgradeConfigurationApplication(CONFIG, APP);
+    private void counts(int behind, int atOrAbove, int onLatest) {
+        when(configurationMapper.countInstallRowsBehindLatest(CONFIG, APP)).thenReturn(behind);
+        when(configurationMapper.countInstallRowsAtOrAboveLatest(CONFIG, APP)).thenReturn(atOrAbove);
+        when(configurationMapper.countInstallRowsOnLatest(CONFIG, APP)).thenReturn(onLatest);
     }
 
     @Test
-    public void aRowBehindLatestIsUpgradedAfterTheApplicationLock() {
-        when(configurationMapper.countBehindLatest(CONFIG, APP)).thenReturn(1);
+    public void aRowOnlyBehindLatestIsUpgradedAfterTheApplicationLock() {
+        counts(1, 0, 0);
 
         assertTrue(dao.upgradeConfigurationApplication(CONFIG, APP));
 
         InOrder order = inOrder(applicationMapper, configurationMapper);
         order.verify(applicationMapper).lockApplication(APP);
-        order.verify(configurationMapper).countBehindLatest(CONFIG, APP);
         order.verify(configurationMapper).upgradeConfigurationApplication(CONFIG, APP);
+    }
+
+    @Test
+    public void aRowOnLatestIsNeverPassedToTheFunctionWhateverMainAndContentAre() {
+        counts(0, 1, 1);
+        when(configurationMapper.upgradeMainAndContentToLatest(CONFIG, APP)).thenReturn(1);
+
+        assertTrue(dao.upgradeConfigurationApplication(CONFIG, APP));
+
+        verify(configurationMapper, never()).upgradeConfigurationApplication(CONFIG, APP);
+        verify(configurationMapper).upgradeMainAndContentToLatest(CONFIG, APP);
+    }
+
+    @Test
+    public void aBehindRowNextToARowOnLatestIsNotPassedToTheFunction() {
+        counts(1, 1, 1);
+
+        dao.upgradeConfigurationApplication(CONFIG, APP);
+
+        verify(configurationMapper, never()).upgradeConfigurationApplication(CONFIG, APP);
+    }
+
+    @Test
+    public void aCanaryAheadOfLatestIsUntouched() {
+        counts(0, 1, 0);
+
+        assertFalse(dao.upgradeConfigurationApplication(CONFIG, APP));
+
+        verify(configurationMapper, never()).upgradeConfigurationApplication(CONFIG, APP);
+        verify(configurationMapper, never()).upgradeMainAndContentToLatest(CONFIG, APP);
+    }
+
+    @Test
+    public void aMainAppBehindWithoutAnInstallRowDoesNotTriggerTheFunction() {
+        counts(0, 0, 0);
+
+        assertFalse(dao.upgradeConfigurationApplication(CONFIG, APP));
+
+        verify(configurationMapper, never()).upgradeConfigurationApplication(CONFIG, APP);
     }
 }

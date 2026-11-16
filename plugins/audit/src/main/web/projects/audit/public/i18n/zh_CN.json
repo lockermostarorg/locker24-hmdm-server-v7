@@ -13,6 +13,7 @@
   "plugin.audit.action.remove.application":"应用程序已删除",
   "plugin.audit.action.update.version": "应用程序版本已更新",
   "plugin.audit.action.remove.version": "应用程序版本已删除",
+  "plugin.audit.action.release.version": "Application version released",
   "plugin.audit.action.update.file": "文件已更新",
   "plugin.audit.action.remove.file": "文件已删除",
   "plugin.audit.action.update.app.config":"应用程序配置已更改",

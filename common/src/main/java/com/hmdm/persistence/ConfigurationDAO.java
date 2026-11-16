@@ -370,15 +370,16 @@ public class ConfigurationDAO extends AbstractLinkedDAO<Configuration, Applicati
                 this.mapper::getConfigurationById,
                 configuration -> {
                     this.applicationMapper.lockApplication(applicationId);
-                    if (this.mapper.countBehindLatest(configuration.getId(), applicationId) == 0) {
-                        log.debug("Application #{} is not behind the latest version in configuration #{}",
+                    final int behind = this.mapper.countInstallRowsBehindLatest(configuration.getId(), applicationId);
+                    final int atOrAbove = this.mapper.countInstallRowsAtOrAboveLatest(configuration.getId(), applicationId);
+                    if (behind > 0 && atOrAbove == 0) {
+                        this.mapper.upgradeConfigurationApplication(configuration.getId(), applicationId);
+                        upgraded[0] = true;
+                        log.debug("Upgraded application #{} to most recent version for configuration #{}",
                                 applicationId, configurationId);
-                        return;
+                    } else if (this.mapper.countInstallRowsOnLatest(configuration.getId(), applicationId) > 0) {
+                        upgraded[0] = this.mapper.upgradeMainAndContentToLatest(configuration.getId(), applicationId) > 0;
                     }
-                    this.mapper.upgradeConfigurationApplication(configuration.getId(), applicationId);
-                    upgraded[0] = true;
-                    log.debug("Upgraded application #{} to most recent version for configuration #{}",
-                            applicationId, configurationId);
                 },
                 SecurityException::onConfigurationAccessViolation
         );

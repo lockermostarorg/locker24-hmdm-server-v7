@@ -11,7 +11,6 @@ import com.hmdm.persistence.domain.UserRole;
 import com.hmdm.rest.json.Response;
 import com.hmdm.rest.json.UpgradeConfigurationApplicationRequest;
 import com.hmdm.security.SecurityContext;
-import jakarta.ws.rs.WebApplicationException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -20,7 +19,6 @@ import org.mockito.InOrder;
 import java.sql.SQLException;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -94,28 +92,32 @@ public class ConfigurationUpgradePushTest {
     }
 
     @Test
-    public void aMissingApplicationIdIsABadRequest() {
-        try {
-            resource.upgradeConfiguration(request(null));
-            fail("expected 400");
-        } catch (WebApplicationException e) {
-            assertEquals(400, e.getResponse().getStatus());
-            assertEquals("error.application.id.required", ((Response) e.getResponse().getEntity()).getMessage());
-        }
+    public void aMissingApplicationIdIsAnErrorEnvelope() {
+        Response response = resource.upgradeConfiguration(request(null));
+
+        assertEquals(Response.ResponseStatus.ERROR, response.getStatus());
+        assertEquals("error.application.id.required", response.getMessage());
         verify(configurationDAO, never()).upgradeConfigurationApplication(anyInt(), anyInt());
     }
 
     @Test
-    public void aDeadlockIsAConflict() {
+    public void aMissingConfigurationIdOrBodyIsAnErrorEnvelope() {
+        UpgradeConfigurationApplicationRequest noConfiguration = new UpgradeConfigurationApplicationRequest();
+        noConfiguration.setApplicationId(APP);
+
+        assertEquals("error.notfound.object", resource.upgradeConfiguration(noConfiguration).getMessage());
+        assertEquals("error.notfound.object", resource.upgradeConfiguration(null).getMessage());
+    }
+
+    @Test
+    public void aDeadlockIsAnErrorEnvelopeWithARetryableKey() {
         when(configurationDAO.upgradeConfigurationApplication(CONFIG, APP))
                 .thenThrow(new RuntimeException("x", new SQLException("deadlock", "40P01")));
 
-        try {
-            resource.upgradeConfiguration(request(APP));
-            fail("expected 409");
-        } catch (WebApplicationException e) {
-            assertEquals(409, e.getResponse().getStatus());
-        }
+        Response response = resource.upgradeConfiguration(request(APP));
+
+        assertEquals(Response.ResponseStatus.ERROR, response.getStatus());
+        assertEquals("error.concurrent.update", response.getMessage());
         verify(pushService, never()).notifyDevicesOnUpdate(anyInt());
     }
 }

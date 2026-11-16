@@ -13,6 +13,7 @@
   "plugin.audit.action.remove.application": "アプリケーションが削除されました",
   "plugin.audit.action.update.version": "アプリケーションのバージョンが更新されました",
   "plugin.audit.action.remove.version": "アプリケーションのバージョンが削除されました",
+  "plugin.audit.action.release.version": "Application version released",
   "plugin.audit.action.update.file": "ファイルが更新されました",
   "plugin.audit.action.remove.file": "ファイルが削除されました",
   "plugin.audit.action.update.app.config": "アプリケーション構成が変更されました",

@@ -46,6 +46,7 @@ public enum ResourceAuditInfo {
     UPDATE_WEBAPP("PUT", "/rest/private/applications/web", true, "plugin.audit.action.update.webapp", true, true),
     REMOVE_APP("DELETE", "/rest/private/applications", false, "plugin.audit.action.remove.application", true, true),
     UPDATE_APP_VERSION("PUT", "/rest/private/applications/versions", true, "plugin.audit.action.update.version", true, true),
+    RELEASE_APP_VERSION("POST", "/rest/private/applications/versions", false, "plugin.audit.action.release.version", true, true),
     REMOVE_APP_VERSION("DELETE", "/rest/private/applications/versions", false, "plugin.audit.action.remove.version", true, true),
     UPDATE_FILE("POST", "/rest/private/web-ui-files/move", true, "plugin.audit.action.update.file", true, true),
     REMOVE_FILE("POST", "/rest/private/web-ui-files/remove", true, "plugin.audit.action.remove.file", true, true),

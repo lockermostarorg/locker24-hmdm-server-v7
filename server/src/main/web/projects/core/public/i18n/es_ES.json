@@ -75,7 +75,7 @@
   "login.no.account": "¿No tienes una cuenta?",
   "login.signup": "Inscribirse",
   "signin.title": "Iniciar sesión",
-  "footer.copyright": "Headwind MDM es el sistema de gestión de dispositivos móviles de código abierto.",
+  "footer.copyright": "© Locker24",
 
   "signup.title": "Empezar",
   "signup.email": "Tu dirección de correo electrónico",
@@ -1051,9 +1051,9 @@
   "breadcrumb.config.details": "Detalles",
   "breadcrumb.application.versions": "Versiones",
 
-  "app.name": "Headwind MDM",
-  "app.vendor.name": "h-mdm.com",
-  "app.vendor.link": "https://h-mdm.com",
+  "app.name": "Locker24 MDM",
+  "app.vendor.name": "Locker24",
+  "app.vendor.link": "https://locker24.app",
   "app.description": "es la solucion MDM open-source",
   "app.title": "{{appName}} Panel Web",
 
@@ -1270,5 +1270,6 @@
   "form.application.intent.title": "The Android system action to run when the icon is tapped.",
   "form.application.web.url.title": "The address of the web page to open when the icon is tapped.",
   "form.application.iconText.title": "The label shown under the icon in the launcher.",
-  "form.application.icon.title": "The picture shown in the launcher for this application. The default icon is used if none is chosen."
+  "form.application.icon.title": "The picture shown in the launcher for this application. The default icon is used if none is chosen.",
+  "about.based.on": "Based on"
 }

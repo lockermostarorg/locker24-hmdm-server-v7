@@ -14,9 +14,9 @@ export type TRebrandingInfo = {
 };
 
 const DEFAULT_REBRANDING: TRebrandingInfo = {
-  appName: 'Headwind MDM',
-  vendorName: 'Headwind Solutions',
-  vendorLink: 'https://h-mdm.com',
+  appName: 'Locker24 MDM',
+  vendorName: 'Locker24',
+  vendorLink: 'https://locker24.app',
   signupLink: '',
   termsLink: '',
   legacyUrl: ''

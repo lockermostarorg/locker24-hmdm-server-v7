@@ -75,7 +75,7 @@
   "login.no.account": "Non hai un account?",
   "login.signup": "Registrati",
   "signin.title": "Accedi",
-  "footer.copyright": "Headwind MDM è il sistema open source per la gestione dei dispositivi mobili.",
+  "footer.copyright": "© Locker24",
 
   "signup.title": "Inizia",
   "signup.email": "Il tuo indirizzo email",
@@ -1050,9 +1050,9 @@
   "breadcrumb.config.details": "Dettagli",
   "breadcrumb.application.versions": "Versioni",
 
-  "app.name": "Headwind MDM",
-  "app.vendor.name": "h-mdm.com",
-  "app.vendor.link": "https://h-mdm.com",
+  "app.name": "Locker24 MDM",
+  "app.vendor.name": "Locker24",
+  "app.vendor.link": "https://locker24.app",
   "app.description": "è un sistema di gestione dei dispositivi mobili open source",
   "app.title": "Pannello Web {{appName}}",
 
@@ -1192,18 +1192,18 @@
   "updates.success": "Aggiornamento completato",
   "updates.web.hint": "Per completare l'aggiornamento dell'app Web, esegui lo script shell \"/opt/hmdm/update-web-app.sh\" nella console SSH",
 
-  "manual.title": "Manuale di installazione di Headwind MDM",
+  "manual.title": "Manuale di installazione di Locker24 MDM",
   "manual.domain": "Nome dominio",
-  "manual.domain.placeholder": "Nome dominio della tua istanza Headwind MDM",
+  "manual.domain.placeholder": "Nome dominio della tua istanza Locker24 MDM",
   "manual.key": "Chiave di supporto",
   "manual.key.placeholder": "XXXX-XXXX-XXXX-XXXX",
   "manual.submit": "Ottieni manuali",
   "manual.key.invalid": "La chiave non è valida!",
   "manual.option.select": "(Seleziona il manuale)",
-  "manual.option.0": "Imposta una nuova istanza di Headwind MDM",
-  "manual.option.1": "Aggiorna Headwind MDM Community",
-  "manual.option.2": "Installa i plugin Headwind Remote e URL Filtering",
-  "manual.option.3": "Imposta una nuova istanza di Headwind Remote",
+  "manual.option.0": "Imposta una nuova istanza di Locker24 MDM",
+  "manual.option.1": "Aggiorna Locker24 MDM Community",
+  "manual.option.2": "Installa i plugin Remote e URL Filtering",
+  "manual.option.3": "Imposta una nuova istanza di Remote",
   "manual.license.premium": "Premium",
   "manual.license.enterprise": "Enterprise",
 
@@ -1284,5 +1284,6 @@
   "form.application.intent.title": "The Android system action to run when the icon is tapped.",
   "form.application.web.url.title": "The address of the web page to open when the icon is tapped.",
   "form.application.iconText.title": "The label shown under the icon in the launcher.",
-  "form.application.icon.title": "The picture shown in the launcher for this application. The default icon is used if none is chosen."
+  "form.application.icon.title": "The picture shown in the launcher for this application. The default icon is used if none is chosen.",
+  "about.based.on": "Based on"
 }

@@ -165,15 +165,15 @@ public class ConfigureModule extends AbstractModule {
         }
         // Rebranding
         opt = this.context.getInitParameter(rebrandingNameParameter);
-        this.bindConstant().annotatedWith(Names.named(rebrandingNameParameter)).to(opt != null ? opt : "");
+        this.bindConstant().annotatedWith(Names.named(rebrandingNameParameter)).to(opt != null && !opt.isEmpty() ? opt : "Locker24 MDM");
         opt = this.context.getInitParameter(rebrandingVendorParameter);
-        this.bindConstant().annotatedWith(Names.named(rebrandingVendorParameter)).to(opt != null ? opt : "");
+        this.bindConstant().annotatedWith(Names.named(rebrandingVendorParameter)).to(opt != null && !opt.isEmpty() ? opt : "Locker24");
         opt = this.context.getInitParameter(rebrandingVendorLinkParameter);
-        this.bindConstant().annotatedWith(Names.named(rebrandingVendorLinkParameter)).to(opt != null ? opt : "");
+        this.bindConstant().annotatedWith(Names.named(rebrandingVendorLinkParameter)).to(opt != null && !opt.isEmpty() ? opt : "https://locker24.app");
         opt = this.context.getInitParameter(rebrandingLogoParameter);
         this.bindConstant().annotatedWith(Names.named(rebrandingLogoParameter)).to(opt != null ? opt : "");
         opt = this.context.getInitParameter(rebrandingMobileNameParameter);
-        this.bindConstant().annotatedWith(Names.named(rebrandingMobileNameParameter)).to(opt != null ? opt : "");
+        this.bindConstant().annotatedWith(Names.named(rebrandingMobileNameParameter)).to(opt != null && !opt.isEmpty() ? opt : "Locker24 MDM");
         opt = this.context.getInitParameter(rebrandingSignupLinkParameter);
         this.bindConstant().annotatedWith(Names.named(rebrandingSignupLinkParameter)).to(opt != null ? opt : "");
         opt = this.context.getInitParameter(rebrandingTermsLinkParameter);

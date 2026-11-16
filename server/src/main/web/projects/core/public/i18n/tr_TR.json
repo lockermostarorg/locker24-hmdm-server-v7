@@ -75,7 +75,7 @@
   "login.no.account": "Hesabınız yok mu?",
   "login.signup": "Kaydol",
   "signin.title": "Giriş Yap",
-  "footer.copyright": "Headwind MDM, açık kaynaklı mobil cihaz yönetim sistemidir.",
+  "footer.copyright": "© Locker24",
 
   "signup.title": "Başlayın",
   "signup.email": "E-posta adresiniz",
@@ -1050,9 +1050,9 @@
   "breadcrumb.config.details": "Ayrıntılar",
   "breadcrumb.application.versions": "Sürümler",
 
-  "app.name": "Headwind MDM",
-  "app.vendor.name": "h-mdm.com",
-  "app.vendor.link": "https://h-mdm.com",
+  "app.name": "Locker24 MDM",
+  "app.vendor.name": "Locker24",
+  "app.vendor.link": "https://locker24.app",
   "app.description": "açık kaynaklı bir mobil cihaz yönetim sistemidir",
   "app.title": "{{appName}} Web Paneli",
 
@@ -1192,18 +1192,18 @@
   "updates.success": "Güncelleme tamamlandı",
   "updates.web.hint": "Web uygulaması güncellemesini tamamlamak için SSH konsolunda \"/opt/hmdm/update-web-app.sh\" kabuk betiğini çalıştırın",
 
-  "manual.title": "Headwind MDM kurulum kılavuzu",
+  "manual.title": "Locker24 MDM kurulum kılavuzu",
   "manual.domain": "Alan adı",
-  "manual.domain.placeholder": "Headwind MDM örneğinizin alan adı",
+  "manual.domain.placeholder": "Locker24 MDM örneğinizin alan adı",
   "manual.key": "Destek anahtarı",
   "manual.key.placeholder": "XXXX-XXXX-XXXX-XXXX",
   "manual.submit": "Kılavuzları al",
   "manual.key.invalid": "Anahtar geçerli değil!",
   "manual.option.select": "(Lütfen kılavuzu seçin)",
-  "manual.option.0": "Headwind MDM'nin yeni bir örneğini kur",
-  "manual.option.1": "Headwind MDM Topluluğunu yükselt",
-  "manual.option.2": "Headwind Remote ve URL Filtreleme eklentilerini kur",
-  "manual.option.3": "Headwind Remote'un yeni bir örneğini kur",
+  "manual.option.0": "Locker24 MDM'nin yeni bir örneğini kur",
+  "manual.option.1": "Locker24 MDM Topluluğunu yükselt",
+  "manual.option.2": "Remote ve URL Filtreleme eklentilerini kur",
+  "manual.option.3": "Remote'un yeni bir örneğini kur",
   "manual.license.premium": "Premium",
   "manual.license.enterprise": "Enterprise",
 
@@ -1284,5 +1284,6 @@
   "form.application.intent.title": "The Android system action to run when the icon is tapped.",
   "form.application.web.url.title": "The address of the web page to open when the icon is tapped.",
   "form.application.iconText.title": "The label shown under the icon in the launcher.",
-  "form.application.icon.title": "The picture shown in the launcher for this application. The default icon is used if none is chosen."
+  "form.application.icon.title": "The picture shown in the launcher for this application. The default icon is used if none is chosen.",
+  "about.based.on": "Based on"
 }

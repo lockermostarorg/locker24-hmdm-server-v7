@@ -89,12 +89,12 @@ mqtt.message.delay=1000
 device.fast.search.chars=5
 
 # rebranding parameters
-rebranding.name=My MDM
-rebranding.vendor.name=My Company
-rebranding.vendor.link=https://mycompany.com
+rebranding.name=Locker24 MDM
+rebranding.vendor.name=Locker24
+rebranding.vendor.link=https://locker24.app
 # rebranding logo must be a 100x100 PNG file
 rebranding.logo=/home/launcher/logo.png
-rebranding.mobile.name=My MDM
+rebranding.mobile.name=Locker24 MDM
 rebranding.signup.link=https://mycompany.com/signup/
 rebranding.terms.link=https://mycompany.com/terms/
 

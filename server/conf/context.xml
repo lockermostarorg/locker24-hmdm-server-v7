@@ -88,12 +88,12 @@
     <!-- Display X-Forwarded-For instead of source IP -->
     <Parameter name="plugin.audit.display.forwarded.ip" value="${plugin.audit.display.forwarded.ip}"/>
 
-<!--    <Parameter name="rebranding.name" value="${rebranding.name}"/>
+    <Parameter name="rebranding.name" value="${rebranding.name}"/>
     <Parameter name="rebranding.vendor.name" value="${rebranding.vendor.name}"/>
     <Parameter name="rebranding.vendor.link" value="${rebranding.vendor.link}"/>
-    <Parameter name="rebranding.logo" value="${rebranding.logo}"/>
-    <Parameter name="rebranding.mobile.name" value="${rebranding.mobile.name}"/>  
-    <Parameter name="rebranding.signup.link" value="${rebranding.signup.link}"/> --> 
+    <Parameter name="rebranding.mobile.name" value="${rebranding.mobile.name}"/>
+<!--    <Parameter name="rebranding.logo" value="${rebranding.logo}"/>
+    <Parameter name="rebranding.signup.link" value="${rebranding.signup.link}"/> -->
     <Parameter name="rebranding.terms.link" value="${rebranding.terms.link}"/>
 
     <!-- Email parameters are necessary for password recovery -->

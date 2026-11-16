@@ -75,7 +75,7 @@
   "login.no.account": "没有帐户？",
   "login.signup": "报名",
   "signin.title": "登录",
-  "footer.copyright": "Headwind MDM 是开源移动设备管理系统。",
+  "footer.copyright": "© Locker24",
 
   "signup.title": "开始吧",
   "signup.email": "你的邮箱",
@@ -1051,9 +1051,9 @@
   "breadcrumb.config.details": "详情",
   "breadcrumb.application.versions": "版本",
 
-  "app.name": "Headwind MDM",
-  "app.vendor.name": "h-mdm.com",
-  "app.vendor.link": "https://h-mdm.com",
+  "app.name": "Locker24 MDM",
+  "app.vendor.name": "Locker24",
+  "app.vendor.link": "https://locker24.app",
   "app.description": "开源码流动设备管理系统",
   "app.title": "{{appName}} Web面板",
 
@@ -1270,5 +1270,6 @@
   "form.application.intent.title": "The Android system action to run when the icon is tapped.",
   "form.application.web.url.title": "The address of the web page to open when the icon is tapped.",
   "form.application.iconText.title": "The label shown under the icon in the launcher.",
-  "form.application.icon.title": "The picture shown in the launcher for this application. The default icon is used if none is chosen."
+  "form.application.icon.title": "The picture shown in the launcher for this application. The default icon is used if none is chosen.",
+  "about.based.on": "Based on"
 }

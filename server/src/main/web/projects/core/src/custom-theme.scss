@@ -5,17 +5,20 @@
 // custom components at https://material.angular.dev/guide/theming
 @use '@angular/material' as mat;
 
-$primary: #7a9ab9;
-$accent: #4c788c;
+$brand-blue: #009fd7;
+$brand-orange: #ff6d00;
+$brand-grey: #5c5c5c;
+$primary: $brand-blue;
+$accent: $brand-orange;
 
 @include mat.form-field-density(-4);
 
 :root {
-  --mat-sys-primary: #7a9ab9;
+  --mat-sys-primary: #{$brand-blue};
   --mat-sidenav-content-background-color: #e9eaf4;
-  --mat-ripple-color: #7a9ab9;
+  --mat-ripple-color: #{$brand-blue};
   --mat-sys-success: #2e7d32;
-  --mat-sys-info: #4c788c;
+  --mat-sys-info: #{$brand-orange};
   --mat-dialog-container-max-width: 980px;
 }
 
@@ -27,8 +30,8 @@ html {
   @include mat.theme(
     (
       color: (
-        primary: mat.$azure-palette,
-        tertiary: mat.$blue-palette,
+        primary: mat.$cyan-palette,
+        tertiary: mat.$orange-palette,
       ),
       typography: Roboto,
       density: 0,
@@ -81,8 +84,8 @@ html {
   @include mat.menu-overrides(
     (
       container-shape: 8px,
-      item-hover-state-layer-color: #7a9ab9,
-      item-focus-state-layer-color: #7a9ab9,
+      item-hover-state-layer-color: $brand-blue,
+      item-focus-state-layer-color: $brand-blue,
     )
   );
 

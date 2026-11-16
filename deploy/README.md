@@ -1,6 +1,6 @@
 # Deploying Locker24 MDM
 
-CI (GitHub Actions, `.github/workflows/server-ci.yml`) builds and tests every push to `main` and `feat/**` and every pull request to `main` (docs-only pull requests excepted), and scans the git history for secrets with gitleaks (the repository is public). It publishes nothing. Until Task 6 adds tests, the Locker24 plugin has no tests, so CI runs only Headwind's own.
+CI (GitHub Actions, `.github/workflows/server-ci.yml`) builds and tests every push to `main` and `feat/**` and every pull request to `main` (docs-only pull requests excepted), and scans the git history for secrets with gitleaks (the repository is public). It publishes nothing. A separate `sql-checks` job runs `plugins/locker24-health/src/test/sql/*-check.sh` (Postgres 16 in Docker, about 10 seconds each) against the plugin's SQL.
 
 Deploying is done on the droplet: `deploy/deploy.sh <ref>` fetches the code, builds it with Maven, backs up, swaps the WAR and checks that the server is back.
 
@@ -115,6 +115,7 @@ The health plugin's pop-ups go through Tomcat's internal alert endpoint, which a
    ```
    A 200 means the endpoint is open: roll back and investigate.
 3. The first real health pop-up after the deploy still arrives in the panel (the loopback call is allowed).
+4. The plugin checks and the smoke script in `docs/locker24-health.md` (tables, `plugins` row, Fleet health opens, `deploy/health-smoke.sh`).
 
 ## Rollback
 

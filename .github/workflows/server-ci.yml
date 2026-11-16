@@ -35,6 +35,19 @@ jobs:
       - name: Build and test
         run: mvn -B package
 
+  sql-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the health plugin SQL checks
+        run: |
+          for f in plugins/locker24-health/src/test/sql/*-check.sh; do
+            echo "== $f"
+            bash "$f"
+          done
+
   secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 15

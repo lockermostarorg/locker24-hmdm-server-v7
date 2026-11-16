@@ -240,3 +240,14 @@ The restore drops and recreates the database instead of using `pg_restore --clea
 Updates are built and installed on the droplet by `deploy/deploy.sh <ref>` (a release tag such as `l24-v7.04.1.1`, a branch or a SHA). It takes the pre-deploy backups and rolls the WAR back if the server does not come up. Setup (deploy key), tagging, deploying and rollback are in [`README.md`](README.md).
 
 Do not rerun `hmdm_install.sh` for an update.
+
+### Health plugin checks after a deploy
+
+The deploy itself, the internal endpoint checks (403 from outside, also for the `;x=1` variant) and rollback are in [`README.md`](README.md). For the fleet health plugin, also check:
+
+```bash
+sudo -u postgres psql hmdm -c '\dt locker24_*'                                           # 4 tables
+sudo -u postgres psql hmdm -tAc "SELECT identifier FROM plugins WHERE identifier='locker24-health'"   # 1 row
+```
+
+Then open Functions -> Fleet health in the panel (it must load, even with no reports yet), and run `deploy/health-smoke.sh https://mdm.locker24.app`. The smoke script, the device checklist and the deviations from the spec are in [`docs/locker24-health.md`](../docs/locker24-health.md).

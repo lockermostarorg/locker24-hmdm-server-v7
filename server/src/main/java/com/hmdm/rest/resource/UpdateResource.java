@@ -142,6 +142,10 @@ public class UpdateResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response downloadUpdates(UpdateRequest request) {
+        if (!unsecureDAO.isSingleCustomer() && !SecurityContext.get().isSuperAdmin()) {
+            logger.error("Unauthorized attempt to download updates by user " + SecurityContext.get().getCurrentUserName());
+            return Response.PERMISSION_DENIED();
+        }
 
         String webVersion = "";
         final Set<Integer> movedConfigurations = new TreeSet<>();

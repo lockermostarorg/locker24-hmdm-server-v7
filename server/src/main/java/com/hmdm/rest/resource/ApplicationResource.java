@@ -376,6 +376,9 @@ public class ApplicationResource {
         } catch (CommonAppAccessException e) {
             logger.error("Failed to create or update application version", e);
             return Response.COMMON_APPLICATION_ACCESS_PROHIBITED();
+        } catch (SecurityException e) {
+            logger.error("Prohibited to create or update application version by current user", e);
+            return Response.PERMISSION_DENIED();
         } catch (FileExistsException e) {
             logger.error("Failed to create or update application version", e);
             return Response.FILE_EXISTS();

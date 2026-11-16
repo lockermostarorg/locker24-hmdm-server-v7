@@ -31,6 +31,7 @@ import static org.mockito.Mockito.when;
 
 public class UpdateResourcePushTest {
 
+    private UnsecureDAO unsecureDAO;
     private ApplicationDAO applicationDAO;
     private PushService pushService;
     private UpdateResource resource;
@@ -38,9 +39,10 @@ public class UpdateResourcePushTest {
     @Before
     public void setUp() throws Exception {
         applicationDAO = mock(ApplicationDAO.class);
+        unsecureDAO = mock(UnsecureDAO.class);
         pushService = mock(PushService.class);
         resource = new UpdateResource(Files.createTempDirectory("update-resource").toString(), "http://localhost",
-                applicationDAO, mock(UnsecureDAO.class), mock(StatsSender.class), mock(APKFileAnalyzer.class), pushService);
+                applicationDAO, unsecureDAO, mock(StatsSender.class), mock(APKFileAnalyzer.class), pushService);
 
         User user = new User();
         user.setId(3);
@@ -118,5 +120,37 @@ public class UpdateResourcePushTest {
         resource.downloadUpdates(request(true));
 
         verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
+    }
+
+    private void asRegularUser() {
+        User user = new User();
+        user.setId(4);
+        user.setCustomerId(1);
+        user.setUserRole(new UserRole());
+        SecurityContext.init(user);
+    }
+
+    @Test
+    public void aNonSuperAdminInAMultiCustomerSetupCannotDownloadOrRelease() {
+        asRegularUser();
+        when(unsecureDAO.isSingleCustomer()).thenReturn(false);
+
+        com.hmdm.rest.json.Response response = resource.downloadUpdates(request(true));
+
+        org.junit.Assert.assertEquals("error.permission.denied", response.getMessage());
+        verify(applicationDAO, never()).updateConfigurationsToVersion(anyInt(), anyInt(), any(User.class));
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
+    }
+
+    @Test
+    public void aRegularUserOfASingleCustomerSetupMayUpdate() {
+        asRegularUser();
+        when(unsecureDAO.isSingleCustomer()).thenReturn(true);
+        when(applicationDAO.updateConfigurationsToVersion(eq(100), eq(101), any(User.class)))
+                .thenReturn(Arrays.asList(7));
+
+        resource.downloadUpdates(request(true));
+
+        verify(pushService).notifyAllDevicesOnUpdate(7);
     }
 }

@@ -420,4 +420,13 @@ public class ApplicationReleaseResourceTest {
         assertError("error.application.id.required", () -> resource.updateApplicationConfigurations(null));
         assertError("error.application.version.id.required", () -> resource.updateApplicationVersionConfigurations(null));
     }
+
+    @Test
+    public void uploadToAnotherCustomersApplicationIsAPermissionDeniedEnvelope() {
+        when(applicationDAO.insertApplicationVersionWithRelease(any(ApplicationVersion.class), anyString(), anyInt()))
+                .thenThrow(com.hmdm.security.SecurityException.onApplicationAccessViolation(APP));
+
+        assertError("error.permission.denied", () -> resource.updateApplicationVersion(upload("immediate")));
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
+    }
 }

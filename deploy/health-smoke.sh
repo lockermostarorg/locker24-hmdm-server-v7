@@ -3,6 +3,9 @@
 #
 #   deploy/health-smoke.sh [--secrets-file FILE] [--device NUMBER] [--delete | --keep] <base_url>
 #
+# --device must start with SMOKE (a real device is refused unless
+# --i-know-this-is-a-real-device is given, and such a device is never deleted).
+#
 # Needs a device (default SMOKE-01) that exists in the panel, in a configuration
 # with no tablets. Secrets are read from a silent prompt, or from --secrets-file
 # (three lines: hash.secret, panel login, panel password; the file must be
@@ -14,10 +17,11 @@ umask 077
 DEVICE="SMOKE-01"
 SECRETS_FILE=""
 CLEANUP="ask"
+REAL_OK=0
 BASE=""
 
 usage() {
-  echo "usage: $0 [--secrets-file FILE] [--device NUMBER] [--delete | --keep] <base_url>" >&2
+  echo "usage: $0 [--secrets-file FILE] [--device NUMBER] [--delete | --keep] [--i-know-this-is-a-real-device] <base_url>" >&2
   exit 2
 }
 
@@ -27,6 +31,7 @@ while [ $# -gt 0 ]; do
     --device) [ $# -ge 2 ] || usage; DEVICE="$2"; shift 2 ;;
     --delete) CLEANUP="delete"; shift ;;
     --keep) CLEANUP="keep"; shift ;;
+    --i-know-this-is-a-real-device) REAL_OK=1; shift ;;
     -h|--help) usage ;;
     -*) usage ;;
     *) [ -z "$BASE" ] || usage; BASE="$1"; shift ;;
@@ -34,6 +39,20 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$BASE" ] || usage
 BASE="${BASE%/}"
+
+if ! printf '%s' "$DEVICE" | grep -Eq '^[A-Za-z0-9._-]+$'; then
+  echo "invalid device number (allowed: letters, digits, . _ -)" >&2
+  exit 2
+fi
+case "$DEVICE" in
+  SMOKE*) ;;
+  *)
+    if [ "$REAL_OK" != 1 ]; then
+      echo "refusing device $DEVICE: it does not start with SMOKE (use --i-know-this-is-a-real-device to override)" >&2
+      exit 2
+    fi
+    ;;
+esac
 
 case "$BASE" in
   https://*|http://localhost|http://localhost:*|http://127.0.0.1|http://127.0.0.1:*) ;;
@@ -45,7 +64,24 @@ for tool in curl jq openssl; do
 done
 
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+POSTED=0
+CLEANED=0
+TOKEN=""
+DEVICE_ID=""
+on_exit() {
+  local rc=$?
+  trap - EXIT INT TERM
+  if [ "$POSTED" = 1 ] && [ "$CLEANED" = 0 ]; then
+    echo >&2
+    echo "Interrupted or failed after posting reports." >&2
+    offer_cleanup || true
+  fi
+  rm -rf "$WORK"
+  exit "$rc"
+}
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 HASH_SECRET=""
 PANEL_LOGIN=""
@@ -124,9 +160,45 @@ post_batch() {
     "data-binary = \"@$WORK/body.json\""
 }
 
+offer_cleanup() {
+  CLEANED=1
+  echo
+  case "$DEVICE" in
+    SMOKE*)
+      echo "$DEVICE has no tablet behind it, so about 10 minutes after the last report it turns"
+      echo "red offline and the panel raises a real pop-up. Remove it now unless you want to keep it."
+      ;;
+  esac
+  do_delete=0
+  case "$CLEANUP" in
+    delete) do_delete=1 ;;
+    ask)
+      if [ -r /dev/tty ]; then
+        printf 'Delete %s from the panel now (its health rows go with it)? [y/N] ' "$DEVICE" >/dev/tty
+        read -r answer </dev/tty || answer=""
+        case "$answer" in y|Y|yes|YES) do_delete=1 ;; esac
+      fi
+      ;;
+  esac
+  case "$DEVICE" in SMOKE*) ;; *) do_delete=0 ;; esac
+  if [ "$do_delete" = 1 ]; then
+    code="$(call "$WORK/del.out" \
+      "url = \"$BASE/rest/private/devices/$DEVICE_ID\"" \
+      'request = "DELETE"' \
+      "header = \"Authorization: Bearer $TOKEN\"")"
+    if [ "$code" = "200" ] && [ "$(jq -r '.status // empty' "$WORK/del.out")" = OK ]; then
+      echo "Deleted $DEVICE. Create it again before the next run."
+    else
+      echo "Could not delete $DEVICE (HTTP $code): delete it in the panel (Devices) before the pop-up appears." >&2
+    fi
+  else
+    echo "Kept $DEVICE: it is not deleted by this script; remove it in the panel (Devices) if it is a throwaway."
+  fi
+}
+
 echo "Locker24 health smoke test: $BASE, device $DEVICE"
 
-jq -cn --arg login "$PANEL_LOGIN" --arg password "$(panel_pass_hash)" '{login: $login, password: $password}' > "$WORK/login.json"
+printf '%s\n%s\n' "$PANEL_LOGIN" "$(panel_pass_hash)" | jq -cRn '[inputs] | {login: .[0], password: .[1]}' > "$WORK/login.json"
 code="$(call "$WORK/login.out" \
   "url = \"$BASE/rest/public/jwt/login\"" \
   'request = "POST"' \
@@ -168,7 +240,8 @@ history_points() {
   jq -c '.data.points // []' "$WORK/history.out"
 }
 
-BASELINE="$(history_points | jq 'length')"
+BASELINE="$(history_points | jq 'length')" || exit 1
+POSTED=1
 
 NOW="$(now_ms)"
 T2=$((NOW - 30000))
@@ -194,11 +267,11 @@ code="$(post_batch "$R_NEW" "$BAD_SIG" "$WORK/p4.out")"
 check "$([ "$(jq -r '.message // empty' "$WORK/p4.out")" = error.signature ] && echo 1 || echo 0)" \
   "a wrong signature is rejected with error.signature" "HTTP $code"
 
-ROW="$(fleet_row)" || exit 1
+ROW="$(fleet_row)" || ROW="{}"
 check "$([ "$(jq -r '.batteryPct' <<<"$ROW")" = 55 ] && echo 1 || echo 0)" \
   "an older report after a newer one does not replace the latest" "batteryPct $(jq -r '.batteryPct' <<<"$ROW")"
 
-POINTS="$(history_points)" || exit 1
+POINTS="$(history_points)" || POINTS="[]"
 ADDED=$(( $(jq 'length' <<<"$POINTS") - BASELINE ))
 LAST2="$(jq -c 'sort_by(.t) | .[-2:] | map(.batteryPct)' <<<"$POINTS")"
 check "$([ "$ADDED" = 2 ] && [ "$LAST2" = "[11,55]" ] && echo 1 || echo 0)" \
@@ -207,32 +280,6 @@ check "$([ "$ADDED" = 2 ] && [ "$LAST2" = "[11,55]" ] && echo 1 || echo 0)" \
 echo
 echo "$PASSES passed, $FAILS failed"
 
-echo
-echo "$DEVICE has no tablet behind it, so about 10 minutes after the last report it turns"
-echo "red offline and the panel raises a real pop-up. Remove it now unless you want to keep it."
-do_delete=0
-case "$CLEANUP" in
-  delete) do_delete=1 ;;
-  ask)
-    if [ -r /dev/tty ]; then
-      printf 'Delete %s from the panel now (its health rows go with it)? [y/N] ' "$DEVICE" >/dev/tty
-      read -r answer </dev/tty || answer=""
-      case "$answer" in y|Y|yes|YES) do_delete=1 ;; esac
-    fi
-    ;;
-esac
-if [ "$do_delete" = 1 ]; then
-  code="$(call "$WORK/del.out" \
-    "url = \"$BASE/rest/private/devices/$DEVICE_ID\"" \
-    'request = "DELETE"' \
-    "header = \"Authorization: Bearer $TOKEN\"")"
-  if [ "$code" = "200" ] && [ "$(jq -r '.status // empty' "$WORK/del.out")" = OK ]; then
-    echo "Deleted $DEVICE. Create it again before the next run."
-  else
-    echo "Could not delete $DEVICE (HTTP $code): delete it in the panel (Devices) before the pop-up appears." >&2
-  fi
-else
-  echo "Kept $DEVICE: delete it in the panel (Devices) when done."
-fi
+offer_cleanup
 
 [ "$FAILS" -eq 0 ]

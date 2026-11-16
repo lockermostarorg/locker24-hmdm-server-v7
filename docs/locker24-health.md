@@ -5,7 +5,7 @@ The plugin itself is documented in [`plugins/locker24-health/README.md`](../plug
 ## Releasing a server update
 
 1. Merge to `main`. Server CI (build, tests, the `sql-checks` job and the secret scan) must pass.
-2. The deploy starts by itself when CI succeeds on `main` (`.github/workflows/server-deploy.yml`). A push that only changes `docs/**` or `*.md` files is not deployed.
+2. The deploy starts by itself when CI succeeds on `main` (`.github/workflows/server-deploy.yml`). A push that only changes `docs/**` or `*.md` files is not deployed; any other change, including workflow and `deploy/` files, redeploys. The first auto-deploy is the merge that carries the dashboard: until its changeset `-08` the plugin row has a NULL `baseUrl`, so no menu entry or federation remote exists before then.
 3. Rollback or redeploy of a known commit: Actions -> "Server deploy" -> Run workflow with the full SHA (`force` if it is not the tip of `main`). `deploy/deploy.sh <ref>` on the droplet is for emergencies only (CI or GitHub down); the WAR and database rollback steps are in `deploy/README.md`.
 4. After every deploy, run the post-deploy checks of `deploy/README.md` (internal endpoint answers 403 from outside, also for `/rest/internal;x=1/alert`; the first real pop-up arrives; the dashboard opens) and the plugin checks of `deploy/server-setup.md` section 6, then the smoke script below.
 
@@ -17,6 +17,8 @@ Agent rollout order: the ingest endpoint must answer before the agent `6.40-l24.
 deploy/health-smoke.sh https://mdm.locker24.app
 deploy/health-smoke.sh --secrets-file /root/.l24-smoke --delete https://mdm.locker24.app
 ```
+
+`--device` must match `^[A-Za-z0-9._-]+$` and start with `SMOKE`; any other number is refused unless `--i-know-this-is-a-real-device` is given, and the script never deletes a non-SMOKE device.
 
 Prerequisite: a panel device `SMOKE-01` in its own empty configuration (no tablets). Needs `curl`, `jq` and `openssl`. Run it on the droplet or on any machine that has the server's `hash.secret`.
 
@@ -31,7 +33,7 @@ It posts signed reports for `SMOKE-01` (battery 55 at `T2`, the same again, batt
 5. the fleet row (`data.devices[]`) still shows `batteryPct == 55`, so the older report did not replace the latest;
 6. the history (`?hours=1`, so the 100 s gap is never merged into one bucket) gained exactly 2 points, the last two being 11 and 55.
 
-The reports carry `charging: true` and no kiosk requirement, so the only condition SMOKE-01 can raise is `offline`. About 10 minutes after the run it turns red and the panel shows a real pop-up, because no tablet sends reports for it. The script therefore ends by offering to delete SMOKE-01 (`--delete` does it without asking, `--keep` does not ask; deleting removes its health rows with it, and an open alert goes with them). Create the device again before the next run. If you keep it, delete it in the panel (Devices) when done.
+The reports carry `charging: true` and no kiosk requirement, so the only condition SMOKE-01 can raise is `offline`. About 10 minutes after the run it turns red and the panel shows a real pop-up, because no tablet sends reports for it. The script therefore ends by offering to delete SMOKE-01 (`--delete` does it without asking, `--keep` keeps it without asking; also on Ctrl-C or a failed fetch after the reports were posted; deleting removes its health rows with it, and an open alert goes with them). Create the device again before the next run. If you keep it, delete it in the panel (Devices) when done.
 
 The exit code is 0 only if every check passed.
 
@@ -41,7 +43,7 @@ The exit code is 0 only if every check passed.
 
 ## Device checklist H1-H6 (pilot Tab A9)
 
-Read these on Functions -> Fleet health. The same steps belong in section 6 of the agent repo's `docs/locker24-pilot-config.md` (section 3 of that file gets the row `health_interval_minutes` | `5` | clamped 1..8).
+This is the canonical H1-H6 numbering; the agent repo's checklist mirrors exactly these. Read them on Functions -> Fleet health. The same steps belong in section 6 of the agent repo's `docs/locker24-pilot-config.md` (section 3 of that file gets the row `health_interval_minutes` | `5` | clamped 1..8).
 
 - **H1. Report arrives.** Within 5 minutes of the agent update the tablet shows on Fleet health with model SM-X110, battery, temperature and both versions (agent `6.40-l24.5`, kiosk app). After a few hours the 24 h history charts render battery, temperature, RSSI and offline periods.
 - **H2. Offline turns red and recovers.** Wi-Fi off for 15 minutes. The tablet turns red `offline` 10-11 minutes after its last report and a pop-up alert appears (the webhook receives `raised` if one is set). Wi-Fi on: the queued reports arrive, the history shows the gap as an offline period with points inside it, and the status turns green after a real report.
@@ -66,7 +68,7 @@ Record the results in the agent repo's `docs/locker24-supported-devices.md`.
 - **Yellow to red escalates.** An open yellow alert whose condition turns red is raised to red once, and never lowered.
 - **Clearing.** The spec clears an alert when the tablet turns green; here each condition clears after being absent for 5 minutes, and offline clears only after a real report arrives (not after a server restart).
 - **Yellow alert rule.** "Yellow for 30 minutes" is implemented as non-green for 30 minutes with the condition yellow.
-- **Pop-up cap.** At most 5 pop-ups per customer per rolling 10 minutes (red first), then one summary pop-up; clear events are capped the same way. The webhook always gets every event.
+- **Pop-up cap.** At most 5 pop-ups per customer per rolling 10 minutes (red first), then one summary pop-up; clear events are capped at 5 per evaluation cycle plus a "more recovered" summary (not by the rolling budget). The webhook always gets every event.
 - **Summaries are invisible to restricted users.** Summary pop-ups have no device, so users without access to all devices do not see them.
 - **Retention at 03:30.** History and cleared alerts older than 30 days are deleted nightly at 03:30 in the plugin time zone (default `Europe/Sarajevo`). The 24 h period shifts by one hour after a DST change until the server restarts.
 - **1970-clock history points.** A device clock that is unusable is clamped to 48 hours before receipt; the history endpoint excludes those points (it would otherwise show a sample 48 hours back), while their receipt still counts for offline periods. A genuine 48 hour old queued report is dropped with them.

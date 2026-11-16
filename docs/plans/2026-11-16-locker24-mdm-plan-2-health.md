@@ -767,3 +767,43 @@ User decision 2026-11-16, revised: the repos are becoming private.
 - [ ] **Step 5: Commit.** `git add .github deploy docs && git commit -m "build: server CI and an on-server build-and-deploy script"`
 
 The user (or the controller, if the user allows it) adds the deploy key and runs `deploy.sh` on the droplet. Until the user says otherwise, the MDM server has no quiet-hours restriction.
+
+### Task 18: Deploy from GitHub on push to main
+
+User decision 2026-11-16: every push to `main` deploys the MDM server automatically, after CI passes. GitHub Actions SSHes to the droplet with a dedicated key that can only start a deploy; the build still happens on the droplet with `deploy/deploy.sh` (Task 17).
+
+**Files:**
+- Create: `.github/workflows/server-deploy.yml`, `deploy/deploy-forced.sh`
+- Modify: `deploy/README.md` (a section "Automatic deploys from GitHub"), `deploy/deploy.sh` only if needed (for example a `--sha` mode)
+
+**Design (binding):**
+- **Trigger:** `workflow_run` on the "Server CI" workflow, `completed`, branch `main`, and only when `conclusion == 'success'`. Deploy the exact `head_sha` that CI tested, never "whatever main is now". Also allow `workflow_dispatch` with a `sha` input, for a manual redeploy.
+- **Concurrency:** `concurrency: { group: mdm-deploy, cancel-in-progress: false }`, so deploys queue and never run in parallel.
+- **SSH:** the private key comes from repo secret `MDM_DEPLOY_SSH_KEY`, user `root`, host `mdm.locker24.app`. The droplet's host key is pinned in the workflow, either as a known_hosts line committed in the file (public info, collected with `ssh-keyscan -t ed25519 mdm.locker24.app`, which the controller provides) or as secret `MDM_KNOWN_HOSTS`. Use `StrictHostKeyChecking=yes`, `ServerAliveInterval=30`, and no agent or port forwarding.
+- **Forced command on the droplet:** the key's `authorized_keys` line is `command="/opt/locker24/deploy-forced.sh",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty ssh-ed25519 AAAA… github-deploy`. `deploy-forced.sh`:
+  - reads `$SSH_ORIGINAL_COMMAND`
+  - accepts ONLY `deploy <40-hex sha>`, or `status <40-hex sha>` to follow progress; anything else exits 1 with a message
+  - starts the deploy detached from the SSH session, so a dropped connection never interrupts a swap:
+
+    ```
+    systemd-run --unit=locker24-deploy-<sha12> --collect --property=TimeoutStartSec=0 /opt/locker24/src/locker24-hmdm-server-v7/deploy/deploy.sh <sha>
+    ```
+
+    or an equivalent `setsid nohup`, whichever is robust on Ubuntu 24.04. It refuses if a deploy unit is already running.
+  - then follows `/var/log/locker24-deploy.log` (only this deploy's lines) until the unit finishes, and exits with the deploy's exit code. If SSH drops, the workflow reconnects with `status <sha>`, retrying for up to 40 min.
+  - The script is copied from the checkout to `/opt/locker24/deploy-forced.sh` once by the user (README step), owned by root with mode 755. `deploy.sh` must be able to update the checkout to `<sha>` first, and must already accept a hex SHA.
+- **Workflow job:** `timeout-minutes: 50`, `permissions: contents: read`. The log prints the deployed SHA and the deploy result. It never prints the key.
+- **Secrets hygiene:** public repo. Secrets never reach PRs from forks (workflow_run on main only). The forced command means a leaked key can only redeploy a commit that exists in the repo.
+
+- [ ] **Step 1:** Write `deploy-forced.sh`.
+  - `set -euo pipefail` and strict validation, using regex `^(deploy|status) [0-9a-f]{40}$`.
+  - Test it locally in Docker (ubuntu:24.04) with a stubbed `systemd-run`/`deploy.sh`: valid deploy, invalid input (an injection attempt such as `deploy abc; rm -rf /`, a non-hex SHA, extra args), a deploy already running, and status follow.
+  - shellcheck must be clean.
+- [ ] **Step 2:** Write `server-deploy.yml` with the design above. actionlint must be clean (Docker `rhysd/actionlint`).
+- [ ] **Step 3:** In the README, document the one-time setup the user runs:
+  1. Generate the key pair. The controller will generate it in its scratchpad and hand over the files; never commit it.
+  2. Add the private key as repo secret `MDM_DEPLOY_SSH_KEY`.
+  3. Install the forced-command line into `/root/.ssh/authorized_keys` on the droplet.
+  4. Copy `deploy-forced.sh` into `/opt/locker24/`.
+  5. Test with `workflow_dispatch`.
+- [ ] **Step 4:** Commit: `build: deploy the MDM server from GitHub after CI on main`.

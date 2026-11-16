@@ -75,8 +75,8 @@ public class PushService {
     }
 
     public static String forceUpdatePayload(String pkg, String version, long issuedAt) {
-        return "{\"apps\":[{\"pkg\":\"" + StringUtil.jsonEscape(pkg) + "\",\"version\":\""
-                + StringUtil.jsonEscape(version) + "\"}],\"issuedAt\":" + issuedAt + "}";
+        return "{\"apps\":[{\"pkg\":\"" + StringUtil.jsonEscape(pkg == null ? "" : pkg) + "\",\"version\":\""
+                + StringUtil.jsonEscape(version == null ? "" : version) + "\"}],\"issuedAt\":" + issuedAt + "}";
     }
 
     private int notifyDevices(Integer configurationId, String messageType) {

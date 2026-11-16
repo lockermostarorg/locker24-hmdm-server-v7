@@ -242,6 +242,14 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
      * @param version an application version to check against duplicates.
      * @return id of a duplicated application if found, otherwise 0
      */
+    private static boolean sameContent(File a, File b) {
+        try (java.io.InputStream ia = new java.io.FileInputStream(a); java.io.InputStream ib = new java.io.FileInputStream(b)) {
+            return DigestUtils.sha256Hex(ia).equals(DigestUtils.sha256Hex(ib));
+        } catch (java.io.IOException e) {
+            return false;
+        }
+    }
+
     private boolean isIdenticalFile(Application application, ApplicationVersion existing, ApplicationVersion incoming,
                                     int incomingVersionCode, File uploaded) {
         if (existing == null || existing.getVersionCode() != incomingVersionCode) {
@@ -262,7 +270,7 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
             return false;
         }
         final File stored = new File(filesDirectory + File.separator + customer.getFilesDir() + File.separator + relative);
-        return stored.isFile() && stored.length() == uploaded.length();
+        return stored.isFile() && stored.length() == uploaded.length() && sameContent(stored, uploaded);
     }
 
     private int getDuplicateAppVersion(Application application, ApplicationVersion version) {
@@ -1026,9 +1034,17 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
 
         final String incomingVersion = uploadedDetails != null ? uploadedDetails.getVersion() : applicationVersion.getVersion();
         final int incomingCode = uploadedDetails != null ? uploadedDetails.getVersionCode() : applicationVersion.getVersionCode();
-        if (incomingVersion != null && StringUtil.isEmpty(applicationVersion.getArch())) {
+        if (incomingVersion != null) {
             final int existingId = this.mapper.getDuplicateVersionForApp(existingApplication.getId(), -1, incomingVersion);
-            if (existingId > 0) {
+            if (existingId > 0 && !StringUtil.isEmpty(applicationVersion.getArch())) {
+                final ApplicationVersion existing = this.mapper.findVersionById(existingId);
+                if (existing != null && existing.getVersionCode() != incomingCode) {
+                    if (hasFile) {
+                        new File(filePath).delete();
+                    }
+                    throw new VersionExistsException(existingApplication.getPkg(), incomingVersion);
+                }
+            } else if (existingId > 0) {
                 final ApplicationVersion existing = this.mapper.findVersionById(existingId);
                 if (isIdenticalFile(existingApplication, existing, applicationVersion, incomingCode, hasFile ? new File(filePath) : null)) {
                     if (hasFile) {

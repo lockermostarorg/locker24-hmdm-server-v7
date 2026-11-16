@@ -565,4 +565,28 @@ public class ApplicationReleaseResourceTest {
         assertError("error.permission.denied", () -> resource.notifyApplicationVersion(VERSION, mode("schedule")));
         verify(applicationDAO, never()).getConfigurationsOnVersion(anyInt());
     }
+
+    @Test
+    public void anIdenticalReUploadOfAHeldVersionReportsHold() {
+        insertReturns("schedule", Collections.<Integer>emptyList());
+        storedAs("held", null);
+
+        ReleaseSummary result = summary(resource.updateApplicationVersion(upload("schedule")));
+
+        assertEquals("hold", result.getMode());
+        assertEquals(0, result.getConfigurations());
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
+    }
+
+    @Test
+    public void theForcePayloadIsBuiltOnlyForImmediateAndTolerantOfAMissingApplication() {
+        storedAs("held", null);
+        when(applicationDAO.findById(APP)).thenReturn(null);
+        when(applicationDAO.releaseVersion(VERSION, "immediate", 3)).thenReturn(Arrays.asList(5));
+
+        ReleaseSummary result = summary(resource.releaseApplicationVersion(VERSION, mode("immediate")));
+
+        assertEquals(0, result.getPushFailed());
+        verify(pushService).notifyAllDevicesOnForceUpdate(eq(5), anyString());
+    }
 }

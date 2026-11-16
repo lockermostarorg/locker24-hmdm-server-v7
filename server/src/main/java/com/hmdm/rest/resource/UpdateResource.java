@@ -187,8 +187,10 @@ public class UpdateResource {
         movedByApp.forEach((app, ids) -> {
             if (!ids.isEmpty()) {
                 final int devices = ids.stream().mapToInt(id -> devicesByConfiguration.getOrDefault(id, 0)).sum();
-                logger.info("Release app={} mode=schedule by={} configurations={} devices={} configurationIds={}",
-                        app.replace(' ', '|'), SecurityContext.get().getCurrentUserName(), ids.size(), devices, ids);
+                final int space = app.indexOf(' ');
+                logger.info("Release app={} version={} mode=schedule by={} configurations={} devices={} configurationIds={}",
+                        app.substring(0, space), app.substring(space + 1), SecurityContext.get().getCurrentUserName(),
+                        ids.size(), devices, ids);
             }
         });
 

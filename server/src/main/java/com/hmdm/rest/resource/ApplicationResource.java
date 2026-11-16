@@ -526,11 +526,10 @@ public class ApplicationResource {
     }
 
     private static String effectiveMode(ApplicationVersion saved, String requestedMode) {
-        if (!FollowLatestRules.MODE_HOLD.equals(requestedMode)) {
-            return requestedMode;
+        if (saved != null && FollowLatestRules.STATE_HELD.equals(saved.getReleaseState())) {
+            return FollowLatestRules.MODE_HOLD;
         }
-        final boolean released = saved != null && !FollowLatestRules.STATE_HELD.equals(saved.getReleaseState());
-        return released ? FollowLatestRules.MODE_SCHEDULE : FollowLatestRules.MODE_HOLD;
+        return FollowLatestRules.MODE_HOLD.equals(requestedMode) ? FollowLatestRules.MODE_SCHEDULE : requestedMode;
     }
 
     private ReleaseSummary releaseAndNotify(ApplicationVersion version, String mode, List<Integer> moved) {
@@ -538,12 +537,13 @@ public class ApplicationResource {
         int failed = 0;
         final Application application = version == null ? null : applicationDAO.findById(version.getApplicationId());
         if (moved != null && !FollowLatestRules.MODE_HOLD.equals(mode)) {
-            final String payload = PushService.forceUpdatePayload(application == null ? null : application.getPkg(),
-                    version == null ? null : version.getVersion(), System.currentTimeMillis());
             for (Integer configurationId : moved) {
                 try {
                     devices += this.pushService.notifyAllDevicesOnUpdate(configurationId);
                     if (FollowLatestRules.MODE_IMMEDIATE.equals(mode)) {
+                        final String payload = PushService.forceUpdatePayload(
+                                application == null ? null : application.getPkg(),
+                                version == null ? null : version.getVersion(), System.currentTimeMillis());
                         this.pushService.notifyAllDevicesOnForceUpdate(configurationId, payload);
                     }
                 } catch (Exception e) {

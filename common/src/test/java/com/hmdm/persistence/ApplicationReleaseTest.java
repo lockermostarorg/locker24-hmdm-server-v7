@@ -627,7 +627,7 @@ public class ApplicationReleaseTest {
         File files = Files.createTempDirectory("files").toFile();
         File stored = new File(files, "c/a.apk");
         stored.getParentFile().mkdirs();
-        Files.write(stored.toPath(), new byte[]{1, 2, 3});
+        Files.write(stored.toPath(), new byte[]{9, 9, 9});
         existingVersion(5, "http://localhost/files/c/a.apk");
         File tmp = File.createTempFile("upload", ".apk");
         ApplicationDAO fileDao = fileDao(files, mock(APKFileAnalyzer.class));
@@ -638,6 +638,42 @@ public class ApplicationReleaseTest {
         assertTrue(stored.exists());
         assertEquals(false, tmp.exists());
         verify(mapper, never()).insertApplicationVersion(any(ApplicationVersion.class));
+    }
+
+    @Test
+    public void sameCodeAndSizeButDifferentBytesIsRefused() throws Exception {
+        File files = Files.createTempDirectory("files").toFile();
+        File stored = new File(files, "c/a.apk");
+        stored.getParentFile().mkdirs();
+        Files.write(stored.toPath(), new byte[]{1, 2, 3});
+        existingVersion(5, "http://localhost/files/c/a.apk");
+        File tmp = File.createTempFile("upload", ".apk");
+        ApplicationDAO fileDao = fileDao(files, mock(APKFileAnalyzer.class));
+
+        try {
+            fileDao.insertApplicationVersionWithRelease(uploadedFile(tmp, new byte[]{9, 9, 9}), "schedule", USER);
+            fail();
+        } catch (VersionExistsException expected) {
+            assertEquals(3, stored.length());
+            verify(mapper, never()).insertApplicationVersion(any(ApplicationVersion.class));
+        }
+    }
+
+    @Test
+    public void anArchitectureUploadWithAnotherVersionCodeIsRefused() {
+        existingVersion(5, "http://localhost/files/a.apk");
+        ApplicationVersion incoming = newVersion();
+        incoming.setArch("arm64-v8a");
+        incoming.setSplit(true);
+        incoming.setVersionCode(6);
+        incoming.setUrlArm64("http://localhost/files/a64.apk");
+
+        try {
+            dao.insertApplicationVersionWithRelease(incoming, "schedule", USER);
+            fail();
+        } catch (VersionExistsException expected) {
+            verify(mapper, never()).updateApplicationVersion(any(ApplicationVersion.class));
+        }
     }
 
     @Test

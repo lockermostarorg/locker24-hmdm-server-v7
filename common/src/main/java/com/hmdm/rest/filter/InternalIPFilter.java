@@ -59,7 +59,7 @@ public class InternalIPFilter implements Filter {
         filterChain.doFilter(servletRequest, servletResponse);
     }
 
-    boolean isAllowed(String remoteAddr) {
+    public boolean isAllowed(String remoteAddr) {
         if (remoteAddr == null || remoteAddr.isBlank() || !isLiteral(remoteAddr)) {
             return false;
         }

@@ -25,6 +25,7 @@ import com.hmdm.persistence.AlertDAO;
 import com.hmdm.persistence.UnsecureDAO;
 import com.hmdm.persistence.domain.Alert;
 import com.hmdm.persistence.domain.Device;
+import com.hmdm.rest.filter.InternalIPFilter;
 import com.hmdm.rest.json.AlertFilter;
 import com.hmdm.rest.json.PaginatedData;
 import com.hmdm.rest.json.Response;
@@ -38,9 +39,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.StreamingOutput;
 import org.glassfish.jersey.media.multipart.ContentDisposition;
@@ -79,6 +83,8 @@ public class InternalAlertResource {
      */
     private UnsecureDAO unsecureDAO;
 
+    private InternalIPFilter internalIPFilter = new InternalIPFilter();
+
     /**
      * <p>A constructor required by Swagger.</p>
      */
@@ -91,9 +97,11 @@ public class InternalAlertResource {
      */
     @Inject
     public InternalAlertResource(AlertDAO alertDAO,
-                                 UnsecureDAO unsecureDAO) {
+                                 UnsecureDAO unsecureDAO,
+                                 InternalIPFilter internalIPFilter) {
         this.alertDAO = alertDAO;
         this.unsecureDAO = unsecureDAO;
+        this.internalIPFilter = internalIPFilter;
     }
 
     /**
@@ -114,8 +122,12 @@ public class InternalAlertResource {
     )
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    public Response triggerAlert(Alert alert) {
-        // This is an internal method available on localhost only, so no permission checks
+    public Response triggerAlert(Alert alert, @Context HttpServletRequest request) {
+        // Checked here as well as in InternalIPFilter: the Guice filter matches the raw URI, so
+        // /rest/internal;x=1/alert would skip it while Jersey still routes here
+        if (request == null || !internalIPFilter.isAllowed(request.getRemoteAddr())) {
+            throw new ForbiddenException();
+        }
         try {
             alert.setCreateTime(System.currentTimeMillis());
             if (alert.getDeviceId() != null) {

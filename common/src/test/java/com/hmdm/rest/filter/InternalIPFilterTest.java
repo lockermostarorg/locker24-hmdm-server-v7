@@ -62,7 +62,7 @@ public class InternalIPFilterTest {
     @Test
     public void loopbackPasses() throws Exception {
         InternalIPFilter filter = new InternalIPFilter("127.0.0.1");
-        for (String remote : new String[]{"127.0.0.1", "::1", "0:0:0:0:0:0:0:1", "127.0.0.2"}) {
+        for (String remote : new String[]{"127.0.0.1", "::1", "0:0:0:0:0:0:0:1", "127.0.0.2", "::ffff:127.0.0.1"}) {
             Outcome o = run(filter, remote, "127.0.0.1", Map.of());
             assertTrue(remote, o.reached.get());
             assertEquals(remote, 0, o.status.get());

@@ -37,6 +37,8 @@ test/
 !plugins/**/src/test/**
 !common/src/test/
 !common/src/test/**
+!server/src/test/
+!server/src/test/**
 webtarget/
 
 # Native federation files

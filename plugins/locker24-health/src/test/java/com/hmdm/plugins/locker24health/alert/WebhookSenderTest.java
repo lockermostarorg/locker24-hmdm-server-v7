@@ -132,4 +132,41 @@ public class WebhookSenderTest {
         assertTrue(cancelled.get());
         assertTrue(d.getBody().toCompletableFuture().isDone());
     }
+
+    private static WebhookSender resolvingTo(String... ips) {
+        return new WebhookSender(Duration.ofSeconds(1), Duration.ofSeconds(2), host -> {
+            java.net.InetAddress[] out = new java.net.InetAddress[ips.length];
+            for (int i = 0; i < ips.length; i++) {
+                out[i] = java.net.InetAddress.getByName(ips[i]);
+            }
+            return out;
+        });
+    }
+
+    @Test
+    public void refusesHostsThatResolveToInternalAddresses() throws Exception {
+        for (String ip : new String[]{"127.0.0.1", "10.1.2.3", "192.168.0.9", "169.254.169.254", "::1", "fd00::1", "0.0.0.0"}) {
+            try {
+                resolvingTo(ip).send("https://hooks.example/secret-token", "{}");
+                fail("expected a refusal for " + ip);
+            } catch (IOException e) {
+                assertFalse(e.getMessage().contains("secret-token"));
+                assertFalse(e.getMessage().contains(ip));
+            }
+        }
+    }
+
+    @Test
+    public void refusesWhenAnyResolvedAddressIsInternal() throws Exception {
+        try {
+            resolvingTo("8.8.8.8", "10.0.0.1").send("https://hooks.example/x", "{}");
+            fail("expected a refusal");
+        } catch (IOException expected) {
+        }
+    }
+
+    @Test
+    public void publicResolutionPassesTheTargetCheck() throws Exception {
+        resolvingTo("8.8.8.8").checkTarget(URI.create("https://hooks.example/x"));
+    }
 }

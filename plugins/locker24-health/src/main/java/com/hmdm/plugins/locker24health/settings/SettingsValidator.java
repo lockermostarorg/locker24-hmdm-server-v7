@@ -39,5 +39,8 @@ public final class SettingsValidator {
                 || uri.getRawUserInfo() != null) {
             throw new IllegalArgumentException("webhook must be an https url");
         }
+        if (NetworkGuard.isBlockedHost(uri.getHost())) {
+            throw new IllegalArgumentException("webhook host not allowed");
+        }
     }
 }

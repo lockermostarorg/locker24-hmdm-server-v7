@@ -126,16 +126,24 @@ q "INSERT INTO locker24_device_health_history (device_id, device_ts, received_at
    (1, 6, 9000, 9000, 40, TRUE, 33, -63, TRUE),
    (2, 1, 2000, 2000, 90, TRUE, 30, -60, TRUE)" >/dev/null
 
-hp() { run selectHistoryPoints -v deviceId="$1" -v from="$2" -v to="$3" -v maxAgeMs=172800000 | awk -F'|' '{print $1}' | paste -sd, -; }
+hp() { run selectHistoryPoints -v deviceId="$1" -v from="$2" -v to="$3" -v bucketMs=1 -v maxAgeMs=172800000 | awk -F'|' '{print $1}' | paste -sd, -; }
 expect "history points newest first, in range" "3000,2000,1000" "$(hp 1 1000 3000)"
 expect "history points exclude clock-clamped (1970) reports, keep a 47.99h-old one" "9000,3000,2000,1000,-172795000" "$(hp 1 -999999999999 10000)"
 expect "history points are per device" "2000" "$(hp 2 0 10000)"
-got="$(run selectHistoryPoints -v deviceId=1 -v from=1000 -v to=1000 -v maxAgeMs=172800000)"
+got="$(run selectHistoryPoints -v deviceId=1 -v from=1000 -v to=1000 -v bucketMs=1 -v maxAgeMs=172800000)"
 expect "history point columns" "1000|50|t|30|-60|t" "$got"
 
-rt() { run selectReceivedTimes -v deviceId="$1" -v from="$2" -v to="$3" | paste -sd, -; }
-expect "received times are distinct and ascending" "1000,2000,3000,4000,9000" "$(rt 1 0 10000)"
-expect "received times respect the range" "2000,3000" "$(rt 1 2000 3000)"
+gaps() { run selectOfflineGaps -v deviceId="$1" -v from="$2" -v to="$3" -v threshold=${GAP_T:-10000} | paste -sd, -; }
+GAP_T=2000
+expect "gaps over the threshold, newest first, only those" "4000|9000" "$(gaps 1 0 10000)"
+GAP_T=500
+expect "gap uses the last sample before the range as its start" "3000|4000" "$(gaps 1 3500 5000)"
+GAP_T=2000
+expect "no gaps in a quiet range" "" "$(gaps 1 0 3000)"
+expect "bounds in range" "2000|9000" "$(run selectReceivedBounds -v deviceId=1 -v from=2000 -v to=9500)"
+expect "bounds of an empty range are null" "|" "$(run selectReceivedBounds -v deviceId=1 -v from=20000 -v to=30000)"
+expect "latest received for the fallback" "$NOW" "$(run selectLatestReceived -v deviceId=1)"
+expect "latest received of an unknown device" "" "$(run selectLatestReceived -v deviceId=99)"
 expect "last received before" "3000" "$(run selectLastReceivedBefore -v deviceId=1 -v before=4000)"
 expect "last received before the first is null" "" "$(run selectLastReceivedBefore -v deviceId=1 -v before=1000)"
 
@@ -157,6 +165,31 @@ up "'https://z.example/h'" NULL true false >/dev/null
 expect "insert without a zone falls back to Europe/Sarajevo" "Europe/Sarajevo" "$(q "SELECT time_zone FROM locker24_health_settings WHERE customer_id = 1")"
 q "INSERT INTO customers VALUES (3)" >/dev/null
 expect "settings are per customer" "" "$(run selectCustomerSettings -v customerId=3)"
+
+B=1000000000000
+TO=$((B + 2592000000))
+q "INSERT INTO locker24_device_health_history (device_id, device_ts, received_at, measured_at, battery_pct, charging, temperature_c, rssi_dbm, kiosk_running)
+   SELECT 5, i, $B + i * 60000, $B + i * 60000, 50 + (i % 7), TRUE, 30 + (i % 3), -60 - (i % 5), i <> 10
+   FROM generate_series(0::bigint, 43200) i WHERE i NOT BETWEEN 14400 AND 14520" >/dev/null
+q "INSERT INTO locker24_device_health_history (device_id, device_ts, received_at, measured_at) VALUES (5, 99999, $B - 60000, $B - 60000)" >/dev/null
+q "ANALYZE" >/dev/null
+
+BUCKET=2592000
+POINTS="$(run selectHistoryPoints -v deviceId=5 -v from=$B -v to=$TO -v bucketMs=$BUCKET -v maxAgeMs=172800000)"
+N="$(echo "$POINTS" | wc -l | tr -d ' ')"
+expect "30 days at 1 min: at most 1000 buckets (the 2 h outage empties 2 or 3)" "ok" "$([ "$N" -le 1000 ] && [ "$N" -ge 996 ] && echo ok || echo "$N")"
+expect "30 days at 1 min: newest bucket holds the newest sample" "$TO" "$(echo "$POINTS" | head -1 | awk -F'|' '{print $1}')"
+expect "30 days at 1 min: oldest bucket present, last sample of bucket 0" "$((B + 43 * 60000))" "$(echo "$POINTS" | tail -1 | awk -F'|' '{print $1}')"
+expect "bucket 0 is worst-of: min battery, kiosk down (i=10), max temp" "50|f|32" "$(echo "$POINTS" | tail -1 | awk -F'|' '{print $2 "|" $6 "|" $4}')"
+expect "a bucket without the outage keeps kiosk up" "t" "$(echo "$POINTS" | head -2 | tail -1 | awk -F'|' '{print $6}')"
+GAPS="$(run selectOfflineGaps -v deviceId=5 -v from=$B -v to=$TO -v threshold=600000)"
+expect "30 days at 1 min: exactly the one real outage, no false band" "$((B + 14399 * 60000))|$((B + 14521 * 60000))" "$GAPS"
+expect "30 days at 1 min: first and last received are both present" "$B|$TO" "$(run selectReceivedBounds -v deviceId=5 -v from=$B -v to=$TO)"
+expect "sample before the range is found" "$((B - 60000))" "$(run selectLastReceivedBefore -v deviceId=5 -v before=$B)"
+START=$(date +%s)
+run selectOfflineGaps -v deviceId=5 -v from=$B -v to=$TO -v threshold=600000 >/dev/null
+run selectHistoryPoints -v deviceId=5 -v from=$B -v to=$TO -v bucketMs=$BUCKET -v maxAgeMs=172800000 >/dev/null
+expect "both 30-day queries finish well inside the 30 s timeout" "ok" "$([ $(( $(date +%s) - START )) -lt 10 ] && echo ok || echo slow)"
 
 if [ "$FAILS" -ne 0 ]; then
   echo "$FAILS check(s) failed"

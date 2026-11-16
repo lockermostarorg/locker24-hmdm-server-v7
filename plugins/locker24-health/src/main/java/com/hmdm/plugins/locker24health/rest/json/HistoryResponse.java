@@ -8,6 +8,7 @@ public class HistoryResponse {
     private long from;
     private long to;
     private long bucketMs;
+    private boolean truncated;
     private List<Point> points = new ArrayList<>();
     private List<Period> offlinePeriods = new ArrayList<>();
 
@@ -33,6 +34,14 @@ public class HistoryResponse {
 
     public void setBucketMs(long bucketMs) {
         this.bucketMs = bucketMs;
+    }
+
+    public boolean isTruncated() {
+        return truncated;
+    }
+
+    public void setTruncated(boolean truncated) {
+        this.truncated = truncated;
     }
 
     public List<Point> getPoints() {

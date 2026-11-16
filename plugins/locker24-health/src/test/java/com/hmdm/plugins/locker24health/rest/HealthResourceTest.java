@@ -6,6 +6,10 @@ import com.hmdm.persistence.domain.UserRole;
 import com.hmdm.persistence.domain.UserRolePermission;
 import com.hmdm.plugins.locker24health.persistence.HealthDAO;
 import com.hmdm.plugins.locker24health.persistence.domain.HistoryRow;
+import com.hmdm.plugins.locker24health.persistence.domain.GapRow;
+import com.hmdm.plugins.locker24health.persistence.domain.ReceivedBounds;
+import com.hmdm.plugins.locker24health.persistence.mapper.HealthMapper;
+import com.hmdm.plugins.locker24health.rest.json.FleetResponse;
 import com.hmdm.plugins.locker24health.rest.json.FleetRow;
 import com.hmdm.plugins.locker24health.rest.json.HealthSettings;
 import com.hmdm.plugins.locker24health.rest.json.HistoryResponse;
@@ -156,7 +160,21 @@ public class HealthResourceTest {
         List<FleetRow> rows = Collections.singletonList(new FleetRow());
         when(dao.loadFleet(3, 7, 9, "red", "Tab A9")).thenReturn(rows);
         Response r = resource.devices(9, "red", "Tab A9");
-        assertEquals(rows, r.getData());
+        assertEquals(rows, ((FleetResponse) r.getData()).getDevices());
+        assertFalse(((FleetResponse) r.getData()).isTruncated());
+    }
+
+    @Test
+    public void fleetOverTheCapIsTrimmedAndFlagged() {
+        login(true, PLUGIN);
+        List<FleetRow> rows = new ArrayList<>();
+        for (int i = 0; i <= HealthMapper.FLEET_LIMIT; i++) {
+            rows.add(new FleetRow());
+        }
+        when(dao.loadFleet(3, 7, null, null, null)).thenReturn(rows);
+        FleetResponse out = (FleetResponse) resource.devices(null, null, null).getData();
+        assertEquals(HealthMapper.FLEET_LIMIT, out.getDevices().size());
+        assertTrue(out.isTruncated());
     }
 
     @Test
@@ -179,8 +197,8 @@ public class HealthResourceTest {
         login(false, PLUGIN);
         when(dao.canAccessDevice(3, 7, 5)).thenReturn(false);
         assertDenied(resource.history(5, 24));
-        verify(dao, never()).historyPoints(anyInt(), anyLong(), anyLong());
-        verify(dao, never()).receivedTimes(anyInt(), anyLong(), anyLong());
+        verify(dao, never()).historyPoints(anyInt(), anyLong(), anyLong(), anyLong());
+        verify(dao, never()).offlineGaps(anyInt(), anyLong(), anyLong(), anyLong());
     }
 
     private void accessible() {
@@ -192,11 +210,11 @@ public class HealthResourceTest {
         login(true, PLUGIN);
         accessible();
         resource.history(5, 99999);
-        verify(dao).historyPoints(5, NOW - 720 * HOUR, NOW);
+        verify(dao).historyPoints(5, NOW - 720 * HOUR, NOW, 2_592_000L);
         resource.history(5, 0);
-        verify(dao).historyPoints(5, NOW - HOUR, NOW);
+        verify(dao).historyPoints(5, NOW - HOUR, NOW, 3_600L);
         resource.history(5, null);
-        verify(dao).historyPoints(5, NOW - 24 * HOUR, NOW);
+        verify(dao).historyPoints(5, NOW - 24 * HOUR, NOW, 86_400L);
     }
 
     private static HistoryRow point(long t, int battery) {
@@ -210,40 +228,68 @@ public class HealthResourceTest {
         return r;
     }
 
+    private static ReceivedBounds bounds(Long first, Long last) {
+        ReceivedBounds b = new ReceivedBounds();
+        b.setFirst(first);
+        b.setLast(last);
+        return b;
+    }
+
+    private static GapRow gap(long from, long to) {
+        GapRow g = new GapRow();
+        g.setFromMs(from);
+        g.setToMs(to);
+        return g;
+    }
+
     @Test
     public void historyReturnsTypedPointsAndOfflinePeriods() {
         login(true, PLUGIN);
         accessible();
         long from = NOW - 2 * HOUR;
-        when(dao.historyPoints(5, from, NOW)).thenReturn(Arrays.asList(point(from + 60_000, 50), point(from + 120_000, 49)));
-        when(dao.receivedTimes(5, from, NOW)).thenReturn(Arrays.asList(from + 60_000, from + 120_000));
+        long bucket = 7_200L;
+        when(dao.historyPoints(5, from, NOW, bucket)).thenReturn(Arrays.asList(point(from + 60_000, 50), point(from + 120_000, 49)));
+        when(dao.offlineGaps(eq(5), eq(from), eq(NOW), anyLong())).thenReturn(Arrays.asList(gap(from - 60_000, from + 60_000)));
+        when(dao.receivedBounds(5, from, NOW)).thenReturn(bounds(from + 60_000L, NOW - 60_000L));
         when(dao.lastReceivedBefore(5, from)).thenReturn(from - 60_000);
         HistoryResponse h = (HistoryResponse) resource.history(5, 2).getData();
         assertEquals(2, h.getPoints().size());
         assertEquals(from + 60_000, h.getPoints().get(0).getT());
         assertEquals(Integer.valueOf(50), h.getPoints().get(0).getBatteryPct());
         assertEquals(1, h.getOfflinePeriods().size());
-        assertEquals(from + 120_000, h.getOfflinePeriods().get(0).getFrom());
-        assertEquals(NOW, h.getOfflinePeriods().get(0).getTo());
-        assertEquals(0L, h.getBucketMs());
+        assertEquals(from, h.getOfflinePeriods().get(0).getFrom());
+        assertEquals(from + 60_000, h.getOfflinePeriods().get(0).getTo());
+        assertEquals(bucket, h.getBucketMs());
+        assertFalse(h.isTruncated());
     }
 
     @Test
     public void deviceWithNoReportsEverHasNoOfflinePeriods() {
         login(true, PLUGIN);
         accessible();
-        when(dao.receivedTimes(5, NOW - 24 * HOUR, NOW)).thenReturn(Collections.<Long>emptyList());
-        when(dao.lastReceivedBefore(5, NOW - 24 * HOUR)).thenReturn(null);
+        when(dao.lastReceivedBefore(anyInt(), anyLong())).thenReturn(null);
+        when(dao.latestReceived(5)).thenReturn(null);
         HistoryResponse h = (HistoryResponse) resource.history(5, 24).getData();
         assertTrue(h.getOfflinePeriods().isEmpty());
         assertTrue(h.getPoints().isEmpty());
     }
 
     @Test
+    public void deviceWhosHistoryWasPurgedFallsBackToItsLatestReport() {
+        login(true, PLUGIN);
+        accessible();
+        when(dao.lastReceivedBefore(anyInt(), anyLong())).thenReturn(null);
+        when(dao.latestReceived(5)).thenReturn(NOW - 40 * 24 * HOUR);
+        HistoryResponse h = (HistoryResponse) resource.history(5, 24).getData();
+        assertEquals(1, h.getOfflinePeriods().size());
+        assertEquals(NOW - 24 * HOUR, h.getOfflinePeriods().get(0).getFrom());
+        assertEquals(NOW, h.getOfflinePeriods().get(0).getTo());
+    }
+
+    @Test
     public void deviceThatReportedEarlierButNotInTheRangeIsOfflineForTheRange() {
         login(true, PLUGIN);
         accessible();
-        when(dao.receivedTimes(5, NOW - 24 * HOUR, NOW)).thenReturn(Collections.<Long>emptyList());
         when(dao.lastReceivedBefore(5, NOW - 24 * HOUR)).thenReturn(NOW - 30 * HOUR);
         HistoryResponse h = (HistoryResponse) resource.history(5, 24).getData();
         assertEquals(1, h.getOfflinePeriods().size());
@@ -252,33 +298,37 @@ public class HealthResourceTest {
     }
 
     @Test
-    public void firstEverReportDoesNotInventAnOfflineStretchBeforeIt() {
+    public void tooManyRowsOrGapsSetTruncated() {
         login(true, PLUGIN);
         accessible();
-        long from = NOW - 24 * HOUR;
-        List<Long> received = new ArrayList<>();
-        for (int i = 12; i >= 1; i--) {
-            received.add(NOW - i * 300_000L);
+        List<HistoryRow> rows = new ArrayList<>();
+        for (int i = 0; i <= HealthMapper.POINT_LIMIT; i++) {
+            rows.add(point(NOW - 1000 + i, 50));
         }
-        when(dao.receivedTimes(5, from, NOW)).thenReturn(received);
-        when(dao.lastReceivedBefore(5, from)).thenReturn(null);
+        when(dao.historyPoints(5, NOW - 24 * HOUR, NOW, 86_400L)).thenReturn(rows);
         HistoryResponse h = (HistoryResponse) resource.history(5, 24).getData();
-        assertTrue(h.getOfflinePeriods().isEmpty());
+        assertTrue(h.isTruncated());
+        assertEquals(HealthMapper.POINT_LIMIT, h.getPoints().size());
+        assertEquals(NOW - 1000 + HealthMapper.POINT_LIMIT, h.getPoints().get(HealthMapper.POINT_LIMIT - 1).getT());
+
+        List<GapRow> gaps = new ArrayList<>();
+        for (int i = 0; i <= HealthMapper.GAP_LIMIT; i++) {
+            gaps.add(gap(i, i + 1));
+        }
+        when(dao.historyPoints(5, NOW - 24 * HOUR, NOW, 86_400L)).thenReturn(new ArrayList<HistoryRow>());
+        when(dao.offlineGaps(eq(5), anyLong(), anyLong(), anyLong())).thenReturn(gaps);
+        when(dao.receivedBounds(5, NOW - 24 * HOUR, NOW)).thenReturn(bounds(1L, NOW));
+        assertTrue(((HistoryResponse) resource.history(5, 24).getData()).isTruncated());
     }
 
     @Test
-    public void largeHistoryIsDownsampled() {
+    public void bucketCountNeverExceedsTheLimit() {
         login(true, PLUGIN);
         accessible();
-        long from = NOW - 720 * HOUR;
-        List<HistoryRow> rows = new ArrayList<>();
-        for (int i = 0; i < 5000; i++) {
-            rows.add(point(from + i * 300_000L, 50));
+        for (int h = 1; h <= 720; h++) {
+            long range = h * HOUR;
+            long bucket = Math.max(1L, (range + HealthResource.MAX_POINTS - 1) / HealthResource.MAX_POINTS);
+            assertTrue(h + "h", (range - 1) / bucket + 1 <= HealthResource.MAX_POINTS);
         }
-        when(dao.historyPoints(5, from, NOW)).thenReturn(rows);
-        when(dao.receivedTimes(5, from, NOW)).thenReturn(Collections.<Long>emptyList());
-        HistoryResponse h = (HistoryResponse) resource.history(5, 720).getData();
-        assertTrue(h.getPoints().size() <= HealthResource.MAX_POINTS);
-        assertTrue(h.getBucketMs() > 0);
     }
 }

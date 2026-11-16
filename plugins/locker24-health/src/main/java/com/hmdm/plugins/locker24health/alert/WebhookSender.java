@@ -1,9 +1,12 @@
 package com.hmdm.plugins.locker24health.alert;
 
 import com.google.inject.Singleton;
+import com.hmdm.plugins.locker24health.settings.NetworkGuard;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -27,15 +30,25 @@ public class WebhookSender {
 
     private final Duration timeout;
     private final Duration totalTimeout;
+    private final Resolver resolver;
     private volatile HttpClient client;
+
+    interface Resolver {
+        InetAddress[] resolve(String host) throws UnknownHostException;
+    }
 
     public WebhookSender() {
         this(TIMEOUT, TOTAL_TIMEOUT);
     }
 
     WebhookSender(Duration timeout, Duration totalTimeout) {
+        this(timeout, totalTimeout, InetAddress::getAllByName);
+    }
+
+    WebhookSender(Duration timeout, Duration totalTimeout, Resolver resolver) {
         this.timeout = timeout;
         this.totalTimeout = totalTimeout;
+        this.resolver = resolver;
     }
 
     public int send(String url, String body) throws IOException, InterruptedException {
@@ -43,7 +56,26 @@ public class WebhookSender {
         if (!"https".equalsIgnoreCase(uri.getScheme())) {
             throw new IllegalArgumentException("webhook must use https");
         }
+        checkTarget(uri);
         return post(uri, body);
+    }
+
+    void checkTarget(URI uri) throws IOException {
+        String host = uri.getHost();
+        if (host == null) {
+            throw new IOException("webhook target not allowed");
+        }
+        InetAddress[] addresses;
+        try {
+            addresses = resolver.resolve(host);
+        } catch (UnknownHostException e) {
+            throw new IOException("webhook host did not resolve");
+        }
+        for (InetAddress a : addresses) {
+            if (NetworkGuard.isBlocked(a)) {
+                throw new IOException("webhook target not allowed");
+            }
+        }
     }
 
     int post(URI uri, String body) throws IOException, InterruptedException {

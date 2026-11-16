@@ -8,6 +8,8 @@ import com.hmdm.plugins.locker24health.alert.OpenAlert;
 import com.hmdm.plugins.locker24health.persistence.domain.AlertRow;
 import com.hmdm.plugins.locker24health.persistence.domain.EvalRow;
 import com.hmdm.plugins.locker24health.persistence.domain.FleetRecord;
+import com.hmdm.plugins.locker24health.persistence.domain.GapRow;
+import com.hmdm.plugins.locker24health.persistence.domain.ReceivedBounds;
 import com.hmdm.plugins.locker24health.persistence.domain.HistoryRow;
 import com.hmdm.plugins.locker24health.persistence.domain.LatestRow;
 import com.hmdm.plugins.locker24health.persistence.domain.SettingsRow;
@@ -93,18 +95,27 @@ public class HealthDAO {
         return mapper.selectDeviceAccess(customerId, userId, deviceId) != null;
     }
 
-    public List<HistoryRow> historyPoints(int deviceId, long from, long to) {
-        List<HistoryRow> rows = new ArrayList<>(mapper.selectHistoryPoints(deviceId, from, to, ClockCorrection.MAX_AGE_MS));
+    public List<HistoryRow> historyPoints(int deviceId, long from, long to, long bucketMs) {
+        List<HistoryRow> rows = new ArrayList<>(
+                mapper.selectHistoryPoints(deviceId, from, to, bucketMs, ClockCorrection.MAX_AGE_MS));
         Collections.reverse(rows);
         return rows;
     }
 
-    public List<Long> receivedTimes(int deviceId, long from, long to) {
-        return mapper.selectReceivedTimes(deviceId, from, to);
+    public List<GapRow> offlineGaps(int deviceId, long from, long to, long threshold) {
+        return mapper.selectOfflineGaps(deviceId, from, to, threshold);
+    }
+
+    public ReceivedBounds receivedBounds(int deviceId, long from, long to) {
+        return mapper.selectReceivedBounds(deviceId, from, to);
     }
 
     public Long lastReceivedBefore(int deviceId, long before) {
         return mapper.selectLastReceivedBefore(deviceId, before);
+    }
+
+    public Long latestReceived(int deviceId) {
+        return mapper.selectLatestReceived(deviceId);
     }
 
     public HealthSettings loadSettings(int customerId) {

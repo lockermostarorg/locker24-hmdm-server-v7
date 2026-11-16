@@ -3,8 +3,10 @@ package com.hmdm.plugins.locker24health.persistence.mapper;
 import com.hmdm.plugins.locker24health.persistence.domain.AlertRow;
 import com.hmdm.plugins.locker24health.persistence.domain.EvalRow;
 import com.hmdm.plugins.locker24health.persistence.domain.FleetRecord;
+import com.hmdm.plugins.locker24health.persistence.domain.GapRow;
 import com.hmdm.plugins.locker24health.persistence.domain.HistoryRow;
 import com.hmdm.plugins.locker24health.persistence.domain.LatestRow;
+import com.hmdm.plugins.locker24health.persistence.domain.ReceivedBounds;
 import com.hmdm.plugins.locker24health.persistence.domain.SettingsRow;
 import com.hmdm.plugins.locker24health.persistence.domain.SettingsView;
 import org.apache.ibatis.annotations.Delete;
@@ -166,7 +168,8 @@ public interface HealthMapper {
             "WHERE dg.deviceId = d.id)) ";
 
     int FLEET_LIMIT = 5000;
-    int HISTORY_ROW_LIMIT = 20000;
+    int POINT_LIMIT = 2000;
+    int GAP_LIMIT = 2000;
 
     @Select("SELECT d.id AS deviceId, d.number AS number, d.description AS description, " +
             "d.configurationId AS configurationId, c.name AS configurationName, " +
@@ -192,7 +195,7 @@ public interface HealthMapper {
             "AND (CAST(#{status,jdbcType=VARCHAR} AS VARCHAR) IS NULL " +
             "OR CASE WHEN l.device_id IS NULL OR l.evaluated_at IS NULL THEN 'unknown' ELSE l.status END " +
             "= CAST(#{status,jdbcType=VARCHAR} AS VARCHAR)) " +
-            "ORDER BY d.number, d.id LIMIT " + FLEET_LIMIT)
+            "ORDER BY d.number, d.id LIMIT " + (FLEET_LIMIT + 1))
     @Options(timeout = TIMEOUT_SECONDS)
     List<FleetRecord> selectFleet(@Param("customerId") int customerId,
                                   @Param("userId") int userId,
@@ -209,25 +212,46 @@ public interface HealthMapper {
                                @Param("userId") int userId,
                                @Param("deviceId") int deviceId);
 
-    @Select("SELECT measured_at AS measuredAt, battery_pct AS batteryPct, charging AS charging, " +
-            "temperature_c AS temperatureC, rssi_dbm AS rssiDbm, kiosk_running AS kioskRunning " +
+    @Select("SELECT MAX(measured_at) AS measuredAt, MIN(battery_pct) AS batteryPct, bool_and(charging) AS charging, " +
+            "MAX(temperature_c) AS temperatureC, MIN(rssi_dbm) AS rssiDbm, bool_and(kiosk_running) AS kioskRunning " +
             "FROM locker24_device_health_history " +
             "WHERE device_id = #{deviceId} AND measured_at >= #{from} AND measured_at <= #{to} " +
             "AND received_at - measured_at < #{maxAgeMs} " +
-            "ORDER BY measured_at DESC LIMIT " + HISTORY_ROW_LIMIT)
+            "GROUP BY (LEAST(measured_at, #{to} - 1) - #{from}) / #{bucketMs} " +
+            "ORDER BY MAX(measured_at) DESC LIMIT " + (POINT_LIMIT + 1))
     @Options(timeout = TIMEOUT_SECONDS)
     List<HistoryRow> selectHistoryPoints(@Param("deviceId") int deviceId,
                                          @Param("from") long from,
                                          @Param("to") long to,
+                                         @Param("bucketMs") long bucketMs,
                                          @Param("maxAgeMs") long maxAgeMs);
 
-    @Select("SELECT DISTINCT received_at FROM locker24_device_health_history " +
+    @Select("WITH s AS (" +
+            "SELECT DISTINCT received_at AS r FROM locker24_device_health_history " +
             "WHERE device_id = #{deviceId} AND received_at >= #{from} AND received_at <= #{to} " +
-            "ORDER BY received_at LIMIT " + HISTORY_ROW_LIMIT)
+            "UNION " +
+            "SELECT MAX(received_at) FROM locker24_device_health_history " +
+            "WHERE device_id = #{deviceId} AND received_at < #{from}), " +
+            "g AS (SELECT r, lag(r) OVER (ORDER BY r) AS prev FROM s WHERE r IS NOT NULL) " +
+            "SELECT prev AS fromMs, r AS toMs FROM g " +
+            "WHERE prev IS NOT NULL AND r - prev > #{threshold} " +
+            "ORDER BY r DESC LIMIT " + (GAP_LIMIT + 1))
     @Options(timeout = TIMEOUT_SECONDS)
-    List<Long> selectReceivedTimes(@Param("deviceId") int deviceId,
+    List<GapRow> selectOfflineGaps(@Param("deviceId") int deviceId,
                                    @Param("from") long from,
-                                   @Param("to") long to);
+                                   @Param("to") long to,
+                                   @Param("threshold") long threshold);
+
+    @Select("SELECT MIN(received_at) AS first, MAX(received_at) AS last FROM locker24_device_health_history " +
+            "WHERE device_id = #{deviceId} AND received_at >= #{from} AND received_at <= #{to}")
+    @Options(timeout = TIMEOUT_SECONDS)
+    ReceivedBounds selectReceivedBounds(@Param("deviceId") int deviceId,
+                                        @Param("from") long from,
+                                        @Param("to") long to);
+
+    @Select("SELECT received_at FROM locker24_device_health_latest WHERE device_id = #{deviceId}")
+    @Options(timeout = TIMEOUT_SECONDS)
+    Long selectLatestReceived(@Param("deviceId") int deviceId);
 
     @Select("SELECT MAX(received_at) FROM locker24_device_health_history " +
             "WHERE device_id = #{deviceId} AND received_at < #{before}")

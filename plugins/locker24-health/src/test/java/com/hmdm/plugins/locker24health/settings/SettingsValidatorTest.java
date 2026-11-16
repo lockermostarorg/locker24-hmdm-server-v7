@@ -59,4 +59,21 @@ public class SettingsValidatorTest {
         rejected(s(null, ""));
         rejected(s(null, "+02:00"));
     }
+
+    @Test
+    public void internalAddressesAreRejected() {
+        for (String host : new String[]{"localhost", "foo.localhost", "127.0.0.1", "127.1.2.3", "10.0.0.5", "172.16.0.1",
+                "172.31.255.255", "192.168.1.1", "169.254.169.254", "0.0.0.0", "100.64.0.1", "[::1]", "[::]",
+                "[fc00::1]", "[fd12:3456::1]", "[fe80::1]", "[::ffff:127.0.0.1]", "2130706433", "0x7f.0.0.1"}) {
+            rejected(s("https://" + host + "/hook", null));
+        }
+    }
+
+    @Test
+    public void publicLiteralsAndNamesAreAccepted() {
+        SettingsValidator.validate(s("https://8.8.8.8/hook", null));
+        SettingsValidator.validate(s("https://172.32.0.1/hook", null));
+        SettingsValidator.validate(s("https://hooks.slack.com/services/x", null));
+        SettingsValidator.validate(s("https://[2001:4860:4860::8888]/hook", null));
+    }
 }

@@ -2,10 +2,14 @@ package com.hmdm.plugins.locker24health.rest;
 
 import com.hmdm.persistence.domain.User;
 import com.hmdm.plugins.locker24health.HealthPluginConfigurationImpl;
-import com.hmdm.plugins.locker24health.history.Downsample;
 import com.hmdm.plugins.locker24health.history.OfflinePeriods;
 import com.hmdm.plugins.locker24health.persistence.HealthDAO;
+import com.hmdm.plugins.locker24health.persistence.domain.GapRow;
 import com.hmdm.plugins.locker24health.persistence.domain.HistoryRow;
+import com.hmdm.plugins.locker24health.persistence.domain.ReceivedBounds;
+import com.hmdm.plugins.locker24health.persistence.mapper.HealthMapper;
+import com.hmdm.plugins.locker24health.rest.json.FleetResponse;
+import com.hmdm.plugins.locker24health.rest.json.FleetRow;
 import com.hmdm.plugins.locker24health.rest.json.HealthSettings;
 import com.hmdm.plugins.locker24health.rest.json.HistoryResponse;
 import com.hmdm.plugins.locker24health.settings.SettingsValidator;
@@ -30,7 +34,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.LongSupplier;
@@ -80,8 +83,12 @@ public class HealthResource {
         }
         try {
             User user = user();
-            return Response.OK(dao.loadFleet(user.getCustomerId(), user.getId(), configurationId,
-                    statusFilter, blankToNull(model)));
+            List<FleetRow> rows = dao.loadFleet(user.getCustomerId(), user.getId(), configurationId,
+                    statusFilter, blankToNull(model));
+            FleetResponse out = new FleetResponse();
+            out.setTruncated(rows.size() > HealthMapper.FLEET_LIMIT);
+            out.setDevices(out.isTruncated() ? new ArrayList<>(rows.subList(0, HealthMapper.FLEET_LIMIT)) : rows);
+            return Response.OK(out);
         } catch (Exception e) {
             return failure("fleet", e);
         }
@@ -104,34 +111,51 @@ public class HealthResource {
             long to = clock.getAsLong();
             long from = to - h * HOUR_MS;
 
-            List<HistoryRow> rows = dao.historyPoints(deviceId, from, to);
-            long bucket = Downsample.bucketMs(from, to, rows.size(), MAX_POINTS);
+            long bucket = Math.max(1L, (to - from + MAX_POINTS - 1) / MAX_POINTS);
+            List<HistoryRow> rows = dao.historyPoints(deviceId, from, to, bucket);
+            boolean truncated = rows.size() > HealthMapper.POINT_LIMIT;
+            if (truncated) {
+                rows = rows.subList(rows.size() - HealthMapper.POINT_LIMIT, rows.size());
+            }
 
             HistoryResponse out = new HistoryResponse();
             out.setFrom(from);
             out.setTo(to);
             out.setBucketMs(bucket);
-            out.setPoints(Downsample.apply(rows, from, bucket));
-            out.setOfflinePeriods(offline(deviceId, from, to));
+            out.setPoints(points(rows));
+
+            List<GapRow> gaps = dao.offlineGaps(deviceId, from, to, StatusEvaluator.OFFLINE_AFTER_MS);
+            if (gaps.size() > HealthMapper.GAP_LIMIT) {
+                truncated = true;
+                gaps = gaps.subList(0, HealthMapper.GAP_LIMIT);
+            }
+            ReceivedBounds bounds = dao.receivedBounds(deviceId, from, to);
+            Long before = dao.lastReceivedBefore(deviceId, from);
+            Long first = bounds == null ? null : bounds.getFirst();
+            Long last = bounds == null ? null : bounds.getLast();
+            Long latest = before == null && first == null ? dao.latestReceived(deviceId) : null;
+            out.setOfflinePeriods(OfflinePeriods.assemble(gaps, before, first, last, latest, from, to,
+                    StatusEvaluator.OFFLINE_AFTER_MS));
+            out.setTruncated(truncated);
             return Response.OK(out);
         } catch (Exception e) {
             return failure("history", e);
         }
     }
 
-    private List<HistoryResponse.Period> offline(int deviceId, long from, long to) {
-        List<Long> received = dao.receivedTimes(deviceId, from, to);
-        Long before = dao.lastReceivedBefore(deviceId, from);
-        if (before == null && received.isEmpty()) {
-            return Collections.emptyList();
+    private static List<HistoryResponse.Point> points(List<HistoryRow> rows) {
+        List<HistoryResponse.Point> out = new ArrayList<>(rows.size());
+        for (HistoryRow r : rows) {
+            HistoryResponse.Point p = new HistoryResponse.Point();
+            p.setT(r.getMeasuredAt());
+            p.setBatteryPct(r.getBatteryPct());
+            p.setTemperatureC(r.getTemperatureC());
+            p.setRssiDbm(r.getRssiDbm());
+            p.setCharging(r.getCharging());
+            p.setKioskRunning(r.getKioskRunning());
+            out.add(p);
         }
-        long start = before == null ? received.get(0) : from;
-        List<Long> samples = new ArrayList<>();
-        if (before != null) {
-            samples.add(before);
-        }
-        samples.addAll(received);
-        return OfflinePeriods.compute(samples, start, to, StatusEvaluator.OFFLINE_AFTER_MS);
+        return out;
     }
 
     @Operation(summary = "Health settings", security = @SecurityRequirement(name = "Bearer Token"))

@@ -1,0 +1,6 @@
+{"v":1,"ts":1763290000000,"trigger":"schedule",
+ "power":{"battery_pct":87,"charging":true,"charge_source":"ac","temperature_c":31.5,"battery_health":"good"},
+ "system":{"manufacturer":"samsung","model":"SM-X110","android_build":"AP3A.240905.015.A2.X110XXS5CYJ1","android_version":"15","sdk_int":35,"security_patch":"2026-10-01","free_storage_mb":40960,"free_ram_mb":1536,"uptime_s":86400},
+ "network":{"wifi_ssid":"Locker24","rssi_dbm":-61,"ip":"192.168.1.23","mqtt_connected":true,"last_config_sync_at":1763289700000},
+ "kiosk":{"required":true,"running":true,"admin_unlocked":false,"foreground_package":"com.hpmoqa.tablet_client","app_package":"com.hpmoqa.tablet_client","app_version_name":"1.2.8","app_version_code":23,"agent_version_name":"6.40-l24.5","agent_version_code":1540005,"watchdog_restarts_24h":0},
+ "app":{"published_at":1763289950000,"locker_short_uid":"HP01","last_api_ok_at":1763289900000,"last_api_error_at":1763280000000,"last_api_error":"unlock HTTP 503","app_errors_24h":2}}

@@ -8,4 +8,4 @@ Our own code lives in `plugins/locker24-health`. These are the only upstream fil
 | `server/pom.xml` | One single-line dependency after `xtra`, in the same one-line format as the other plugins: `<dependency><groupId>com.hmdm.plugin</groupId><artifactId>locker24-health</artifactId><version>0.1.0</version><scope>runtime</scope></dependency>` | Puts the plugin jar into `launcher.war`, where the server finds it at startup |
 | `server/pom.xml` | A second `<repository>` in `<repositories>`: `prod-public-maven`, `https://prod.h-mdm.com/api/v4/projects/21/packages/maven` (same as in `plugins/pom.xml`), snapshots disabled | `com.hmdm.plugin:platform` resolves only from there; without it the `server` module fails in CI and on a clean machine |
 | `.gitignore` | One line: `.pnpm-store/` | The xtra plugin's pnpm install writes a store into the repo root during the build |
-
+| `.gitignore` | Two lines after `test/`: `!plugins/**/src/test/` and `!plugins/**/src/test/**` | The Angular `test/` rule also ignored the Java test sources of our plugin |

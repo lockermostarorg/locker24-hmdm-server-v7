@@ -1,8 +1,10 @@
 package com.hmdm.plugins.locker24health.ingest;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hmdm.plugins.locker24health.model.ParsedBatch;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.hmdm.plugins.locker24health.model.ParsedReport;
 
 import java.util.ArrayList;
@@ -17,7 +19,8 @@ public final class ReportParser {
     private static final int STR_SHORT = 64;
     private static final int STR_ERROR = 200;
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
 
     private ReportParser() {
     }
@@ -55,7 +58,7 @@ public final class ReportParser {
         }
         JsonNode v = n.get("v");
         JsonNode ts = n.get("ts");
-        if (v == null || !v.isIntegralNumber() || v.asInt() != 1
+        if (v == null || !v.isIntegralNumber() || !v.canConvertToInt() || v.asInt() != 1
                 || ts == null || !ts.isIntegralNumber() || !ts.canConvertToLong()) {
             throw new ValidationException();
         }
@@ -109,7 +112,7 @@ public final class ReportParser {
         r.setLastApiError(str(app, "last_api_error", STR_ERROR));
         r.setAppErrors24h(intIn(app, "app_errors_24h", 0, Integer.MAX_VALUE));
 
-        r.setJson(n.toString());
+        r.setJson(buildJson(r).toString());
         return r;
     }
 
@@ -118,8 +121,74 @@ public final class ReportParser {
         if (x == null || !x.isTextual()) {
             return null;
         }
-        String s = x.asText();
-        return s.length() > max ? s.substring(0, max) : s;
+        String s = stripControl(x.asText());
+        if (s.length() > max) {
+            int end = max;
+            if (Character.isHighSurrogate(s.charAt(end - 1))) {
+                end--;
+            }
+            s = s.substring(0, end);
+        }
+        return s;
+    }
+
+    private static String stripControl(String s) {
+        StringBuilder b = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c > 0x1F && c != 0x7F) {
+                b.append(c);
+            }
+        }
+        return b.toString();
+    }
+
+    private static ObjectNode buildJson(ParsedReport r) {
+        ObjectNode o = MAPPER.createObjectNode();
+        o.put("v", 1);
+        o.put("ts", r.getTs());
+        o.put("trigger", r.getTrigger());
+        ObjectNode power = o.putObject("power");
+        power.put("battery_pct", r.getBatteryPct());
+        power.put("charging", r.getCharging());
+        power.put("charge_source", r.getChargeSource());
+        power.put("temperature_c", r.getTemperatureC());
+        power.put("battery_health", r.getBatteryHealth());
+        ObjectNode system = o.putObject("system");
+        system.put("manufacturer", r.getManufacturer());
+        system.put("model", r.getModel());
+        system.put("android_build", r.getAndroidBuild());
+        system.put("android_version", r.getAndroidVersion());
+        system.put("sdk_int", r.getSdkInt());
+        system.put("security_patch", r.getSecurityPatch());
+        system.put("free_storage_mb", r.getFreeStorageMb());
+        system.put("free_ram_mb", r.getFreeRamMb());
+        system.put("uptime_s", r.getUptimeS());
+        ObjectNode network = o.putObject("network");
+        network.put("wifi_ssid", r.getWifiSsid());
+        network.put("rssi_dbm", r.getRssiDbm());
+        network.put("ip", r.getIp());
+        network.put("mqtt_connected", r.getMqttConnected());
+        network.put("last_config_sync_at", r.getLastConfigSyncAt());
+        ObjectNode kiosk = o.putObject("kiosk");
+        kiosk.put("required", r.getKioskRequired());
+        kiosk.put("running", r.getKioskRunning());
+        kiosk.put("admin_unlocked", r.getKioskAdminUnlocked());
+        kiosk.put("foreground_package", r.getForegroundPackage());
+        kiosk.put("app_package", r.getKioskAppPackage());
+        kiosk.put("app_version_name", r.getKioskAppVersion());
+        kiosk.put("app_version_code", r.getKioskAppVersionCode());
+        kiosk.put("agent_version_name", r.getAgentVersion());
+        kiosk.put("agent_version_code", r.getAgentVersionCode());
+        kiosk.put("watchdog_restarts_24h", r.getWatchdogRestarts24h());
+        ObjectNode app = o.putObject("app");
+        app.put("published_at", r.getAppPublishedAt());
+        app.put("locker_short_uid", r.getLockerShortUid());
+        app.put("last_api_ok_at", r.getLastApiOkAt());
+        app.put("last_api_error_at", r.getLastApiErrorAt());
+        app.put("last_api_error", r.getLastApiError());
+        app.put("app_errors_24h", r.getAppErrors24h());
+        return o;
     }
 
     private static Boolean bool(JsonNode group, String key) {

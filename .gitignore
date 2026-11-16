@@ -33,6 +33,8 @@ plugins/pom.xml.bak
 
 # Angular 2+ files
 test/
+!plugins/**/src/test/
+!plugins/**/src/test/**
 webtarget/
 
 # Native federation files

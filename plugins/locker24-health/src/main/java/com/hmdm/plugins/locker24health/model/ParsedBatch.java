@@ -1,5 +1,7 @@
 package com.hmdm.plugins.locker24health.model;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class ParsedBatch {
@@ -9,7 +11,7 @@ public class ParsedBatch {
 
     public ParsedBatch(long sentAt, List<ParsedReport> reports) {
         this.sentAt = sentAt;
-        this.reports = reports;
+        this.reports = Collections.unmodifiableList(new ArrayList<>(reports));
     }
 
     public long getSentAt() {

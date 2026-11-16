@@ -1,6 +1,7 @@
 import { Component, computed, inject, Signal, signal, WritableSignal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { take } from 'rxjs';
@@ -22,6 +23,7 @@ import { ConfigurationAppsFacadeService } from '../../services/configuration-app
     MatIconModule,
     MatMenuModule,
     MatProgressSpinnerModule,
+    MatSlideToggleModule,
     MatTooltipModule,
     TranslatePipe,
   ],
@@ -38,15 +40,16 @@ export class AppsVersionCell extends BaseCellRenderer<TApplicationDTO> {
     return !!app?.outdated && app.action === APP_ACTION.ALLOW;
   });
 
+  isInstalled: Signal<boolean> = computed(() => this.params().data?.action === APP_ACTION.ALLOW);
+
+  follows: Signal<boolean> = computed(() => this.params().data?.followLatest !== false);
+
   // Not for system apps, which have no versions of their own, nor without the "applications"
   // permission, which the versions list requires
   canChangeVersion: Signal<boolean> = computed(() => {
     const app = this.params().data;
     return (
-      !!app &&
-      !app.system &&
-      app.type === 'app' &&
-      this.authService.hasPermission('applications')
+      !!app && !app.system && app.type === 'app' && this.authService.hasPermission('applications')
     );
   });
 
@@ -63,6 +66,10 @@ export class AppsVersionCell extends BaseCellRenderer<TApplicationDTO> {
 
   onVersionClick(version: TVersionDTO): void {
     this.configurationAppsFacadeService.setAppVersion(this.params().data, version);
+  }
+
+  onFollowChange(follow: boolean): void {
+    this.configurationAppsFacadeService.setFollowLatest(this.params().data, follow);
   }
 
   onUpgradeClick(): void {

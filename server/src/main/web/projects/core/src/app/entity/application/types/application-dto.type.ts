@@ -38,4 +38,5 @@ export type TApplicationDTO = {
   versionCode: number;
   screenOrder: number | null;
   actionChanged?: boolean;
+  followLatest?: boolean | null;
 };

@@ -1,0 +1,14 @@
+<hmdm-dialog-template [title]="'button.release' | translate">
+  <p class="release-version">
+    {{ 'form.application.release.version' | translate: { version: version.version } }}
+  </p>
+
+  <core-release-mode-field [control]="modeControl" [allowHold]="false"></core-release-mode-field>
+
+  <hmdm-dialog-common-buttons
+    dialog-actions
+    [isSaveDisabled]="saving()"
+    (cancel)="onCancel()"
+    (save)="onSave()"
+  ></hmdm-dialog-common-buttons>
+</hmdm-dialog-template>

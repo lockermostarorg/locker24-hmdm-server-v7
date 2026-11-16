@@ -35,3 +35,13 @@
     }
   }
 }
+
+.mdm-app {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mdm-follow {
+  font-size: 13px;
+}

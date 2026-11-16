@@ -1232,5 +1232,23 @@
   "permission.edit_files": "إدارة الملفات",
 
   "yes": " نعم",
-  "no": "لا"
+  "no": "لا",
+  "button.release": "Release",
+  "form.application.release.mode": "Apply this version",
+  "form.application.release.mode.schedule": "On each configuration's schedule",
+  "form.application.release.mode.schedule.help": "Configurations that follow the latest version move to it and tablets install it in their update window.",
+  "form.application.release.mode.immediate": "Immediately",
+  "form.application.release.mode.immediate.help": "Immediately: tablets on agent 6.40-l24.6 or later install now; older agents install in their next update window.",
+  "form.application.release.mode.hold": "Hold (upload only)",
+  "form.application.release.mode.hold.help": "The version is uploaded but not applied anywhere. Release it later from the versions list.",
+  "form.application.release.version": "Version {{version}} is held. Choose how to apply it.",
+  "release.summary.released": "Released to {{configurations}} configurations ({{devices}} tablets)",
+  "release.summary.held": "Held; not applied",
+  "release.state.released": "Released",
+  "release.state.held": "Held",
+  "release.state.by": "by {{user}}",
+  "table.heading.application.version.state": "State",
+  "form.configuration.app.follow.latest": "Follows latest",
+  "form.configuration.app.follow.latest.title": "On: the app moves to each newly released version. Off: it stays on the chosen version.",
+  "form.configuration.app.pinned": "Pinned to {{version}}"
 }

@@ -11,6 +11,5 @@ export type TValidatePkgRequest = {
   useKiosk?: boolean;
   runAfterInstall?: boolean;
   system?: boolean;
-  autoUpdateDisplayed?: boolean;
   applicationId?: number;
 };

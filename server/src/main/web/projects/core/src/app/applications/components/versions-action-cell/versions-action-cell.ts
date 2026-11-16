@@ -46,9 +46,15 @@ export class VersionsActionCell extends BaseCellRenderer<TVersionDTO, null> {
     return this.params().data.deletionProhibited;
   }
 
-  onEditClick(): void {
-    console.log('Edit version clicked for version:', this.params().data);
+  isHeld(): boolean {
+    return this.params().data.releaseState === 'held';
+  }
 
+  onReleaseClick(): void {
+    this.versionDialogService.openReleaseVersionDialog(this.params().data);
+  }
+
+  onEditClick(): void {
     this.versionDialogService.openEditVersionDialog(this.params().data);
   }
 }

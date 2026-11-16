@@ -120,6 +120,14 @@ export class ConfigurationDetailsFacadeService {
     this._currentConfiguration.update((config) => (config ? { ...config, ...versionIds } : config));
   }
 
+  setFollowLatestFlags(
+    flags: Partial<Pick<TConfigurationDTO, 'followLatestMainApp' | 'followLatestContentApp'>>,
+  ): void {
+    this.markUnsavedChanges();
+
+    this._currentConfiguration.update((config) => (config ? { ...config, ...flags } : config));
+  }
+
   addAppSetting(appSetting: TAppSettingsDTO): void {
     this.markUnsavedChanges();
 

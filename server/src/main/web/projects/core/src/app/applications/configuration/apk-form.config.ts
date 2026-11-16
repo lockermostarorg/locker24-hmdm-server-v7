@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { FormGroup, NonNullableFormBuilder, Validators } from '@angular/forms';
 import { patternMessageValidator } from 'hmdm-ui-kit';
+import { TReleaseMode } from '../../entity/application/types/release-mode.type';
 import { REGEX } from '../../shared/const/regex.const';
 import { TApkForm } from '../types/apk-form.type';
 
@@ -19,6 +20,7 @@ export class ApkFormConfig {
       url: this.fb.control('', { validators: [patternMessageValidator(REGEX.apkUrl, 'apkUrl')] }),
       version: this.fb.control('', { validators: [Validators.required] }),
       file: this.fb.control<File | null>(null),
+      releaseMode: this.fb.control<TReleaseMode>('schedule', { validators: [Validators.required] }),
     });
   }
 }

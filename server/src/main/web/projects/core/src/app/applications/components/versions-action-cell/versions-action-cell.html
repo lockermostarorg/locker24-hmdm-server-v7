@@ -1,4 +1,16 @@
 <div class="cell">
+  @if (isHeld()) {
+    <button
+      mat-icon-button
+      *hmdmHasPermission="'edit_application_versions'"
+      [matTooltip]="'button.release' | translate"
+      [matTooltipShowDelay]="500"
+      (click)="onReleaseClick()"
+    >
+      <mat-icon>publish</mat-icon>
+    </button>
+  }
+
   <button
     mat-icon-button
     *hmdmHasPermission="'edit_application_versions'"

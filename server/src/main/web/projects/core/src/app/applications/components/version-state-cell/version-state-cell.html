@@ -1,0 +1,17 @@
+<div class="state">
+  @if (isHeld()) {
+    <span class="state-badge state-badge--held">{{ 'release.state.held' | translate }}</span>
+  } @else {
+    <span class="state-badge state-badge--released">{{
+      'release.state.released' | translate
+    }}</span>
+    @if (params().data.releasedAt) {
+      <span class="state-detail">
+        {{ params().data.releasedAt | date: 'yyyy-MM-dd HH:mm' }}
+        @if (releasedBy(); as by) {
+          {{ 'release.state.by' | translate: { user: by } }}
+        }
+      </span>
+    }
+  }
+</div>

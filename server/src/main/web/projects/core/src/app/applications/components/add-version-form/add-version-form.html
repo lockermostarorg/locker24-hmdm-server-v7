@@ -23,8 +23,8 @@
     [label]="'form.application.file' | translate"
   ></hmdm-file-input>
 
-  <hmdm-checkbox
-    formControlName="autoUpdate"
-    [label]="'form.application.auto.update' | translate"
-  ></hmdm-checkbox>
+  <core-release-mode-field
+    [control]="formGroup.controls.releaseMode"
+    [allowHold]="allowHold()"
+  ></core-release-mode-field>
 </form>

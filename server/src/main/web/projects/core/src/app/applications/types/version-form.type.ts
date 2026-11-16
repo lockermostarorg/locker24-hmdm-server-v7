@@ -1,3 +1,4 @@
+import { TReleaseMode } from '../../entity/application/types/release-mode.type';
 import { TToFormGroup } from '../../shared/types/to-form-group.type';
 
 export type TVersionFormValue = {
@@ -5,7 +6,7 @@ export type TVersionFormValue = {
   arch: string;
   url: string;
   file: File | null;
-  autoUpdate: boolean;
+  releaseMode: TReleaseMode;
 };
 
 export type TVersionForm = TToFormGroup<TVersionFormValue>;

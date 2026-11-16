@@ -23,17 +23,24 @@ import {
   DuplicatePkgDialog,
   TDuplicatePkgDialogResult,
 } from '../components/duplicate-pkg-dialog/duplicate-pkg-dialog';
-import { TVersionDTO } from '../../entity/application/types/version-dto.type';
+import { TReleaseSummary } from '../../entity/application/types/release-mode.type';
 import { ApplicationFacadeService } from './application-facade.service';
 
 type TSaveResult =
-  | { outcome: 'saved'; entity: TApplicationDTO | TVersionDTO | null }
+  | { outcome: 'saved'; entity: TApplicationDTO | null }
+  | { outcome: 'version-saved'; applicationId: number; summary: TReleaseSummary }
   | { outcome: 'name-taken' }
   | { outcome: 'cancelled' };
 
-const saved = (entity: TApplicationDTO | TVersionDTO | null): TSaveResult => ({
+const saved = (entity: TApplicationDTO | null): TSaveResult => ({
   outcome: 'saved',
   entity,
+});
+
+const versionSaved = (applicationId: number, summary: TReleaseSummary): TSaveResult => ({
+  outcome: 'version-saved',
+  applicationId,
+  summary,
 });
 
 @Injectable({ providedIn: 'root' })
@@ -64,6 +71,17 @@ export class ApplicationDialogService {
           return;
         }
 
+        if (result.outcome === 'version-saved') {
+          dialogRef.close();
+          this.applicationFacadeService.searchApplications();
+          this.dialog
+            .open(InformDialog, { data: this.summaryDialogData(result.summary) })
+            .afterClosed()
+            .pipe(take(1))
+            .subscribe(() => this.openSelectConfigurationDialog(result.applicationId));
+          return;
+        }
+
         if (result.outcome !== 'saved' || !result.entity) return;
 
         const res = result.entity;
@@ -75,9 +93,7 @@ export class ApplicationDialogService {
           this.openSystemAppMessageDialog();
         }
 
-        const applicationId = 'applicationId' in res ? res.applicationId : res.id;
-        const versionId = 'applicationId' in res ? res.id : res.usedVersionId;
-        this.openSelectConfigurationDialog(applicationId, versionId);
+        this.openSelectConfigurationDialog(res.id, res.usedVersionId);
       });
   }
 
@@ -127,7 +143,6 @@ export class ApplicationDialogService {
       runAfterInstall: appData.runAfterInstall,
       showIcon: appData.showIcon,
       system: appData.system,
-      autoUpdateDisplayed: true,
     };
 
     return this.applicationService.validatePkg(validateBody).pipe(
@@ -161,9 +176,9 @@ export class ApplicationDialogService {
               showIcon: appData.showIcon,
               system: appData.system,
               useKiosk: appData.useKiosk,
-              autoUpdateDisplayed: true,
+              releaseMode: appData.releaseMode,
             })
-            .pipe(map(saved));
+            .pipe(map((summary) => versionSaved(duplicates[0].id, summary)));
         }
 
         return this.dialog
@@ -201,9 +216,9 @@ export class ApplicationDialogService {
                     showIcon: appData.showIcon,
                     system: appData.system,
                     useKiosk: appData.useKiosk,
-                    autoUpdateDisplayed: true,
+                    releaseMode: appData.releaseMode,
                   })
-                  .pipe(map(saved));
+                  .pipe(map((summary) => versionSaved(result.applicationId, summary)));
               }
 
               // 'new-app' or 'change-pkg' — proceed with normal application creation
@@ -212,6 +227,13 @@ export class ApplicationDialogService {
           );
       }),
     );
+  }
+
+  summaryDialogData(summary: TReleaseSummary): Record<string, unknown> {
+    return {
+      message: summary.mode === 'hold' ? 'release.summary.held' : 'release.summary.released',
+      params: { configurations: summary.configurations, devices: summary.devices },
+    };
   }
 
   openSelectConfigurationDialog(applicationId: number, versionId?: number): void {

@@ -1,5 +1,6 @@
-import { Component, effect, inject, OnInit, signal, WritableSignal } from '@angular/core';
+import { Component, computed, effect, inject, OnInit, signal, WritableSignal } from '@angular/core';
 import { FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import {
   BaseComponent,
   Checkbox,
@@ -28,6 +29,7 @@ import { ConfigurationAppsFacadeService } from '../../services/configuration-app
     TextAreaInputComponent,
     FormsModule,
     ReactiveFormsModule,
+    MatSlideToggleModule,
   ],
 })
 export class ConfigurationMdm extends BaseComponent implements OnInit {
@@ -45,6 +47,13 @@ export class ConfigurationMdm extends BaseComponent implements OnInit {
   applicationOptions = this.configurationApplicationsFacadeService.applicationsVersionIdOptions;
   formGroup: FormGroup<TConfigurationMDMForm> = this.configurationMdmFormConfig.getFormGroup();
   isKioskMode: WritableSignal<boolean> = signal(false);
+
+  followsMainApp = computed(() =>
+    this.configurationApplicationsFacadeService.followsLatestMainApp(),
+  );
+  followsContentApp = computed(() =>
+    this.configurationApplicationsFacadeService.followsLatestContentApp(),
+  );
 
   constructor() {
     super();
@@ -93,6 +102,14 @@ export class ConfigurationMdm extends BaseComponent implements OnInit {
 
       this.isKioskMode.set(this.formGroup.controls.kioskMode.value);
     });
+  }
+
+  onMainFollowChange(follow: boolean): void {
+    this.configurationApplicationsFacadeService.setMainAppFollowsLatest(follow);
+  }
+
+  onContentFollowChange(follow: boolean): void {
+    this.configurationApplicationsFacadeService.setContentAppFollowsLatest(follow);
   }
 
   ngOnInit(): void {

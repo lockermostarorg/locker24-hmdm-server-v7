@@ -6,6 +6,7 @@ import { environment } from '../../../../environments/environment';
 import { TApplicationDTO } from '../types/application-dto.type';
 import { TCreateApplicationRequest } from '../types/create-application-request.type';
 import { TVersionDTO } from '../types/version-dto.type';
+import { TReleaseMode, TReleaseSummary } from '../types/release-mode.type';
 import { TCreateVersionRequest } from '../types/create-version-request.type';
 import { EApplicationType } from '../enum/application-type.enum';
 import { TFileUploadResult } from '../types/file-upload-result.type';
@@ -57,7 +58,8 @@ export class ApplicationService {
   createApplication(body: TCreateApplicationRequest): Observable<TApplicationDTO> {
     const typeUrl = this.APPLICATION_TYPE_URL_MAP[body.type];
 
-    let requestBody = { ...body };
+    let requestBody: TCreateApplicationRequest & { releaseMode?: string } = { ...body };
+    delete requestBody.releaseMode;
     if (requestBody.type === EApplicationType.APP) {
       requestBody = {
         ...requestBody,
@@ -74,7 +76,7 @@ export class ApplicationService {
       );
   }
 
-  createApplicationVersion(body: TCreateVersionRequest): Observable<TVersionDTO> {
+  createApplicationVersion(body: TCreateVersionRequest): Observable<TReleaseSummary> {
     let requestBody = { ...body };
     if (requestBody.type === EApplicationType.APP) {
       requestBody = {
@@ -84,12 +86,19 @@ export class ApplicationService {
     }
 
     return this.http
-      .put<THttpResponse<TVersionDTO>>('rest/private/applications/versions', requestBody)
-      .pipe(
-        map((response) => {
-          return response.data;
-        }),
-      );
+      .put<THttpResponse<TReleaseSummary>>('rest/private/applications/versions', requestBody)
+      .pipe(map((response) => this.summaryOf(response)));
+  }
+
+  releaseApplicationVersion(
+    versionId: number,
+    mode: Exclude<TReleaseMode, 'hold'>,
+  ): Observable<TReleaseSummary> {
+    return this.http
+      .post<
+        THttpResponse<TReleaseSummary>
+      >(`rest/private/applications/versions/${versionId}/release`, { mode })
+      .pipe(map((response) => this.summaryOf(response)));
   }
 
   updateApplicationVersion(body: TUpdateVersionRequest): Observable<TVersionDTO> {
@@ -192,5 +201,13 @@ export class ApplicationService {
     return this.http
       .get<THttpResponse<void>>(`rest/private/applications/admin/common/${id}`)
       .pipe(map(() => void 0));
+  }
+
+  private summaryOf(response: THttpResponse<TReleaseSummary>): TReleaseSummary {
+    if (response.status === 'ERROR' || !response.data) {
+      throw new Error(response.message ?? 'error.internal.server');
+    }
+
+    return response.data;
   }
 }

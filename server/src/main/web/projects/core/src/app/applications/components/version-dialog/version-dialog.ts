@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnInit, signal, ViewChild } from '@angular/core';
+import { Component, computed, inject, signal, ViewChild } from '@angular/core';
 import {
   DialogBase,
   DialogCommonButtons,
@@ -11,7 +11,6 @@ import { EApplicationArchitecture } from '../../../entity/application/enum/appli
 import { ApplicationService } from '../../../entity/application/services/application.service';
 import { TCreateVersionRequest } from '../../../entity/application/types/create-version-request.type';
 import { TUpdateVersionRequest } from '../../../entity/application/types/update-version-request.type';
-import { TVersionDTO } from '../../../entity/application/types/version-dto.type';
 import { TVersionFormValue } from '../../types/version-form.type';
 import { AddVersionForm } from '../add-version-form/add-version-form';
 
@@ -21,7 +20,7 @@ import { AddVersionForm } from '../add-version-form/add-version-form';
   styleUrl: './version-dialog.scss',
   imports: [AddVersionForm, DialogTemplate, MatButtonModule, CommonModule, DialogCommonButtons],
 })
-export class VersionDialog extends DialogBase implements OnInit {
+export class VersionDialog extends DialogBase {
   @ViewChild(AddVersionForm) versionForm!: AddVersionForm;
 
   private readonly applicationService = inject(ApplicationService);
@@ -31,13 +30,11 @@ export class VersionDialog extends DialogBase implements OnInit {
 
   saving = signal(false);
 
+  allowHold = this.data.hasReleasedVersion !== false;
+
   isEdit = computed(() => !!this.data.version);
 
   currentVersion = computed(() => this.data.version || null);
-
-  ngOnInit(): void {
-    console.log('VersionDialog initialized with data:', this.data);
-  }
 
   override onSave(): void {
     this.saving.set(true);
@@ -49,7 +46,6 @@ export class VersionDialog extends DialogBase implements OnInit {
         throw new Error('Form data is invalid');
       }
 
-      let result: TVersionDTO;
       if (this.isEdit()) {
         const request: TUpdateVersionRequest = {
           ...this.buildVersionRequest(formData),
@@ -58,11 +54,10 @@ export class VersionDialog extends DialogBase implements OnInit {
 
         this.applicationService.updateApplicationVersion(request).subscribe({
           next: (response) => {
-            result = response;
             this.saving.set(false);
-            this.dialogRef.close(result);
+            this.dialogRef.close(response);
           },
-          error: (error: any) => {
+          error: () => {
             this.saving.set(false);
           },
         });
@@ -70,12 +65,11 @@ export class VersionDialog extends DialogBase implements OnInit {
         const request: TCreateVersionRequest = this.buildVersionRequest(formData);
 
         this.applicationService.createApplicationVersion(request).subscribe({
-          next: (response) => {
-            result = response;
+          next: (summary) => {
             this.saving.set(false);
-            this.dialogRef.close(result);
+            this.dialogRef.close(summary);
           },
-          error: (error: any) => {
+          error: () => {
             this.saving.set(false);
           },
         });
@@ -107,8 +101,11 @@ export class VersionDialog extends DialogBase implements OnInit {
       applicationId: this.data.applicationId || this.data.version?.applicationId || 0,
       version: formData.version,
       arch: formData.arch === EApplicationArchitecture.NONE ? null : formData.arch,
-      autoUpdate: formData.autoUpdate,
     };
+
+    if (!this.isEdit()) {
+      request.releaseMode = formData.releaseMode;
+    }
 
     if (formData.file) {
       // Get the uploaded file server path from the form component

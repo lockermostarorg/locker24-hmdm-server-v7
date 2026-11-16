@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { TTableConfig } from 'hmdm-ui-kit';
 import { VersionsActionCell } from '../components/versions-action-cell/versions-action-cell';
+import { VersionStateCell } from '../components/version-state-cell/version-state-cell';
 import { UrlCell } from '../components/url-cell/url-cell';
 
 @Injectable()
@@ -8,7 +9,7 @@ export class ApplicationVersionsTableConfig {
   getConfig(): TTableConfig {
     return {
       trackBy: (index: number, item: any) =>
-        `${item.versionCode}-${item.version}-${item.url}-${item.urlArm64}-${item.urlArmeabi}`,
+        `${item.versionCode}-${item.version}-${item.releaseState}-${item.url}-${item.urlArm64}-${item.urlArmeabi}`,
       columns: [
         {
           field: 'version',
@@ -19,6 +20,11 @@ export class ApplicationVersionsTableConfig {
           title: 'form.application.version.code',
         },
         {
+          field: 'releaseState',
+          title: 'table.heading.application.version.state',
+          cellRenderer: VersionStateCell,
+        },
+        {
           field: 'url',
           title: 'table.heading.application.url',
           cellRenderer: UrlCell,
@@ -27,7 +33,7 @@ export class ApplicationVersionsTableConfig {
           field: 'actions',
           title: 'table.heading.application.actions',
           cellRenderer: VersionsActionCell,
-          width: '120px',
+          width: '160px',
           stickyEnd: true,
         },
       ],

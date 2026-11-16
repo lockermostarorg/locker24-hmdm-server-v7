@@ -22,6 +22,7 @@ import {
 } from 'hmdm-ui-kit';
 import { filter, finalize, Subject, takeUntil, tap } from 'rxjs';
 import { EApplicationType } from '../../../entity/application/enum/application-type.enum';
+import { ReleaseModeField } from '../release-mode-field/release-mode-field';
 import { ApkFormConfig } from '../../configuration/apk-form.config';
 import { TApplicationAppValue } from '../../types/application-form.type';
 import { APPLICATION_ARCHITECTURE_OPTIONS } from '../../const/application-architecture-options.const';
@@ -44,6 +45,7 @@ type UploadStatus = 'idle' | 'uploading' | 'processing' | 'success' | 'error';
     FileInputComponent,
     MatProgressBarModule,
     MatIconModule,
+    ReleaseModeField,
   ],
   templateUrl: './apk-form.html',
   styleUrl: './apk-form.scss',
@@ -65,6 +67,12 @@ export class ApkForm extends BaseComponent implements OnInit {
   uploadProgress: WritableSignal<number | null> = signal(null);
   uploadStatus: WritableSignal<UploadStatus> = signal('idle');
   versionExists: WritableSignal<boolean> = signal(false);
+  existingApplication: WritableSignal<boolean> = signal(false);
+  fileUploaded: WritableSignal<boolean> = signal(false);
+
+  showReleaseMode = computed(
+    () => !this.initialValue() && this.fileUploaded() && !this.versionExists(),
+  );
 
   availableSpaceWarning = computed(() => {
     const limit = this.settingsFacadeService.storageLimit();
@@ -155,12 +163,16 @@ export class ApkForm extends BaseComponent implements OnInit {
           this.uploadResult = null;
           this.uploadProgress.set(null);
           this.versionExists.set(false);
+          this.existingApplication.set(false);
+          this.fileUploaded.set(false);
           return;
         }
 
         this.uploadStatus.set('uploading');
         this.uploadProgress.set(0);
         this.versionExists.set(false);
+        this.existingApplication.set(false);
+        this.fileUploaded.set(false);
         this.formChange.emit(null);
 
         this.applicationService
@@ -198,6 +210,11 @@ export class ApkForm extends BaseComponent implements OnInit {
               }
 
               const existingApp = result.application;
+              this.existingApplication.set(!!existingApp);
+              this.fileUploaded.set(true);
+              if (!existingApp) {
+                this.formGroup.controls.releaseMode.setValue('schedule', { emitEvent: false });
+              }
               if (existingApp) {
                 // Without emitting: the 'system' listener would clear the uploaded file
                 this.formGroup.controls.system.setValue(!!existingApp.system, { emitEvent: false });

@@ -202,7 +202,7 @@ export class ConfigurationAppsFacadeService {
     this.configurationDetailsFacadeService.markUnsavedChanges();
 
     const currentApps = this._applications();
-    this._applications.set([...currentApps, { ...app, actionChanged: true }]);
+    this._applications.set([...currentApps, { ...app, actionChanged: true, followLatest: true }]);
   }
 
   // True if the app is already in the configuration's list (the entries the list shows,
@@ -325,23 +325,31 @@ export class ConfigurationAppsFacadeService {
     );
   }
 
-  // Switches the clicked entry to another version of the same app. Stored when the configuration
-  // is saved. The entry is matched by object: id and version are what this changes
+  // Switches the clicked entry to another version of the same app and pins it there: choosing a
+  // version is an explicit choice, so the row stops following the latest release. Stored when the
+  // configuration is saved. The entry is matched by object: id and version are what this changes
   setAppVersion(app: TApplicationDTO, version: TVersionDTO): void {
-    if (version.id === app.usedVersionId) {
+    if (version.id === app.usedVersionId && app.followLatest === false) {
       return;
     }
 
     this.configurationDetailsFacadeService.markUnsavedChanges();
 
     // Checked before the switch: both look the app up by the configuration's version ids
-    const versionIds = {
-      ...(this.isMainApp(app) ? { mainAppId: version.id } : {}),
-      ...(this.isContentApp(app) ? { contentAppId: version.id } : {}),
-    };
-    if (Object.keys(versionIds).length) {
-      this.configurationDetailsFacadeService.setMDMAppVersionIds(versionIds);
+    const isMain = this.isMainApp(app);
+    const isContent = this.isContentApp(app);
+    if (isMain || isContent) {
+      this.configurationDetailsFacadeService.setMDMAppVersionIds({
+        ...(isMain ? { mainAppId: version.id } : {}),
+        ...(isContent ? { contentAppId: version.id } : {}),
+      });
+      this.configurationDetailsFacadeService.setFollowLatestFlags({
+        ...(isMain ? { followLatestMainApp: false } : {}),
+        ...(isContent ? { followLatestContentApp: false } : {}),
+      });
     }
+
+    const outdated = this.isBehindLatest(app, version);
 
     this._applications.update((apps) =>
       apps
@@ -359,11 +367,73 @@ export class ConfigurationAppsFacadeService {
                 urlArmeabi: version.urlArmeabi,
                 urlArm64: version.urlArm64,
                 split: version.split,
-                outdated: version.id !== a.latestVersion,
+                outdated,
+                followLatest: false,
               }
             : a,
         ),
     );
+  }
+
+  // The row follows the latest released version again (or is pinned where it is). Turning it on
+  // moves the row to the latest released version at once, as the server does on save
+  setFollowLatest(app: TApplicationDTO, follow: boolean): void {
+    this.configurationDetailsFacadeService.markUnsavedChanges();
+
+    const isMain = this.isMainApp(app);
+    const isContent = this.isContentApp(app);
+
+    if (!follow) {
+      this.patchRow(app, { followLatest: false });
+      this.setFollowFlags(isMain, isContent, false);
+      return;
+    }
+
+    this.getAllVersions(app)
+      .pipe(take(1))
+      .subscribe((versions) => {
+        const latest = versions.find((version) => version.id === app.latestVersion);
+
+        this.patchRow(app, {
+          followLatest: true,
+          outdated: false,
+          usedVersionId: app.latestVersion,
+          ...(latest
+            ? {
+                version: latest.version,
+                versionCode: latest.versionCode,
+                url: latest.url,
+                urlArmeabi: latest.urlArmeabi,
+                urlArm64: latest.urlArm64,
+                split: latest.split,
+              }
+            : { version: app.latestVersionText ?? app.version }),
+        });
+
+        if (isMain || isContent) {
+          this.configurationDetailsFacadeService.setMDMAppVersionIds({
+            ...(isMain ? { mainAppId: app.latestVersion } : {}),
+            ...(isContent ? { contentAppId: app.latestVersion } : {}),
+          });
+        }
+        this.setFollowFlags(isMain, isContent, true);
+      });
+  }
+
+  followsLatestMainApp(): boolean {
+    return this.followsLatestOf(this.mainAppPkg(), 'followLatestMainApp');
+  }
+
+  followsLatestContentApp(): boolean {
+    return this.followsLatestOf(this.contentAppPkg(), 'followLatestContentApp');
+  }
+
+  setMainAppFollowsLatest(follow: boolean): void {
+    this.setFollowLatestOfPackage(this.mainAppPkg(), follow, 'followLatestMainApp');
+  }
+
+  setContentAppFollowsLatest(follow: boolean): void {
+    this.setFollowLatestOfPackage(this.contentAppPkg(), follow, 'followLatestContentApp');
   }
 
   // "Upgrade" link of an outdated app: after confirmation the server switches the configuration
@@ -413,6 +483,77 @@ export class ConfigurationAppsFacadeService {
 
   setSortState(state: TTableSortState | null): void {
     this._sortState.set(state);
+  }
+
+  private getAllVersions(app: TApplicationDTO): Observable<TVersionDTO[]> {
+    const cached = this.versionsCache.get(app.id);
+
+    return cached
+      ? of(cached)
+      : this.applicationService
+          .getVersionsByApplicationId(app.id)
+          .pipe(tap((versions) => this.versionsCache.set(app.id, versions)));
+  }
+
+  // Same meaning as the server: behind the latest released version. A row pinned to a held
+  // version ahead of the latest is not outdated
+  private isBehindLatest(app: TApplicationDTO, version: TVersionDTO): boolean {
+    if (version.id === app.latestVersion) {
+      return false;
+    }
+
+    const latest = this.versionsCache.get(app.id)?.find((v) => v.id === app.latestVersion);
+
+    return latest ? version.versionCode < latest.versionCode : version.releaseState !== 'held';
+  }
+
+  private patchRow(app: TApplicationDTO, patch: Partial<TApplicationDTO>): void {
+    this._applications.update((apps) => apps.map((a) => (a === app ? { ...a, ...patch } : a)));
+  }
+
+  private setFollowFlags(isMain: boolean, isContent: boolean, value: boolean): void {
+    if (!isMain && !isContent) {
+      return;
+    }
+
+    this.configurationDetailsFacadeService.setFollowLatestFlags({
+      ...(isMain ? { followLatestMainApp: value } : {}),
+      ...(isContent ? { followLatestContentApp: value } : {}),
+    });
+  }
+
+  private installRowsOfPackage(pkg: string | null): TApplicationDTO[] {
+    return pkg
+      ? this._applications().filter(
+          (app) => app.pkg === pkg && app.action === APP_ACTION.ALLOW && this.isListed(app),
+        )
+      : [];
+  }
+
+  private followsLatestOf(
+    pkg: string | null,
+    flag: 'followLatestMainApp' | 'followLatestContentApp',
+  ): boolean {
+    const rows = this.installRowsOfPackage(pkg);
+
+    return rows.length
+      ? rows.every((row) => row.followLatest !== false)
+      : this.configurationDetailsFacadeService.currentConfiguration()?.[flag] !== false;
+  }
+
+  private setFollowLatestOfPackage(
+    pkg: string | null,
+    follow: boolean,
+    flag: 'followLatestMainApp' | 'followLatestContentApp',
+  ): void {
+    const rows = this.installRowsOfPackage(pkg);
+
+    if (rows.length) {
+      rows.forEach((row) => this.setFollowLatest(row, follow));
+      return;
+    }
+
+    this.configurationDetailsFacadeService.setFollowLatestFlags({ [flag]: follow });
   }
 
   // Entries with action 0 that were not changed here are apps outside the configuration:

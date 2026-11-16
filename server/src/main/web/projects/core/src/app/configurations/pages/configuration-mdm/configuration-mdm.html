@@ -5,25 +5,51 @@
   ></hmdm-checkbox>
 
   <div class="mdm-double">
-    <hmdm-select-search
-      formControlName="mainAppId"
-      [label]="'form.configuration.settings.mdm.app.main' | translate"
-      [options]="applicationOptions()"
-    ></hmdm-select-search>
+    <div class="mdm-app">
+      <hmdm-select-search
+        formControlName="mainAppId"
+        [label]="'form.configuration.settings.mdm.app.main' | translate"
+        [options]="applicationOptions()"
+      ></hmdm-select-search>
+
+      @if (formGroup.controls.mainAppId.value) {
+        <mat-slide-toggle
+          class="mdm-follow"
+          [checked]="followsMainApp()"
+          (change)="onMainFollowChange($event.checked)"
+        >
+          {{ 'form.configuration.app.follow.latest' | translate }}
+        </mat-slide-toggle>
+      }
+    </div>
 
     <hmdm-text-input
       formControlName="eventReceivingComponent"
       [label]="'form.configuration.settings.mdm.component.event.receiver' | translate"
-      [placeholder]="'form.configuration.settings.mdm.component.event.receiver.placeholder' | translate"
+      [placeholder]="
+        'form.configuration.settings.mdm.component.event.receiver.placeholder' | translate
+      "
     ></hmdm-text-input>
   </div>
 
   @if (isKioskMode()) {
-    <hmdm-select-search
-      formControlName="contentAppId"
-      [label]="'form.configuration.settings.mdm.app.content' | translate"
-      [options]="applicationOptions()"
-    ></hmdm-select-search>
+    <div class="mdm-app">
+      <hmdm-select-search
+        formControlName="contentAppId"
+        [label]="'form.configuration.settings.mdm.app.content' | translate"
+        [options]="applicationOptions()"
+      ></hmdm-select-search>
+
+      @if (formGroup.controls.contentAppId.value) {
+        <mat-slide-toggle
+          class="mdm-follow"
+          [checked]="followsContentApp()"
+          (change)="onContentFollowChange($event.checked)"
+        >
+          {{ 'form.configuration.app.follow.latest' | translate }}
+        </mat-slide-toggle>
+      }
+    </div>
 
     <div class="mdm-kiosk mdm-double">
       <hmdm-checkbox
@@ -79,11 +105,15 @@
     <hmdm-text-input
       formControlName="wifiPassword"
       [label]="'form.configuration.settings.mdm.component.wifi.password' | translate"
-      [placeholder]="'form.configuration.settings.mdm.component.wifi.password.placeholder' | translate"
+      [placeholder]="
+        'form.configuration.settings.mdm.component.wifi.password.placeholder' | translate
+      "
     ></hmdm-text-input>
   </div>
 
-  <p class="field-notice">{{ 'form.configuration.settings.mdm.component.wifi.notice' | translate }}</p>
+  <p class="field-notice">
+    {{ 'form.configuration.settings.mdm.component.wifi.notice' | translate }}
+  </p>
 
   <hmdm-text-input
     formControlName="launcherUrl"

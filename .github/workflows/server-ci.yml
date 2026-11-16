@@ -48,6 +48,32 @@ jobs:
             bash "$f"
           done
 
+  web-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Panel tests
+        working-directory: server/src/main/web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec ng test core --watch=false --browsers=ChromeHeadless
+
+      - name: Fleet health plugin tests
+        working-directory: plugins/locker24-health/src/main/web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec ng test --watch=false --browsers=ChromeHeadless
+
   secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 15

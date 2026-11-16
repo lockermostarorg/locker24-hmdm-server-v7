@@ -9,7 +9,6 @@ export type TConfigurationDTO = {
   type: number;
   applications: any[];
   customerId: number;
-  autoUpdate: boolean;
   blockStatusBar: boolean;
   systemUpdateType: number;
   systemUpdateFrom: string | null;
@@ -51,6 +50,8 @@ export type TConfigurationDTO = {
   eventReceivingComponent: string;
   kioskMode: boolean;
   contentAppId: number | null;
+  followLatestMainApp?: boolean | null;
+  followLatestContentApp?: boolean | null;
   wifiSSID: string;
   wifiPassword: string;
   wifiSecurityType: string | null;

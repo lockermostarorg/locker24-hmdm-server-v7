@@ -87,6 +87,13 @@
     </div>
   }
 
+  @if (showReleaseMode()) {
+    <core-release-mode-field
+      [control]="formGroup.controls.releaseMode"
+      [allowHold]="existingApplication()"
+    ></core-release-mode-field>
+  }
+
   @if (versionExists()) {
     <div class="version-exists-warning">
       <mat-icon>warning</mat-icon>

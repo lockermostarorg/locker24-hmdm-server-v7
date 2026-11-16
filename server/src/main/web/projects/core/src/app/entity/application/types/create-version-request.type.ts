@@ -1,11 +1,12 @@
+import { TReleaseMode } from './release-mode.type';
+
 export type TCreateVersionRequest = {
   applicationId: number;
   version: string;
   arch: string | null;
   url?: string | null;
   filePath?: string | null;
-  autoUpdate?: boolean | null;
-  autoUpdateDisplayed?: boolean;
+  releaseMode?: TReleaseMode;
   urlArmeabi?: string | null;
   urlArm64?: string | null;
   versionCode?: number;

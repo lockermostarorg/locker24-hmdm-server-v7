@@ -18,6 +18,9 @@
           <button mat-menu-item (click)="onVersionClick(version)">
             <mat-icon>{{ version.id === params().data.usedVersionId ? 'check' : '' }}</mat-icon>
             <span>{{ version.version }}</span>
+            @if (version.releaseState === 'held') {
+              <span class="cell-held">{{ 'release.state.held' | translate }}</span>
+            }
           </button>
         }
       } @else {
@@ -28,6 +31,22 @@
     </mat-menu>
   } @else {
     <span>{{ params().data.version }}</span>
+  }
+
+  @if (canChangeVersion() && isInstalled()) {
+    <mat-slide-toggle
+      class="cell-follow"
+      [checked]="follows()"
+      [matTooltip]="'form.configuration.app.follow.latest.title' | translate"
+      [matTooltipShowDelay]="500"
+      (change)="onFollowChange($event.checked)"
+    >
+      @if (follows()) {
+        {{ 'form.configuration.app.follow.latest' | translate }}
+      } @else {
+        {{ 'form.configuration.app.pinned' | translate: { version: params().data.version } }}
+      }
+    </mat-slide-toggle>
   }
 
   @if (canUpgrade()) {

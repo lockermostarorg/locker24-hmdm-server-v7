@@ -1,13 +1,13 @@
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, input, InputSignal, signal, OnInit, OnDestroy } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import {
-  Checkbox,
   FileInputComponent,
   // Selector, // Native code field is hidden in the template
   TextInputComponent,
   TranslatePipe,
 } from 'hmdm-ui-kit';
+import { ReleaseModeField } from '../release-mode-field/release-mode-field';
 import { VersionFormConfig } from '../../configuration/version-form.config';
 import { APPLICATION_ARCHITECTURE_OPTIONS } from '../../const/application-architecture-options.const';
 import { TVersionFormValue } from '../../types/version-form.type';
@@ -23,7 +23,7 @@ import { TFileUploadResult } from '../../../entity/application/types/file-upload
     TextInputComponent,
     // Selector, // Native code field is hidden in the template
     FileInputComponent,
-    Checkbox,
+    ReleaseModeField,
     TranslatePipe,
   ],
 })
@@ -31,6 +31,8 @@ export class AddVersionForm implements OnInit {
   private readonly versionFormConfig = inject(VersionFormConfig);
   private readonly applicationService = inject(ApplicationService);
   private readonly destroy$ = new Subject<void>();
+
+  allowHold: InputSignal<boolean> = input(true);
 
   formGroup = this.versionFormConfig.getFormGroup();
 

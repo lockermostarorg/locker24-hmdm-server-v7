@@ -14,4 +14,8 @@ export type TVersionDTO = {
   apkHash: string | null;
   arch: string | null;
   filePath: string | null;
+  releaseState?: 'released' | 'held';
+  releasedAt?: number | null;
+  releaseMode?: string | null;
+  releasedBy?: number | null;
 };

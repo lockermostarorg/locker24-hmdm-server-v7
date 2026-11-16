@@ -82,7 +82,6 @@ public interface ApplicationMapper {
                     "applicationVersions.releasedAt, " +
                     "applicationVersions.releaseMode, " +
                     "applicationVersions.releasedBy, " +
-                    "(SELECT COALESCE(NULLIF(ru.name, ''), ru.login) FROM users ru WHERE ru.id = applicationVersions.releasedBy) AS releasedByName, " +
                     "(usageData.usageCount > 0 OR versionsData.appVersionsCount = 1) AS deletionProhibited, " +
                     "customers.master AS commonApplication," +
                     "applications.system, " +
@@ -332,6 +331,16 @@ public interface ApplicationMapper {
             "WHERE applicationVersions.applicationId=#{id} " +
             "ORDER BY mdm_app_version_comparison_index(applicationVersions.version) DESC")
     List<ApplicationVersion> getApplicationVersions(@Param("id") Integer applicationId);
+
+    @Select("SELECT vl.*, " +
+            "(SELECT COALESCE(NULLIF(ru.name, ''), ru.login) FROM users ru " +
+            " WHERE ru.id = vl.releasedBy AND (#{viewerSuperAdmin} OR ru.customerId = #{viewerCustomerId})) AS releasedByName " +
+            "FROM (" + SELECT_VERSION_BASE +
+            "WHERE applicationVersions.applicationId=#{id}) vl " +
+            "ORDER BY mdm_app_version_comparison_index(vl.version) DESC")
+    List<ApplicationVersion> getApplicationVersionsForViewer(@Param("id") Integer applicationId,
+                                                             @Param("viewerCustomerId") int viewerCustomerId,
+                                                             @Param("viewerSuperAdmin") boolean viewerSuperAdmin);
 
     @Select(SELECT_VERSION_BASE +
             "WHERE (customerId = #{customerId} OR customers.master = TRUE) " +

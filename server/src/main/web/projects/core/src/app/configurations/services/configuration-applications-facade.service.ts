@@ -462,7 +462,7 @@ export class ConfigurationAppsFacadeService {
     const rows = this.installRowsOfPackage(chosen.pkg);
     const follow = rows.length
       ? rows.every((row) => row.followLatest !== false)
-      : versionId === chosen.latestVersion;
+      : (this.storedFlagOfSelection(kind, chosen.pkg) ?? versionId === chosen.latestVersion);
 
     this.configurationDetailsFacadeService.setFollowLatestFlags(
       kind === 'main' ? { followLatestMainApp: follow } : { followLatestContentApp: follow },
@@ -534,6 +534,26 @@ export class ConfigurationAppsFacadeService {
     this._sortState.set(state);
   }
 
+  // The flag stored for the main/content app, when the selection is back on that same app
+  private storedFlagOfSelection(kind: 'main' | 'content', pkg: string): boolean | null {
+    const stored = this.configurationDetailsFacadeService.storedConfiguration();
+    const storedId = kind === 'main' ? stored?.mainAppId : stored?.contentAppId;
+    if (!stored || !storedId) {
+      return null;
+    }
+
+    const matches = (a: TApplicationDTO) =>
+      a.usedVersionId === storedId || a.latestVersion === storedId;
+    const storedApp = this._applications().find(matches) ?? this._allApplications().find(matches);
+    if (storedApp?.pkg !== pkg) {
+      return null;
+    }
+
+    const flag = kind === 'main' ? stored.followLatestMainApp : stored.followLatestContentApp;
+
+    return flag !== false;
+  }
+
   private canLoadVersions(): boolean {
     return this.authService.hasPermission('applications');
   }
@@ -558,7 +578,7 @@ export class ConfigurationAppsFacadeService {
   private isHiddenLatestTwin(candidate: TApplicationDTO, app: TApplicationDTO): boolean {
     return (
       candidate.id === app.id &&
-      candidate.usedVersionId === app.latestVersion &&
+      (candidate.usedVersionId == null || candidate.usedVersionId === app.latestVersion) &&
       !this.isListed(candidate)
     );
   }

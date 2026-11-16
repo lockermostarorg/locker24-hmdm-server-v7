@@ -127,18 +127,31 @@ def text(node):
 
 
 src = open(path).read()
+
+
+def literals(block):
+    parts = []
+    for lit, const in re.findall(r'"((?:[^"\\]|\\.)*)"|\b(SELECT_VERSION_BASE|SELECT_BASE)\b', block):
+        if const:
+            start = src.index("String %s =" % const)
+            parts.append(literals(src[start:src.index(";\n", start)].split("=", 1)[1]))
+        else:
+            parts.append(lit)
+    return "".join(parts)
+
+
 if kind == "xml":
     doc = minidom.parseString(re.sub(r"<!DOCTYPE[^>]*>", "", src).encode())
     el = [e for e in doc.getElementsByTagName("*") if e.getAttribute("id") == marker][0]
     sql = text(el)
 elif kind == "javaconst":
     start = src.index(marker)
-    block = src[start:src.index(";\n", start)]
-    sql = "".join(re.findall(r'"((?:[^"\\]|\\.)*)"', block))
+    block = src[start:src.index(";\n", start)].split("=", 1)[1]
+    sql = literals(block)
 else:
     end = src.index(marker)
     block = src[src.rindex("@Select", 0, end):end]
-    sql = "".join(re.findall(r'"((?:[^"\\]|\\.)*)"', block))
+    sql = literals(block)
 sql = fill(sql).strip()
 if mode:
     pre = ""
@@ -277,12 +290,16 @@ expect "null: configuration apps still return a held-only app, not outdated (4 e
 q "INSERT INTO users (login, name, email, password, customerId, userRoleId) SELECT 'rel-named', 'Release Name', 'rn@example.com', 'x', c.id, r.id FROM customers c, userRoles r LIMIT 1" >/dev/null
 q "INSERT INTO users (login, name, email, password, customerId, userRoleId) SELECT 'rel-unnamed', '', 'ru@example.com', 'x', c.id, r.id FROM customers c, userRoles r LIMIT 1" >/dev/null
 q "UPDATE applicationVersions SET releasedBy = (SELECT id FROM users WHERE login = 'rel-named') WHERE id = $VH" >/dev/null
-version_by() { render javaconst "$APP_MAPPER" 'String SELECT_VERSION_BASE =' | python3 -c "import sys; print('SELECT COALESCE(releasedByName, \'none\') FROM (' + sys.stdin.read().strip() + ' WHERE applicationVersions.id = $1) t;')" | psqlq; }
-expect "version list returns the name of the releasing user" "Release Name" "$(version_by "$VH")"
+version_by() { render java "$APP_MAPPER" 'List<ApplicationVersion> getApplicationVersionsForViewer(' id="$APP_H" viewerCustomerId="$2" viewerSuperAdmin="$3" | python3 -c "import sys; print('SELECT COALESCE(string_agg(COALESCE(releasedByName, \'none\'), \',\'), \'nover\') FROM (' + sys.stdin.read().strip().rstrip(';') + ') t WHERE t.id = $1;')" | psqlq; }
+NAMED_CUSTOMER="$(q "SELECT customerId FROM users WHERE login = 'rel-named'")"
+OTHER_CUSTOMER="$(q "INSERT INTO customers (name, description, master, filesDir, prefix) VALUES ('REL-OTHER', 'x', FALSE, 'RELO', 'relo') RETURNING id" | head -1)"
+expect "version list returns the name of the releasing user" "Release Name" "$(version_by "$VH" "$NAMED_CUSTOMER" false)"
+expect "version list hides the name from a viewer of another customer" "none" "$(version_by "$VH" "$OTHER_CUSTOMER" false)"
+expect "version list shows the name to a super admin of another customer" "Release Name" "$(version_by "$VH" "$OTHER_CUSTOMER" true)"
 q "UPDATE applicationVersions SET releasedBy = (SELECT id FROM users WHERE login = 'rel-unnamed') WHERE id = $VH" >/dev/null
-expect "version list falls back to the login when the user has no name" "rel-unnamed" "$(version_by "$VH")"
+expect "version list falls back to the login when the user has no name" "rel-unnamed" "$(version_by "$VH" "$NAMED_CUSTOMER" false)"
 q "UPDATE applicationVersions SET releasedBy = NULL WHERE id = $VH" >/dev/null
-expect "version list has no name when nobody released it" "none" "$(version_by "$VH")"
+expect "version list has no name when nobody released it" "none" "$(version_by "$VH" "$NAMED_CUSTOMER" false)"
 
 if [ "$FAILED" -ne 0 ]; then
   exit 1

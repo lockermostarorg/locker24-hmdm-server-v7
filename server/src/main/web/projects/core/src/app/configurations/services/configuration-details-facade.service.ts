@@ -26,7 +26,10 @@ export class ConfigurationDetailsFacadeService {
   private configurationDesignValue: TConfigurationDesignFormValue | null = null;
   private configurationMDMValue: TConfigurationMDMFormValue | null = null;
 
+  private readonly _storedConfiguration: WritableSignal<TConfigurationDTO | null> = signal(null);
+
   currentConfiguration = this._currentConfiguration.asReadonly();
+  storedConfiguration = this._storedConfiguration.asReadonly();
   configurationId = this._configurationId.asReadonly();
   reloadTrigger = this._reloadTrigger.asReadonly();
   hasUnsavedChanges = this._hasUnsavedChanges.asReadonly();
@@ -67,9 +70,11 @@ export class ConfigurationDetailsFacadeService {
     if (id) {
       this.configurationService.getConfigurationsById(id).subscribe((config) => {
         this._currentConfiguration.set(config);
+        this._storedConfiguration.set(config);
       });
     } else {
       this._currentConfiguration.set(null);
+      this._storedConfiguration.set(null);
     }
   }
 
@@ -305,6 +310,7 @@ export class ConfigurationDetailsFacadeService {
 
         this._configurationId.set(saved.id ?? null);
         this._currentConfiguration.set(saved);
+        this._storedConfiguration.set(saved);
         this._hasUnsavedChanges.set(false);
       });
   }

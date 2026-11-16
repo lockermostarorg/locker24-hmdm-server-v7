@@ -283,7 +283,12 @@ describe('ConfigurationAppsFacadeService release flow', () => {
     });
 
     it('does not leave the hidden latest entry next to the row', () => {
-      const twin = row({ action: 0, usedVersionId: 11, version: '2.0', followLatest: null });
+      const twin = row({
+        action: 0,
+        usedVersionId: null as never,
+        version: '2.0',
+        followLatest: null,
+      });
       setup([pinned(), twin]);
 
       facade.setFollowLatest(facade.applications()[0], true);
@@ -301,6 +306,20 @@ describe('ConfigurationAppsFacadeService release flow', () => {
       facade.syncFollowLatestFlagWithSelection('content', 21);
 
       expect(details.currentConfiguration()?.followLatestContentApp).toBeTrue();
+    });
+
+    it('restores the stored pin when the selector comes back to the stored app', () => {
+      setup([row({ action: 0 }), { ...other, action: 0 }], {
+        contentAppId: 11,
+        followLatestContentApp: false,
+      });
+
+      facade.syncFollowLatestFlagWithSelection('content', 21);
+      expect(details.currentConfiguration()?.followLatestContentApp).toBeTrue();
+
+      facade.syncFollowLatestFlagWithSelection('content', 11);
+
+      expect(details.currentConfiguration()?.followLatestContentApp).toBeFalse();
     });
 
     it('is pinned when the new app has a pinned row', () => {
@@ -392,7 +411,7 @@ describe('ConfigurationAppsFacadeService release flow', () => {
     it('sends one row per app after toggling on', () => {
       setup([
         row({ usedVersionId: 10, followLatest: false }),
-        row({ action: 0, usedVersionId: 11, followLatest: null }),
+        row({ action: 0, usedVersionId: null as never, followLatest: null }),
       ]);
 
       facade.setFollowLatest(facade.applications()[0], true);

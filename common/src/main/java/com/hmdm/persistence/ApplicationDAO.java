@@ -862,7 +862,8 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
                     Application dbApplication = this.mapper.findById(id);
                     if (dbApplication != null) {
                         if (dbApplication.getCustomerId() == currentUser.getCustomerId() || dbApplication.isCommonApplication()) {
-                            return this.mapper.getApplicationVersions(id);
+                            return this.mapper.getApplicationVersionsForViewer(id, currentUser.getCustomerId(),
+                                    SecurityContext.get().isSuperAdmin());
                         }
                     }
 

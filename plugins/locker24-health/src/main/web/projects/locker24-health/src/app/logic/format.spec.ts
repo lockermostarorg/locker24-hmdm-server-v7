@@ -82,4 +82,34 @@ describe('format', () => {
     );
     expect(tickLabel(week[0], 'Europe/Sarajevo', 86_400_000)).toBe('10/11');
   });
+
+  it('keeps day ticks on local midnight across the October DST change', () => {
+    const to = Date.UTC(2026, 9, 28, 10, 0);
+    const ticks = alignedTicks(to - 168 * 3_600_000, to, 'Europe/Sarajevo');
+    const hours = ticks.map((t) => tickLabel(t, 'Europe/Sarajevo', 3_600_000));
+    const dates = ticks.map((t) => tickLabel(t, 'Europe/Sarajevo', 86_400_000));
+    expect(hours).toEqual(Array(7).fill('00:00'));
+    expect(new Set(dates).size).toBe(7);
+    expect(dates).toContain('25/10');
+    expect(dates).toContain('26/10');
+  });
+
+  it('keeps day ticks on local midnight across the March DST change', () => {
+    const to = Date.UTC(2026, 2, 31, 10, 0);
+    const ticks = alignedTicks(to - 168 * 3_600_000, to, 'Europe/Sarajevo');
+    const hours = ticks.map((t) => tickLabel(t, 'Europe/Sarajevo', 3_600_000));
+    const dates = ticks.map((t) => tickLabel(t, 'Europe/Sarajevo', 86_400_000));
+    expect(hours).toEqual(Array(7).fill('00:00'));
+    expect(new Set(dates).size).toBe(7);
+    expect(dates).toContain('29/03');
+    expect(dates).toContain('30/03');
+  });
+
+  it('keeps 3-hour ticks on local hours across a DST change', () => {
+    const to = Date.UTC(2026, 9, 25, 12, 0);
+    const ticks = alignedTicks(to - 24 * 3_600_000, to, 'Europe/Sarajevo');
+    const labels = ticks.map((t) => tickLabel(t, 'Europe/Sarajevo', 3_600_000));
+    labels.forEach((label) => expect(Number(label.slice(0, 2)) % 3).toBe(0));
+    expect(labels.every((label) => label.endsWith(':00'))).toBeTrue();
+  });
 });

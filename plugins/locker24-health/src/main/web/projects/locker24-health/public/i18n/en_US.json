@@ -93,7 +93,7 @@
   "plugin.locker24-health.device.truncated": "Not all history could be loaded for this range. The chart shows what was loaded.",
 
   "plugin.locker24-health.range.label": "Time range",
-  "plugin.locker24-health.range.help": "Long ranges are averaged into at most 1000 points; each point shows the worst value of its interval.",
+  "plugin.locker24-health.range.help": "Long ranges are split into at most 1000 intervals; each point shows the worst value of its interval (lowest battery and signal, highest temperature).",
   "plugin.locker24-health.range.24": "24 h",
   "plugin.locker24-health.range.168": "7 days",
   "plugin.locker24-health.range.720": "30 days",

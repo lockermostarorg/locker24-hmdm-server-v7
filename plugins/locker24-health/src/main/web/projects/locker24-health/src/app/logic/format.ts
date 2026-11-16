@@ -106,16 +106,25 @@ export function tickStepMs(rangeMs: number): number {
   return 5 * DAY;
 }
 
+export function wallClockToUtc(wallClock: number, timeZone: string | null | undefined): number {
+  const guess = wallClock - zoneOffsetMs(wallClock, timeZone);
+  return wallClock - zoneOffsetMs(guess, timeZone);
+}
+
 export function alignedTicks(
   from: number,
   to: number,
   timeZone: string | null | undefined,
 ): number[] {
   const step = tickStepMs(to - from);
-  const offset = zoneOffsetMs(from, timeZone);
+  const startWall = from + zoneOffsetMs(from, timeZone);
+  const endWall = to + zoneOffsetMs(to, timeZone);
   const ticks: number[] = [];
-  for (let t = Math.ceil((from + offset) / step) * step - offset; t <= to; t += step) {
-    ticks.push(t);
+  for (let wall = Math.ceil(startWall / step) * step; wall <= endWall; wall += step) {
+    const tick = wallClockToUtc(wall, timeZone);
+    if (tick >= from && tick <= to && tick !== ticks[ticks.length - 1]) {
+      ticks.push(tick);
+    }
   }
   return ticks;
 }

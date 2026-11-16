@@ -76,6 +76,10 @@
                         </goals>
                         <configuration>
                             <target>
+                                <available property="web.dist.present"
+                                           file="${basedir}/src/main/web/dist/locker24-health/browser/remoteEntry.json"/>
+                                <fail unless="web.dist.present"
+                                      message="Dashboard not built: src/main/web/dist/locker24-health/browser/remoteEntry.json is missing. Build the web project or drop -Dskip.web.build."/>
                                 <copy todir="${basedir}/target/locker24-health-${project.version}">
                                     <fileset dir="${basedir}/src/main/web/dist/locker24-health/browser"/>
                                 </copy>

@@ -56,6 +56,7 @@ type TChartSpec = {
   unit: string;
   yMin?: number;
   yMax?: number;
+  ySuggestedMax?: number;
   thresholds: (theme: ReturnType<typeof chartTheme>) => TThreshold[];
 };
 
@@ -73,6 +74,7 @@ const CHARTS: TChartSpec[] = [
   {
     key: 'temperatureC',
     unit: '°C',
+    ySuggestedMax: 52,
     thresholds: (theme) => [
       { value: 45, color: theme.warn },
       { value: 50, color: theme.error },
@@ -175,6 +177,7 @@ export class Device extends BaseComponent implements OnInit {
         timeZone: zone,
         yMin: spec.yMin,
         yMax: spec.yMax,
+        ySuggestedMax: spec.ySuggestedMax,
         theme: this.theme,
       };
       return {

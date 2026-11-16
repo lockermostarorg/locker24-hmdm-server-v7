@@ -101,6 +101,7 @@ export type TLineChartInput = {
   timeZone: string | null;
   yMin?: number;
   yMax?: number;
+  ySuggestedMax?: number;
   theme: TChartTheme;
 };
 
@@ -152,6 +153,7 @@ export function lineChartOptions(input: TLineChartInput): ChartConfiguration<'li
       y: {
         min: input.yMin,
         max: input.yMax,
+        suggestedMax: input.ySuggestedMax,
         grid: { color: input.theme.grid },
         ticks: {
           color: input.theme.text,

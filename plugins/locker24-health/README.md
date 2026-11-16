@@ -20,4 +20,8 @@ Local build (macOS):
 
 A full Maven build on Linux (CI, droplet) builds `ui-library` first and then runs the plugin's own frontend build, like the other plugins.
 
-Translations: only `en_US.json`. A panel set to another language shows the keys.
+Translations: `en_US.json` is the source; the 12 other language files core ships are copies of it (English text), so every panel language finds its file. After editing `en_US.json`, copy it over the others.
+
+Shared dependencies that the host also provides are pinned to core's versions (`chart.js` 4.5.1, `tslib` 2.8.1, `@softarc/native-federation` 3.5.5 via `pnpm.overrides`). Keep them in step with `server/src/main/web/pnpm-lock.yaml`.
+
+The package step fails if `dist/locker24-health/browser/remoteEntry.json` is missing, so a jar without the dashboard is never built silently.

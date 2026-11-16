@@ -19,7 +19,9 @@ import {
   EMPTY,
   filter,
   finalize,
+  fromEvent,
   map,
+  merge,
   Observable,
   switchMap,
   take,
@@ -193,9 +195,16 @@ export class Fleet extends BaseComponent implements OnInit {
       )
       .subscribe((settings) => this.timeZone.set(settings.timeZone));
 
-    timer(0, POLL_INTERVAL_MS)
+    const ticks$ = timer(0, POLL_INTERVAL_MS).pipe(
+      tap(() => this.now.set(Date.now())),
+      filter((tick) => tick === 0 || !this.isHidden()),
+    );
+    const visible$ =
+      typeof document === 'undefined'
+        ? EMPTY
+        : fromEvent(document, 'visibilitychange').pipe(filter(() => !this.isHidden()));
+    merge(ticks$, visible$)
       .pipe(
-        filter((tick) => tick === 0 || typeof document === 'undefined' || !document.hidden),
         switchMap(() => this.load()),
         this.untilDestroyed(),
       )
@@ -254,6 +263,10 @@ export class Fleet extends BaseComponent implements OnInit {
       return;
     }
     this.router.navigateByUrl(tree);
+  }
+
+  private isHidden(): boolean {
+    return typeof document !== 'undefined' && document.hidden;
   }
 
   private load(): Observable<void> {

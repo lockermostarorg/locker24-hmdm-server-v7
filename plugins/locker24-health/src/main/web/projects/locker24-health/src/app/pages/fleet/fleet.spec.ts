@@ -102,6 +102,20 @@ describe('Fleet page', () => {
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelectorAll('tbody tr').length).toBe(3);
     expect(el.textContent).toContain('plugin.locker24-health.error.network');
+    const lastSeen = el.querySelectorAll('tbody tr')[2].querySelector('time')?.textContent;
+    expect(lastSeen).toContain('"count":3');
+    fixture.destroy();
+    discardPeriodicTasks();
+  }));
+
+  it('refreshes at once when the tab becomes visible again', fakeAsync(() => {
+    const fixture = render();
+    document.dispatchEvent(new Event('visibilitychange'));
+    http
+      .expectOne(`${BASE}/devices`)
+      .flush({ status: 'OK', message: null, data: { devices: [], truncated: false } });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('plugin.locker24-health.fleet.empty');
     fixture.destroy();
     discardPeriodicTasks();
   }));

@@ -291,7 +291,7 @@
 
   The table names follow the spec. Headwind's `plugin_<id>_` naming is a convention only; nothing in the platform depends on it.
 
-- [ ] **Step 1: Toolchain.** `mvn -v` must report Maven 3.9+ and a JDK ≥ 17. If Maven is missing, ask the user to run `brew install maven`.
+- [ ] **Step 1: Toolchain.** Maven is NOT installed on this Mac and must not be installed; every `mvn ...` command in this plan runs in Docker (Docker is running locally) from the repo root as `docker run --rm -v "$PWD":/src -v "$HOME/.m2":/root/.m2 -w /src maven:3.9-eclipse-temurin-17 mvn ...`. Define `alias mvn='docker run --rm -v "$PWD":/src -v "$HOME/.m2":/root/.m2 -w /src maven:3.9-eclipse-temurin-17 mvn'` in the shell, or write the full form; `mvn -v` through it must report Maven 3.9+ and JDK 17.
 - [ ] **Step 2: Implement** the files above, mirroring deviceinfo's classes:
   - `getPluginModules` = Liquibase + Persistence + Rest modules;
   - `getTaskModules` = `HealthTaskModule`, added in Task 10 (return `Optional.empty()` until then);

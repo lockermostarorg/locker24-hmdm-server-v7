@@ -166,6 +166,18 @@ rm -rf /var/lib/tomcat10/webapps/ROOT
 systemctl start tomcat10
 ```
 
+## Removing Headwind demo data
+
+Headwind's installer seeds demo applications, five demo configurations and a demo device `h0001` (`install/sql/hmdm_init.en.sql`). `deploy/cleanup-demo-data.sh` removes what is safe to remove. Run it once as root on the droplet, after the deploy:
+
+```bash
+sudo bash /opt/locker24/src/locker24-hmdm-server-v7/deploy/cleanup-demo-data.sh            # prints the plan, asks y/N
+sudo bash /opt/locker24/src/locker24-hmdm-server-v7/deploy/cleanup-demo-data.sh --yes      # no prompt
+sudo bash /opt/locker24/src/locker24-hmdm-server-v7/deploy/cleanup-demo-data.sh --db NAME  # default: hmdm
+```
+
+It deletes, in one transaction: demo device `h0001` if it never enrolled; the five demo configurations (matched by id and name) that no device uses (current or previous configuration); demo applications (matched by id and package) that nothing references. It keeps any application used by a remaining configuration (rows, main or content app), with a version uploaded after install, or with a custom log rule or setting, and never touches `app.locker24.mdm`. The plan lists what is deleted and what is kept and why. A second run prints `nothing to delete`. Take a database backup first (`deploy/backup.sh`). Check script: `deploy/test/cleanup-demo-data-check.sh` (Docker).
+
 ## Notes and known risks
 
 - The build runs as root, so a malicious build step or dependency would run as root. Accepted for now; move the build to an unprivileged build user later.

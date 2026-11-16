@@ -21,6 +21,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 [ ! -f /etc/stub-systemd-run-fail ] || exit 1
+[ ! -f /etc/stub-sr-delay ] || sleep "$(cat /etc/stub-sr-delay)"
 touch "/run/stub-units/$unit.service"
 echo "$unit" >> /run/stub-launches
 setsid nohup bash -c 'u=$1; shift; "$@" 2>>/var/log/locker24-deploy.log; rm -f "/run/stub-units/$u.service"' x "$unit" "$@" >/dev/null 2>&1 &
@@ -148,6 +149,13 @@ run "deploy $B 7-1" >/dev/null 2>&1; check "deploy B succeeds" 0 $?
 run "status $A 7-1" >/dev/null 2>&1; check "status never returns an earlier attempt's result (unknown nonce)" 3 $?
 run "status $B 7-1" >/dev/null 2>&1; check "status for its own attempt" 0 $?
 
+# status racing the launch: systemd-run is slow, status arrives after the offset file exists
+echo 0 > /etc/stub-sleep; echo 0 > /etc/stub-rc; echo "$A" > /etc/stub-HEAD; echo 5 > /etc/stub-sr-delay
+run "deploy $A 7-9" >/tmp/race.out 2>&1 &
+sleep 2
+run "status $A 7-9" >/tmp/race-status.out 2>&1; check "status during a slow launch waits and reports the real result" 0 $?
+wait
+rm -f /etc/stub-sr-delay
 echo 4 > /etc/stub-sleep; echo 5 > /etc/stub-rc
 SSH_ORIGINAL_COMMAND="deploy $C 8-1" "$FORCED" > /tmp/drop.out 2>&1 &
 pid=$!
@@ -168,6 +176,38 @@ run "deploy $A 9-1" >/tmp/wrong.out 2>&1; check "deploy.sh success with the chec
 grep -q "WRONG COMMIT" /var/log/locker24-deploy.log && ok "wrong-commit message in the deploy log" || bad "wrong-commit message"
 echo "$B" > /etc/stub-HEAD
 run "deploy $B 9-2" >/dev/null 2>&1; check "matching HEAD passes the post-check" 0 $?
+
+printf '20261116-1 ref=x sha=%s war-backup=/x db-dump=/y\n' "$A" > /opt/locker24/last-deploy
+printf '20261116-2 ref=y sha=%s war-backup=/x db-dump=/y\n' "$B" >> /opt/locker24/last-deploy
+[ "$(run deployed)" = "$B" ] && ok "deployed prints the last deployed sha" || bad "deployed output"
+rm /opt/locker24/last-deploy
+[ -z "$(run deployed)" ] && ok "deployed prints nothing when unknown" || bad "deployed unknown"
+run "deployed $A" >/dev/null 2>&1; check "deployed with arguments rejected" 1 $?
+
+cat > /usr/bin/gh <<'STUB'
+#!/bin/bash
+[ ! -f /etc/stub-gh-fail ] || exit 1
+cat /etc/stub-gh-out
+STUB
+chmod +x /usr/bin/gh
+export GITHUB_REPOSITORY=o/r
+DO=/work/docs-only.sh
+docs() { printf '%s\n' "$@" > /etc/stub-gh-out; bash $DO "$A" "$B"; }
+docs ahead 2 docs/a.md README.md; check "docs-only change: skip (0)" 0 $?
+docs ahead 2 docs/img.png sub/dir/x.md; check "docs/ file and a .md anywhere: skip" 0 $?
+docs ahead 2 docs/a.md server/pom.xml; check "docs plus code: deploy" 1 $?
+docs ahead 1 plugins/x/Docs.java; check "code only: deploy" 1 $?
+docs ahead 1 notdocs/a.txt; check "path that merely contains docs: deploy" 1 $?
+docs ahead 1 README.md.java; check ".md must be the suffix" 1 $?
+docs diverged 1 docs/a.md; check "diverged: deploy" 1 $?
+docs behind 1 docs/a.md; check "behind: deploy" 1 $?
+docs identical 0; check "identical: deploy" 1 $?
+docs ahead 100 docs/a.md; check "full page of files (maybe truncated): deploy" 1 $?
+docs ahead 2 docs/a.md src/old.java docs/b.md; check "rename from code to docs (previous_filename): deploy" 1 $?
+touch /etc/stub-gh-fail; docs ahead 1 docs/a.md; check "API error: deploy" 1 $?
+rm /etc/stub-gh-fail
+bash $DO "" "$B"; check "unknown deployed sha: deploy" 1 $?
+bash $DO "not-a-sha" "$B"; check "garbage deployed sha: deploy" 1 $?
 
 rm -f /run/locker24-deploy/${C:0:12}-8-1.rc /run/stub-units/*
 run "status $C 8-1" >/dev/null 2>&1; check "unit gone, no result" 1 $?

@@ -78,6 +78,17 @@ r "status $M2 400-1" >/dev/null 2>&1; rc=$?
 [ "$rc" != 0 ] && ok "a stopped deploy does not report success (rc $rc)" || bad "stopped deploy reported success"
 echo 0 > /etc/stub-build-sleep
 
+# the live commit is reported from the deploy history
+last=$(r deployed 2>/dev/null); check "deployed reports the last deployed sha" "$(head_of)" "$last"
+
+# status racing a slow launch (real systemd-run delayed by 5 s)
+printf '#!/bin/bash\nsleep 5\nexec /usr/bin/systemd-run "$@"\n' > /usr/local/bin/systemd-run; chmod +x /usr/local/bin/systemd-run
+ssh -T -i /root/client_key -o BatchMode=yes -o UserKnownHostsFile=/root/known root@localhost "deploy $M2 500-1" >/dev/null 2>&1 &
+sleep 3
+r "status $M2 500-1" >/tmp/race.out 2>&1; check "status during a slow launch waits and reports the real result" 0 $?
+wait
+rm -f /usr/local/bin/systemd-run
+
 ssh -tt -i /root/client_key -o BatchMode=yes -o UserKnownHostsFile=/root/known root@localhost "status $M2 999-2" </dev/null >/tmp/pty.out 2>&1
 grep -q "PTY allocation request failed" /tmp/pty.out && ok "pty allocation refused" || bad "pty: $(cat /tmp/pty.out)"
 ssh -N -L 2222:127.0.0.1:22 -i /root/client_key -o BatchMode=yes -o UserKnownHostsFile=/root/known root@localhost >/tmp/fwd.out 2>&1 &

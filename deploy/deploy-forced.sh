@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # SSH forced command for the GitHub deploy key (see deploy/README.md).
+# Also accepts "deployed", which prints the sha of the last successful deploy (nothing if unknown).
 # Accepts exactly "deploy <40-hex sha> <nonce>" or "status <40-hex sha> <nonce>" in SSH_ORIGINAL_COMMAND,
 # where nonce is <run id>-<attempt> of the workflow run.
 # deploy starts deploy.sh detached from the SSH session (systemd-run), then follows its log and exits with
@@ -17,6 +18,12 @@ SRC_DIR=/opt/locker24/src/locker24-hmdm-server-v7
 DEPLOY_SH=$SRC_DIR/deploy/deploy.sh
 STATE_DIR=/run/locker24-deploy
 POLL=2
+
+if [ "${SSH_ORIGINAL_COMMAND-}" = deployed ]; then
+    # the commit that is live: last line of the deploy history
+    sed -n 's/.* sha=\([0-9a-f]\{40\}\) .*/\1/p' /opt/locker24/last-deploy 2>/dev/null | tail -n 1
+    exit 0
+fi
 
 re='^(deploy|status) ([0-9a-f]{40}) ([0-9]{1,20}-[0-9]{1,5})$'
 if ! [[ ${SSH_ORIGINAL_COMMAND-} =~ $re ]]; then
@@ -145,6 +152,10 @@ case $action in
         follow
         ;;
     status)
+        # wait for a launch in progress, so state written just before systemd-run is not read too early
+        exec 8>"$STATE_DIR/lock"
+        flock -w 300 8 || refuse "could not get the deploy lock"
+        exec 8>&-
         if [ ! -f "$off_file" ]; then
             echo "no attempt $nonce of $sha is known on this host" >&2
             exit 3

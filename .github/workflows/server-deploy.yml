@@ -69,6 +69,11 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
 
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.deploy == 'true'
+        with:
+          persist-credentials: false
+
       - name: Deploy over SSH
         if: steps.check.outputs.deploy == 'true'
         env:
@@ -91,13 +96,25 @@ jobs:
           nonce=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT
           errf=$RUNNER_TEMP/mdm_ssh_err
 
-          remote() {
+          sshq() {
             ssh -T -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
               -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known" -o GlobalKnownHostsFile=/dev/null \
               -o ForwardAgent=no -o ClearAllForwardings=yes \
               -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=4 \
-              "root@$DEPLOY_HOST" "$1 $DEPLOY_SHA $nonce" 2> "$errf"
+              "root@$DEPLOY_HOST" "$1" 2> "$errf"
           }
+          remote() {
+            sshq "$1 $DEPLOY_SHA $nonce"
+          }
+
+          if [ "$EVENT" = workflow_run ]; then
+            deployed=$(sshq deployed | head -c 100 | tr -d '\r\n' || true)
+            if [[ $deployed =~ ^[0-9a-f]{40}$ ]] && bash deploy/docs-only.sh "$deployed" "$DEPLOY_SHA"; then
+              echo "::notice::Docs-only change since the deployed $deployed, not deployed"
+              echo "Docs-only change since \`$deployed\`: \`$DEPLOY_SHA\` was not deployed" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
 
           # remote output is untrusted text: keep it from being read as workflow commands
           token=$(openssl rand -hex 16)

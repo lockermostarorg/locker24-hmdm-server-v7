@@ -44,6 +44,7 @@
         <module>messaging</module>
         <module>push</module>
         <module>xtra</module>
+        <module>locker24-health</module>
     </modules>
 
     <repositories>

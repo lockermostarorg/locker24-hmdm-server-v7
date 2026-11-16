@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.0.xsd"
+        logicalFilePath="locker24-health.changelog.xml">
+
+    <changeSet id="plugin-locker24-health-16.11.2026-01" author="locker24" context="common">
+        <comment>Plugin,new: locker24-health</comment>
+        <sql>
+            INSERT INTO plugins (
+            identifier, name, description,
+            namelocalizationkey,
+            settingsPermission, functionsPermission, deviceFunctionsPermission,
+            enabledForDevice,
+            icon, baseUrl, baseUrlDev, hasSettingsPage
+            )
+            VALUES (
+            'locker24-health', 'Fleet health', 'Tablet health dashboard and alerts',
+            'plugin.locker24-health.localization.key.name',
+            'plugin_locker24_health_access',
+            'plugin_locker24_health_access',
+            'plugin_locker24_health_access',
+            FALSE,
+            'monitor_heart', NULL, NULL, TRUE
+            );
+        </sql>
+        <rollback>
+            DELETE FROM plugins WHERE identifier = 'locker24-health';
+        </rollback>
+    </changeSet>
+
+    <changeSet id="plugin-locker24-health-16.11.2026-02" author="locker24" context="common">
+        <comment>Permission,new: plugin_locker24_health_access</comment>
+        <sql>
+            INSERT INTO permissions (name, description) VALUES ('plugin_locker24_health_access', 'Access to the fleet health dashboard and alerts');
+            INSERT INTO userRolePermissions (roleId, permissionId)
+                SELECT id, currval('permissions_id_seq')
+                FROM userroles;
+        </sql>
+        <rollback>
+            DELETE FROM permissions WHERE name = 'plugin_locker24_health_access';
+        </rollback>
+    </changeSet>
+
+    <changeSet id="plugin-locker24-health-16.11.2026-03" author="locker24" context="common">
+        <comment>Table,new: locker24_device_health_latest</comment>
+        <sql>
+            CREATE TABLE locker24_device_health_latest (
+                device_id INT PRIMARY KEY REFERENCES devices (id) ON DELETE CASCADE,
+                customer_id INT NOT NULL,
+                received_at BIGINT NOT NULL,
+                measured_at BIGINT NOT NULL,
+                status VARCHAR(8) NOT NULL DEFAULT 'green',
+                status_reasons VARCHAR(256),
+                non_green_since BIGINT,
+                version_mismatch_since BIGINT,
+                evaluated_at BIGINT,
+                battery_pct SMALLINT,
+                charging BOOLEAN,
+                temperature_c REAL,
+                free_storage_mb INT,
+                rssi_dbm SMALLINT,
+                kiosk_required BOOLEAN,
+                kiosk_running BOOLEAN,
+                kiosk_admin_unlocked BOOLEAN,
+                kiosk_app_package VARCHAR(128),
+                kiosk_app_version VARCHAR(64),
+                agent_version VARCHAR(64),
+                locker_short_uid VARCHAR(64),
+                manufacturer VARCHAR(64),
+                model VARCHAR(64),
+                report_json TEXT NOT NULL
+            );
+        </sql>
+        <rollback>
+            DROP TABLE locker24_device_health_latest;
+        </rollback>
+    </changeSet>
+
+    <changeSet id="plugin-locker24-health-16.11.2026-04" author="locker24" context="common">
+        <comment>Table,new: locker24_device_health_history</comment>
+        <sql>
+            CREATE TABLE locker24_device_health_history (
+                id BIGSERIAL PRIMARY KEY,
+                device_id INT NOT NULL REFERENCES devices (id) ON DELETE CASCADE,
+                device_ts BIGINT NOT NULL,
+                received_at BIGINT NOT NULL,
+                measured_at BIGINT NOT NULL,
+                battery_pct SMALLINT,
+                charging BOOLEAN,
+                temperature_c REAL,
+                rssi_dbm SMALLINT,
+                kiosk_running BOOLEAN,
+                kiosk_admin_unlocked BOOLEAN,
+                CONSTRAINT locker24_health_history_device_ts UNIQUE (device_id, device_ts)
+            );
+            CREATE INDEX locker24_health_history_device_measured ON locker24_device_health_history (device_id, measured_at);
+            CREATE INDEX locker24_health_history_measured ON locker24_device_health_history (measured_at);
+        </sql>
+        <rollback>
+            DROP TABLE locker24_device_health_history;
+        </rollback>
+    </changeSet>
+
+    <changeSet id="plugin-locker24-health-16.11.2026-05" author="locker24" context="common">
+        <comment>Table,new: locker24_device_health_alerts</comment>
+        <sql>
+            CREATE TABLE locker24_device_health_alerts (
+                id SERIAL PRIMARY KEY,
+                device_id INT NOT NULL REFERENCES devices (id) ON DELETE CASCADE,
+                customer_id INT NOT NULL,
+                condition VARCHAR(32) NOT NULL,
+                severity VARCHAR(8) NOT NULL,
+                raised_at BIGINT NOT NULL,
+                last_present_at BIGINT NOT NULL,
+                cleared_at BIGINT
+            );
+            CREATE UNIQUE INDEX locker24_health_alerts_open ON locker24_device_health_alerts (device_id, condition) WHERE cleared_at IS NULL;
+        </sql>
+        <rollback>
+            DROP TABLE locker24_device_health_alerts;
+        </rollback>
+    </changeSet>
+
+    <changeSet id="plugin-locker24-health-16.11.2026-06" author="locker24" context="common">
+        <comment>Table,new: locker24_health_settings</comment>
+        <sql>
+            CREATE TABLE locker24_health_settings (
+                customer_id INT PRIMARY KEY REFERENCES customers (id) ON DELETE CASCADE,
+                webhook_url VARCHAR(1024),
+                time_zone VARCHAR(64) NOT NULL DEFAULT 'Europe/Sarajevo'
+            );
+        </sql>
+        <rollback>
+            DROP TABLE locker24_health_settings;
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

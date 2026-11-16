@@ -72,7 +72,7 @@ if [ "$DRY_RUN" -eq 0 ]; then
     exec 9>"$LOCK_FILE"
     flock -n 9 || { echo "another deploy is running" >&2; exit 1; }
     # tee ignores the signals, so it outlives them and the rollback can still write
-    exec > >(trap '' INT HUP TERM; exec tee -a "$LOG_FILE") 2>&1
+    exec > >(trap '' INT HUP TERM; exec tee -a "$LOG_FILE" 9>&-) 2>&1
 fi
 
 SAFE_REF=${REF//[^A-Za-z0-9._-]/-}
@@ -247,7 +247,7 @@ wait_healthy() {
     sig=$(signal_file)
     while [ "$(date +%s)" -lt "$deadline" ]; do
         sig_ok=0
-        if [ -f "$sig" ]; then
+        if [ -s "$sig" ]; then
             if [ "$(cat "$sig")" = OK ]; then
                 sig_ok=1
             else

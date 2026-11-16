@@ -77,6 +77,9 @@ public class Application implements CustomerData, Serializable {
     @Schema(description = "A flag indicating if version check must be skipped for application")
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private boolean skipVersion;
+
+    @Schema(description = "Whether the configuration row follows the latest released version; null outside configuration rows")
+    private Boolean followLatest;
     @Schema(description = "A text for the application icon")
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private String iconText;
@@ -386,6 +389,14 @@ public class Application implements CustomerData, Serializable {
         this.skipVersion = skipVersion;
     }
 
+    public Boolean isFollowLatest() {
+        return followLatest;
+    }
+
+    public void setFollowLatest(Boolean followLatest) {
+        this.followLatest = followLatest;
+    }
+
     public String getIconText() {
         return iconText;
     }
@@ -472,6 +483,7 @@ public class Application implements CustomerData, Serializable {
                 ", iconId='" + iconId + '\'' +
                 ", runAfterInstall=" + runAfterInstall +
                 ", skipVersion=" + skipVersion +
+                ", followLatest=" + followLatest +
                 ", system=" + system +
                 ", configurations=" + configurations +
                 ", customerId=" + customerId +

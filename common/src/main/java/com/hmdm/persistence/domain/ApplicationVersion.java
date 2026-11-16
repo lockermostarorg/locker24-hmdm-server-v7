@@ -55,6 +55,18 @@ public class ApplicationVersion implements Serializable {
     @Schema(description = "An URL for arm64 APK")
     private String urlArm64;
 
+    @Schema(description = "Release state of the version: released or held")
+    private String releaseState;
+
+    @Schema(description = "Time the version was released, in milliseconds")
+    private Long releasedAt;
+
+    @Schema(description = "How the version was released: schedule or immediate")
+    private String releaseMode;
+
+    @Schema(description = "ID of the user who released the version")
+    private Integer releasedBy;
+
     @Schema(hidden = true)
     private boolean deletionProhibited;
 
@@ -166,6 +178,38 @@ public class ApplicationVersion implements Serializable {
 
     public void setUrlArm64(String urlArm64) {
         this.urlArm64 = urlArm64;
+    }
+
+    public String getReleaseState() {
+        return releaseState;
+    }
+
+    public void setReleaseState(String releaseState) {
+        this.releaseState = releaseState;
+    }
+
+    public Long getReleasedAt() {
+        return releasedAt;
+    }
+
+    public void setReleasedAt(Long releasedAt) {
+        this.releasedAt = releasedAt;
+    }
+
+    public String getReleaseMode() {
+        return releaseMode;
+    }
+
+    public void setReleaseMode(String releaseMode) {
+        this.releaseMode = releaseMode;
+    }
+
+    public Integer getReleasedBy() {
+        return releasedBy;
+    }
+
+    public void setReleasedBy(Integer releasedBy) {
+        this.releasedBy = releasedBy;
     }
 
     public boolean isDeletionProhibited() {

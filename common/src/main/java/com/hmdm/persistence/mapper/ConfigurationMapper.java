@@ -110,6 +110,8 @@ public interface ConfigurationMapper {
             "usbStorage=#{usbStorage}, " +
             "mainAppId=#{mainAppId}, " +
             "contentAppId=#{contentAppId}, " +
+            "followLatestMainApp=#{followLatestMainApp}, " +
+            "followLatestContentApp=#{followLatestContentApp}, " +
             "eventReceivingComponent=#{eventReceivingComponent}, " +
             "kioskMode=#{kioskMode}, " +
             "wifiSSID=#{wifiSSID}, " +

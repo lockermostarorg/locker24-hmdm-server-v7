@@ -77,6 +77,10 @@ public interface ApplicationMapper {
                     "applicationVersions.urlArmeabi, " +
                     "applicationVersions.urlArm64, " +
                     "applicationVersions.apkHash, " +
+                    "applicationVersions.releaseState, " +
+                    "applicationVersions.releasedAt, " +
+                    "applicationVersions.releaseMode, " +
+                    "applicationVersions.releasedBy, " +
                     "(usageData.usageCount > 0 OR versionsData.appVersionsCount = 1) AS deletionProhibited, " +
                     "customers.master AS commonApplication," +
                     "applications.system, " +
@@ -136,8 +140,10 @@ public interface ApplicationMapper {
     @SelectKey( statement = "SELECT currval('applications_id_seq')", keyColumn = "id", keyProperty = "id", before = false, resultType = int.class )
     void insertApplication(Application application);
 
-    @Insert({"INSERT INTO applicationVersions (applicationId, version, versionCode, url, apkHash, split, urlArmeabi, urlArm64) " +
-            "VALUES (#{applicationId}, #{version}, #{versionCode}, #{url}, #{apkHash}, #{split}, #{urlArmeabi}, #{urlArm64})"})
+    @Insert({"INSERT INTO applicationVersions (applicationId, version, versionCode, url, apkHash, split, urlArmeabi, urlArm64, " +
+            "releaseState, releasedAt, releaseMode, releasedBy) " +
+            "VALUES (#{applicationId}, #{version}, #{versionCode}, #{url}, #{apkHash}, #{split}, #{urlArmeabi}, #{urlArm64}, " +
+            "COALESCE(#{releaseState}, 'released'), #{releasedAt}, #{releaseMode}, #{releasedBy})"})
     @SelectKey( statement = "SELECT currval('applicationVersions_id_seq')", keyColumn = "id", keyProperty = "id", before = false, resultType = int.class )
     int insertApplicationVersion(ApplicationVersion version);
 
@@ -354,10 +360,12 @@ public interface ApplicationMapper {
             "            SELECT id " +
             "            FROM applicationVersions apv1 " +
             "            WHERE apv1.applicationId = applications.id " +
+            "            AND apv1.releaseState = 'released' " +
             "            AND mdm_app_version_comparison_index(apv1.version) = " +
             "                (SELECT MAX(mdm_app_version_comparison_index(apv2.version)) " +
             "                 FROM applicationVersions apv2 " +
-            "                 WHERE apv2.applicationId = applications.id) " +
+            "                 WHERE apv2.applicationId = applications.id " +
+            "                 AND apv2.releaseState = 'released') " +
             "            LIMIT 1) " +
             "WHERE id = #{id}")
     void recalculateLatestVersion(@Param("id") Integer applicationId);

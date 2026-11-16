@@ -2659,4 +2659,58 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="16.11.26-10:00-l24-1" author="locker24" context="common">
+        <comment>Release state on application versions, follow-latest flags on configurations</comment>
+        <sql>
+            ALTER TABLE applicationVersions ADD COLUMN releaseState VARCHAR(16) NOT NULL DEFAULT 'released';
+            ALTER TABLE applicationVersions ADD CONSTRAINT applicationversions_releasestate_check CHECK (releaseState IN ('released', 'held'));
+            ALTER TABLE applicationVersions ADD COLUMN releasedAt BIGINT NULL;
+            ALTER TABLE applicationVersions ADD COLUMN releaseMode VARCHAR(16) NULL;
+            ALTER TABLE applicationVersions ADD COLUMN releasedBy INT NULL REFERENCES users(id) ON DELETE SET NULL;
+            ALTER TABLE configurationApplications ADD COLUMN followLatest BOOLEAN NOT NULL DEFAULT TRUE;
+            ALTER TABLE configurations ADD COLUMN followLatestMainApp BOOLEAN NOT NULL DEFAULT TRUE;
+            ALTER TABLE configurations ADD COLUMN followLatestContentApp BOOLEAN NOT NULL DEFAULT TRUE;
+        </sql>
+        <rollback>
+            ALTER TABLE configurations DROP COLUMN followLatestContentApp;
+            ALTER TABLE configurations DROP COLUMN followLatestMainApp;
+            ALTER TABLE configurationApplications DROP COLUMN followLatest;
+            ALTER TABLE applicationVersions DROP COLUMN releasedBy;
+            ALTER TABLE applicationVersions DROP COLUMN releaseMode;
+            ALTER TABLE applicationVersions DROP COLUMN releasedAt;
+            ALTER TABLE applicationVersions DROP CONSTRAINT applicationversions_releasestate_check;
+            ALTER TABLE applicationVersions DROP COLUMN releaseState;
+        </rollback>
+    </changeSet>
+
+    <changeSet id="16.11.26-10:01-l24-2" author="locker24" context="common">
+        <comment>Rows and main/content apps on an older version than the latest stay pinned</comment>
+        <sql>
+            UPDATE configurationApplications
+            SET followLatest = FALSE
+            WHERE action = 1
+            AND applicationVersionId &lt;&gt; (SELECT latestVersion FROM applications WHERE applications.id = configurationApplications.applicationId);
+
+            UPDATE configurations
+            SET followLatestMainApp = FALSE
+            WHERE mainAppId IS NOT NULL
+            AND mainAppId &lt;&gt; (SELECT a.latestVersion
+                               FROM applicationVersions v
+                               INNER JOIN applications a ON a.id = v.applicationId
+                               WHERE v.id = configurations.mainAppId);
+
+            UPDATE configurations
+            SET followLatestContentApp = FALSE
+            WHERE contentAppId IS NOT NULL
+            AND contentAppId &lt;&gt; (SELECT a.latestVersion
+                                  FROM applicationVersions v
+                                  INNER JOIN applications a ON a.id = v.applicationId
+                                  WHERE v.id = configurations.contentAppId);
+        </sql>
+        <rollback>
+            UPDATE configurationApplications SET followLatest = TRUE;
+            UPDATE configurations SET followLatestMainApp = TRUE, followLatestContentApp = TRUE;
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>

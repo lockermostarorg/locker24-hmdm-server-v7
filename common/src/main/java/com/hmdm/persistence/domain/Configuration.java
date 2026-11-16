@@ -133,6 +133,10 @@ public class Configuration implements CustomerData, Serializable {
     // This group of settings corresponds to MDM settings
     @Schema(description = "A package ID for main application")
     private Integer mainAppId;
+    @Schema(description = "Whether the main application follows the latest released version")
+    private boolean followLatestMainApp = true;
+    @Schema(description = "Whether the content application follows the latest released version")
+    private boolean followLatestContentApp = true;
     @Schema(description = "A package ID for event receiving component")
     private String eventReceivingComponent;
     @Schema(description = "A flag indicating if MDM is operating in kiosk mode")
@@ -391,6 +395,22 @@ public class Configuration implements CustomerData, Serializable {
 
     public void setContentAppId(Integer contentAppId) {
         this.contentAppId = contentAppId;
+    }
+
+    public boolean isFollowLatestMainApp() {
+        return followLatestMainApp;
+    }
+
+    public void setFollowLatestMainApp(boolean followLatestMainApp) {
+        this.followLatestMainApp = followLatestMainApp;
+    }
+
+    public boolean isFollowLatestContentApp() {
+        return followLatestContentApp;
+    }
+
+    public void setFollowLatestContentApp(boolean followLatestContentApp) {
+        this.followLatestContentApp = followLatestContentApp;
     }
 
     public String getEventReceivingComponent() {

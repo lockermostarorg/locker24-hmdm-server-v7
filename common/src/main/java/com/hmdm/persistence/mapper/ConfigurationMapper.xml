@@ -31,7 +31,7 @@
                                     lockVolume, manageVolume, volume, passwordMode, orientation,
                                     runDefaultLauncher, disableScreenshots, autostartForeground, timeZone, allowedClasses, newServerUrl,
                                     lockSafeSettings, permissive, kioskExit, showWifi, mainAppId, eventReceivingComponent, kioskMode,
-                                    contentAppId, wifiSSID, wifiPassword, wifiSecurityType, encryptDevice, qrParameters, adminExtras, mobileEnrollment, kioskHome, kioskRecents,
+                                    contentAppId, followLatestMainApp, followLatestContentApp, wifiSSID, wifiPassword, wifiSecurityType, encryptDevice, qrParameters, adminExtras, mobileEnrollment, kioskHome, kioskRecents,
                                     kioskNotifications, kioskSystemInfo, kioskKeyguard, kioskLockButtons, kioskScreenOn, launcherUrl, restrictions, autoUpdate,
                                     blockStatusBar, systemUpdateType, systemUpdateFrom, systemUpdateTo,
                                     scheduleAppUpdate, appUpdateFrom, appUpdateTo, downloadUpdates, defaultFilePath)
@@ -42,7 +42,7 @@
                 #{lockVolume}, #{manageVolume}, #{volume}, #{passwordMode}, #{orientation},
                 #{runDefaultLauncher}, #{disableScreenshots}, #{autostartForeground}, #{timeZone}, #{allowedClasses}, #{newServerUrl},
                 #{lockSafeSettings}, #{permissive}, #{kioskExit}, #{showWifi}, #{mainAppId}, #{eventReceivingComponent}, #{kioskMode},
-                #{contentAppId}, #{wifiSSID}, #{wifiPassword}, #{wifiSecurityType}, #{encryptDevice}, #{qrParameters}, #{adminExtras}, #{mobileEnrollment}, #{kioskHome}, #{kioskRecents},
+                #{contentAppId}, #{followLatestMainApp}, #{followLatestContentApp}, #{wifiSSID}, #{wifiPassword}, #{wifiSecurityType}, #{encryptDevice}, #{qrParameters}, #{adminExtras}, #{mobileEnrollment}, #{kioskHome}, #{kioskRecents},
                 #{kioskNotifications}, #{kioskSystemInfo}, #{kioskKeyguard}, #{kioskLockButtons}, #{kioskScreenOn}, #{launcherUrl}, #{restrictions}, #{autoUpdate},
                 #{blockStatusBar}, #{systemUpdateType}, #{systemUpdateFrom}, #{systemUpdateTo},
                 #{scheduleAppUpdate}, #{appUpdateFrom}, #{appUpdateTo}, #{downloadUpdates}, #{defaultFilePath})
@@ -50,12 +50,13 @@
 
     <insert id="insertConfigurationApplications">
         INSERT INTO configurationApplications(configurationId, applicationId, applicationVersionId, remove, showIcon,
-        action, screenOrder, keyCode, bottom, longTap)
+        action, screenOrder, keyCode, bottom, longTap, followLatest)
         VALUES
         <foreach item="item" index="index" collection="apps"
                  open="" separator="," close="">
             (#{id}, #{item.id}, COALESCE(#{item.usedVersionId}, #{item.latestVersion}), #{item.remove}, #{item.showIcon},
-            #{item.action}, #{item.screenOrder}, #{item.keyCode}, #{item.bottom}, #{item.longTap})
+            #{item.action}, #{item.screenOrder}, #{item.keyCode}, #{item.bottom}, #{item.longTap},
+            COALESCE(#{item.followLatest}, TRUE))
         </foreach>
     </insert>
 
@@ -113,6 +114,7 @@
                configurationApplications.keyCode AS keyCode,
                configurationApplications.bottom AS bottom,
                configurationApplications.longTap AS longTap,
+               configurationApplications.followLatest AS followLatest,
                cap.skipVersionCheck AS skipVersion
         FROM applications
         INNER JOIN applicationVersions AS latestAppVersion ON latestAppVersion.applicationId = applications.id AND latestAppVersion.id=applications.latestversion
@@ -153,6 +155,7 @@
                ${caTableName}.keyCode AS keyCode,
                ${caTableName}.bottom AS bottom,
                ${caTableName}.longTap AS longTap,
+               ${caTableName}.followLatest AS followLatest,
                CASE
                    WHEN cap.skipVersionCheck IS TRUE THEN TRUE
                    ELSE NULL
@@ -194,6 +197,7 @@
                configurationApplications.keyCode AS keyCode,
                configurationApplications.bottom AS bottom,
                configurationApplications.longTap AS longTap,
+               configurationApplications.followLatest AS followLatest,
                CASE
                    WHEN cap.skipVersionCheck IS TRUE THEN TRUE
                    ELSE NULL

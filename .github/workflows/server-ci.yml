@@ -41,9 +41,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run the health plugin SQL checks
+      - name: Run the SQL checks
         run: |
-          for f in plugins/locker24-health/src/test/sql/*-check.sh; do
+          for f in plugins/locker24-health/src/test/sql/*-check.sh server/src/test/sql/*-check.sh; do
             echo "== $f"
             bash "$f"
           done

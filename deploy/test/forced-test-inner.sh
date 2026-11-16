@@ -10,6 +10,7 @@ FORCED=/opt/locker24/deploy-forced.sh
 
 cat > /usr/bin/systemd-run <<'STUB'
 #!/bin/bash
+echo "$*" >> /run/stub-allargs
 unit=
 while [ $# -gt 0 ]; do
     case $1 in
@@ -38,9 +39,21 @@ for i in 1 2 3; do echo "step $i for $1" >> $LOG; sleep "$(cat /etc/stub-sleep)"
 echo "deployed ref=$1" >> $LOG
 exit "$(cat /etc/stub-rc)"
 STUB
-chmod +x /usr/bin/systemd-run /usr/bin/systemctl /opt/locker24/src/locker24-hmdm-server-v7/deploy/deploy.sh
+cat > /usr/bin/git <<'STUB'
+#!/bin/bash
+# fetch always succeeds unless /etc/stub-fetch-fail; commits on main are listed in /etc/stub-main
+case $3 in
+    fetch) [ ! -f /etc/stub-fetch-fail ] ;;
+    merge-base) grep -qx "$5" /etc/stub-main ;;
+esac
+STUB
+mkdir -p /usr/lib/jvm/fake/bin; printf '#!/bin/sh\n' > /usr/lib/jvm/fake/bin/java; chmod +x /usr/lib/jvm/fake/bin/java
+ln -s /usr/lib/jvm/fake/bin/java /usr/bin/java
+chmod +x /usr/bin/git /usr/bin/systemd-run /usr/bin/systemctl /opt/locker24/src/locker24-hmdm-server-v7/deploy/deploy.sh
 
 A=$(printf 'a%.0s' {1..40}); B=$(printf 'b%.0s' {1..40}); C=$(printf 'c%.0s' {1..40})
+D=$(printf 'd%.0s' {1..40})
+printf '%s\n' "$A" "$B" "$C" > /etc/stub-main
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=1; }
@@ -84,6 +97,15 @@ run "deploy $A" >/dev/null 2>&1; check "same sha refused while running" 1 $?
 wait
 check_long=$(grep -c "deploy of $A finished" /tmp/long.out); [ "$check_long" = 1 ] && ok "first deploy unaffected by refusals" || bad "first deploy output"
 
+grep -q 'JAVA_HOME=/usr/lib/jvm/fake' /run/stub-allargs && ok "JAVA_HOME resolved from java and passed" || bad "JAVA_HOME not passed"
+before=$(wc -l < /run/stub-launches)
+run "deploy $D" >/tmp/off.out 2>&1; check "commit not on origin/main refused (other branch or unmerged)" 1 $?
+grep -q "not on origin/main" /tmp/off.out && ok "off-main message" || bad "off-main message"
+run "deploy $(printf 'e%.0s' {1..40})" >/dev/null 2>&1; check "unknown commit refused" 1 $?
+touch /etc/stub-fetch-fail
+run "deploy $A" >/tmp/ff.out 2>&1; check "fetch failure refuses the deploy" 1 $?
+rm /etc/stub-fetch-fail
+[ "$(wc -l < /run/stub-launches)" = "$before" ] && ok "off-main refusals launched nothing" || bad "off-main launched"
 echo 4 > /etc/stub-sleep; echo 5 > /etc/stub-rc
 SSH_ORIGINAL_COMMAND="deploy $C" "$FORCED" > /tmp/drop.out 2>&1 &
 pid=$!

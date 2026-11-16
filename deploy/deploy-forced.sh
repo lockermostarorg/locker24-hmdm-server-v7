@@ -3,13 +3,15 @@
 # Accepts exactly "deploy <40-hex sha>" or "status <40-hex sha>" in SSH_ORIGINAL_COMMAND.
 # deploy starts deploy.sh detached from the SSH session (systemd-run), then follows its log
 # and exits with deploy.sh's exit code. status re-attaches after a dropped connection.
+# Only commits on origin/main (fetched first) are deployable.
 # Exit codes: deploy.sh's own, 1 refused/rejected, 3 status for a deploy this host does not know.
 set -euo pipefail
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
 LOG_FILE=/var/log/locker24-deploy.log
-DEPLOY_SH=/opt/locker24/src/locker24-hmdm-server-v7/deploy/deploy.sh
+SRC_DIR=/opt/locker24/src/locker24-hmdm-server-v7
+DEPLOY_SH=$SRC_DIR/deploy/deploy.sh
 STATE_DIR=/run/locker24-deploy
 POLL=2
 
@@ -59,9 +61,22 @@ launch() {
         echo "refused: a deploy is already running (systemctl list-units 'locker24-deploy-*')" >&2
         exit 1
     fi
+    if ! timeout 120 git -C "$SRC_DIR" fetch --quiet origin '+refs/heads/main:refs/remotes/origin/main' </dev/null; then
+        echo "refused: could not fetch origin/main" >&2
+        exit 1
+    fi
+    if ! git -C "$SRC_DIR" merge-base --is-ancestor "$sha" refs/remotes/origin/main 2>/dev/null; then
+        echo "refused: $sha is not on origin/main" >&2
+        exit 1
+    fi
     [ -x "$DEPLOY_SH" ] || { echo "$DEPLOY_SH is missing or not executable" >&2; exit 1; }
     install -d -m 700 "$STATE_DIR"
     rm -f "$rc_file"
+    local java_home=
+    if java=$(command -v java); then
+        java=$(readlink -f "$java")
+        java_home=$(dirname "$(dirname "$java")")
+    fi
     local size=0
     [ -f "$LOG_FILE" ] && size=$(stat -c %s "$LOG_FILE")
     echo "$size" > "$off_file"
@@ -70,7 +85,7 @@ launch() {
     # shellcheck disable=SC2016
     systemd-run --quiet --unit="${unit%.service}" --collect \
         --property=TimeoutStartSec=0 --property=TimeoutStopSec=900 \
-        --setenv=HOME=/root --setenv=PATH="$PATH" \
+        --setenv=HOME=/root --setenv=PATH="$PATH" ${java_home:+--setenv=JAVA_HOME="$java_home"} \
         /bin/bash -c 'trap : HUP INT TERM; "$1" "$2"; rc=$?; echo "$rc" > "$3.tmp"; mv "$3.tmp" "$3"; exit "$rc"' \
         locker24-deploy "$STATE_DIR/deploy-$short.sh" "$sha" "$rc_file"
     echo "started deploy of $sha as $unit"

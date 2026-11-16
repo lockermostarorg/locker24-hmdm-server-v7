@@ -1,4 +1,4 @@
-# Locker24 MDM, Plan 3: release flow and panel fixes
+# Locker24 MDM, Plan 3: release flow, panel fixes, branding and dark mode
 
 Date: 2026-11-16. Builds on `2026-11-11-locker24-mdm-design.md` (the overall MDM design) and Plan 2 (health). Server repo `locker24-hmdm-server-v7`, agent repo `locker24-hmdm-android`.
 
@@ -14,10 +14,13 @@ Today a new app version reaches the tablets in two manual steps: upload the APK,
 4. Pinning stays possible: a configuration can be pinned to a specific version and then does not follow.
 5. Tablets learn about every change that moves them to a new version right away (push), including the existing per-row "Upgrade" link, which today saves silently.
 6. Panel fixes: help tooltips on the application and version forms; real links (menu, navigation, app URLs) that open in a new tab with Cmd/middle-click; the "Package ID" column shows the package; the dead "Auto Update" checkbox is removed; Headwind's demo data is removed.
+7. Locker24 branding: the panel looks and reads like a Locker24 product (name, logo, favicon, colours), with Headwind credited as the base.
+8. Dark mode: light, dark, or follow the system, chosen per browser; every core page and every plugin page (including the Fleet health dashboard) is readable in both.
 
 ## Non-goals
 
-- Branding and dark mode, and a Bosnian translation: a later plan (Plan 4). Dark mode needs every hard-coded colour in the panel reworked.
+- A Bosnian translation: a later plan (Plan 4).
+- A per-user theme stored on the server (the choice is per browser).
 - Staged percentage rollouts or automatic rollback.
 - Uploading APKs from CI.
 - Disabling the power button, the app-drawn keyboard.
@@ -102,6 +105,23 @@ Replace the body of the dead `doAutoUpdateToApplicationVersion` path with a set-
 - **Real links:** the side menu, table cells that navigate (device, configuration, application names), and the app URL cells render as `<a href>` (router links for internal pages, `target="_blank" rel="noopener"` for APK URLs), so Cmd-click and middle-click open new tabs. Plain click keeps today's behaviour.
 - **Package ID column:** shows `pkg` (drop the wrong `AppNameCell` renderer).
 
+### Branding
+
+Brand (from the Locker24 apps and admin): primary blue `#009FD7`, call-to-action orange `#FF6D00`, dark grey `#5C5C5C`; the wordmark `logo.svg` from `locker24-web/public` (identical in `locker24-admin`), the white locker icon `locker-icon-white.svg` and the favicon from `locker24-web/app`. Font stays Roboto (*my call*: the panel's Material components are tuned for it).
+
+- **Name:** "Locker24 MDM" in the browser tab title (`index.html`), the About dialog, the login page, the i18n keys `app.name`, `app.title` and `footer.copyright` (all 13 locale files, since English is the fallback and other locales are still selectable), and the server's `rebranding.name`/`rebranding.vendor` (so password-reset and other emails say Locker24 MDM). The About dialog keeps a line "Based on Headwind MDM (Apache License 2.0)" with a link, to honour the licence and the upstream.
+- **Logo:** the side menu and the login page show the Locker24 logo instead of Headwind's; square spots (the 100×100 `rebranding.logo`/`images/logo.png` slot) use the locker icon on the brand blue. Each logo has a light and a dark variant (the wordmark's dark-grey text must be white in dark mode).
+- **Favicon** and the boot spinner colour switch to Locker24.
+- **Colours:** the Angular Material theme (`custom-theme.scss`) is generated from the brand blue as primary and the orange as accent; the side menu keeps a dark background in both themes (brand dark grey family).
+- Branding values live in the fork's code and `build.properties`/context, not only in the database, so a fresh install is branded. No Headwind trademark or logo remains in the UI apart from the "Based on" credit.
+
+### Dark mode
+
+- **Choice:** a theme switch (Light / Dark / System) in the top bar's user menu, stored in the browser (`localStorage`); default System (`prefers-color-scheme`). A small inline script in `index.html` applies the stored choice before Angular boots, so there is no white flash.
+- **Mechanism:** Angular Material 3 theming with `color-scheme: light dark` and a `data-theme` attribute on `<html>` for the explicit choices. All hard-coded colours in the core panel's SCSS (`styles.scss`, `custom-theme.scss`, component styles, the ui-kit library) are replaced by CSS custom properties (`--l24-*` or the Material `--mat-sys-*` tokens) defined for both themes. The builder inventories every hex/rgb literal first (grep) and the plan lists them.
+- **Plugins:** the plugin pages are separate remotes but share the page's CSS custom properties, so they inherit the tokens. Every plugin UI in use (audit, deviceinfo, devicelog, messaging, push, xtra, locker24-health) is checked in both themes; hard-coded colours in them are replaced the same way. The Fleet health charts read their colours from the tokens at render time and redraw when the theme changes; status colours (green/yellow/red/grey) keep their meaning and contrast in both themes.
+- **Contrast:** text and status colours meet WCAG AA (4.5:1 for body text) in both themes.
+
 ### Audit
 
 Each upload with a mode, each release and each automatic move writes an audit record via the existing audit plugin's mechanism (who, version, mode, configurations moved). If the audit plugin cannot record server-side events without an HTTP request, a log line at INFO is enough; the builder decides.
@@ -122,6 +142,7 @@ A one-off, idempotent SQL script under `deploy/` (not a Liquibase changeset, bec
 - Agent unit test: `forceAppUpdate` triggers one user-interaction flow; repeated pushes coalesce.
 - Angular tests for the release choice, the versions state/Release action, the follow/pin toggle and link rendering.
 - Device check (pilot M-01): upload with schedule inside/outside a window, immediately outside a window (installs at once on l24.6), hold + pin + release.
+- Branding and dark mode: screenshots of the main pages (login, devices, configurations and its tabs, applications and versions, Fleet health, settings, each plugin page) in light and dark, reviewed side by side; an automated check that no hex/rgb colour literal remains outside the theme files; contrast check of the status colours.
 
 ## Rollout
 
@@ -129,6 +150,7 @@ A one-off, idempotent SQL script under `deploy/` (not a Liquibase changeset, bec
 2. Server deploy (auto on push to main): changesets add columns with defaults, so existing configurations start following.
 3. Run the demo cleanup script on the droplet.
 4. Document the release flow in `docs/locker24-release-flow.md` (how to release, hold, canary, pin).
+5. Set `rebranding.*` on the droplet if the build properties alone do not carry them (the deploy notes say which).
 
 ## Left to the builder
 
@@ -136,3 +158,4 @@ A one-off, idempotent SQL script under `deploy/` (not a Liquibase changeset, bec
 - How the summary counts tablets (devices per moved configuration).
 - Audit record shape.
 - Which navigation cells become links beyond the ones named.
+- The exact token names and the dark palette shades, within the brand and contrast rules above.

@@ -62,6 +62,23 @@ deploy/deploy.sh l24-v7.04.1.1
 
 If the new server does not come up, or the script gets SIGHUP, SIGINT or SIGTERM during steps 6 and 7, it restores the previous WAR and says so. It never restores the database by itself: Liquibase may already have migrated it, and the old WAR normally still runs against a migrated schema. It prints the restore commands for the case where it does not.
 
+## Post-deploy checks
+
+The health plugin's pop-ups go through Tomcat's internal alert endpoint, which accepts only loopback callers. On every new server, and after every deploy:
+
+1. `internal.url` must point at loopback. On the droplet `ROOT.xml` sets no `internal.url`, so the default `http://127.0.0.1:8080` applies, and the 8080 connector must listen on loopback (on mdm it listens on `[::ffff:127.0.0.1]:8080` only, which the filter accepts as loopback). Check:
+   ```bash
+   grep -i internal /var/lib/tomcat10/conf/Catalina/localhost/ROOT.xml   # nothing, or an http://127.0.0.1:8080 URL (not "localhost": it can resolve to ::1, where 8080 does not listen)
+   ss -ltnp | grep ':8080'                                      # a 127.0.0.1 or ::ffff:127.0.0.1 address only
+   ```
+2. The endpoint must refuse outside callers. From your own machine, not the droplet:
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' -X POST https://mdm.locker24.app/rest/internal/alert -H 'Content-Type: application/json' -d '{}'       # 403
+   curl -s -o /dev/null -w '%{http_code}\n' -X POST 'https://mdm.locker24.app/rest/internal;x=1/alert' -H 'Content-Type: application/json' -d '{}'  # 400 or 403
+   ```
+   A 200 means the endpoint is open: roll back and investigate.
+3. The first real health pop-up after the deploy still arrives in the panel (the loopback call is allowed).
+
 ## Rollback
 
 Previous version (WAR only):

@@ -12,6 +12,7 @@ public class HistoryRow {
     private Integer rssiDbm;
     private Boolean kioskRunning;
     private Boolean kioskAdminUnlocked;
+    private boolean kioskDown;
 
     public Integer getDeviceId() {
         return deviceId;
@@ -91,5 +92,13 @@ public class HistoryRow {
 
     public void setKioskAdminUnlocked(Boolean kioskAdminUnlocked) {
         this.kioskAdminUnlocked = kioskAdminUnlocked;
+    }
+
+    public boolean isKioskDown() {
+        return kioskDown;
+    }
+
+    public void setKioskDown(boolean kioskDown) {
+        this.kioskDown = kioskDown;
     }
 }

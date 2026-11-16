@@ -1,5 +1,8 @@
 package com.hmdm.plugins.locker24health.ingest;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.hmdm.persistence.domain.Device;
 import com.hmdm.plugins.locker24health.model.ParsedBatch;
 import com.hmdm.plugins.locker24health.model.ParsedReport;
@@ -7,15 +10,24 @@ import com.hmdm.plugins.locker24health.persistence.HealthDAO;
 import com.hmdm.plugins.locker24health.persistence.domain.HistoryRow;
 import com.hmdm.plugins.locker24health.persistence.domain.LatestRow;
 import com.hmdm.plugins.locker24health.persistence.mapper.HealthMapper;
+import com.hmdm.plugins.locker24health.status.DeviceHealth;
+import com.hmdm.plugins.locker24health.status.EvalContext;
+import com.hmdm.plugins.locker24health.status.Evaluation;
+import com.hmdm.plugins.locker24health.status.Status;
+import com.hmdm.plugins.locker24health.status.StatusEvaluator;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
@@ -224,33 +236,39 @@ public class IngestServiceTest {
     }
 
     private LatestRow storedFromGolden(boolean withApp, boolean kioskRunning) throws Exception {
-        com.fasterxml.jackson.databind.node.ObjectNode g;
-        try (java.io.InputStream in = IngestServiceTest.class.getResourceAsStream("/report-v1.json")) {
-            g = (com.fasterxml.jackson.databind.node.ObjectNode) new com.fasterxml.jackson.databind.ObjectMapper()
-                    .readTree(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+        ObjectNode g;
+        try (InputStream in = IngestServiceTest.class.getResourceAsStream("/report-v1.json")) {
+            g = (ObjectNode) new ObjectMapper()
+                    .readTree(new String(in.readAllBytes(), StandardCharsets.UTF_8));
         }
         if (!withApp) {
             g.remove("app");
         }
-        ((com.fasterxml.jackson.databind.node.ObjectNode) g.get("kiosk")).put("running", kioskRunning);
-        com.fasterxml.jackson.databind.node.ObjectNode env = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
+        ((ObjectNode) g.get("kiosk")).put("running", kioskRunning);
+        ObjectNode env = new ObjectMapper().createObjectNode();
         env.put("sent_at", 1763290005000L);
         env.putArray("reports").add(g);
         service.store(device, ReportParser.parse(env.toString()), R);
         return capturedLatest();
     }
 
-    private static com.hmdm.plugins.locker24health.status.Evaluation evaluate(LatestRow l) {
-        return com.hmdm.plugins.locker24health.status.StatusEvaluator.evaluate(
-                com.hmdm.plugins.locker24health.status.DeviceHealth.from(l),
-                new com.hmdm.plugins.locker24health.status.EvalContext(R, 0L, null, java.time.ZoneId.of("UTC"), null));
+    private static Evaluation evaluate(LatestRow l) {
+        return StatusEvaluator.evaluate(
+                DeviceHealth.from(l),
+                new EvalContext(R, 0L, null, ZoneId.of("UTC"), null));
     }
 
     @Test
     public void missingAppValuesNeverChangeStatus() throws Exception {
         LatestRow without = storedFromGolden(false, true);
         assertNull(without.getLockerShortUid());
-        assertEquals(com.hmdm.plugins.locker24health.status.Status.GREEN, evaluate(without).status());
+        assertEquals(Status.GREEN, evaluate(without).status());
+        JsonNode app = new ObjectMapper().readTree(without.getReportJson()).get("app");
+        assertTrue(app.isObject());
+        for (String key : new String[]{"published_at", "locker_short_uid", "last_api_ok_at", "last_api_error_at", "last_api_error", "app_errors_24h"}) {
+            assertTrue(key, app.has(key));
+            assertTrue(key, app.get(key).isNull());
+        }
     }
 
     @Test
@@ -258,11 +276,70 @@ public class IngestServiceTest {
         LatestRow with = storedFromGolden(true, true);
         assertEquals("HP01", with.getLockerShortUid());
         assertTrue(with.getReportJson().contains("unlock HTTP 503"));
-        assertEquals(com.hmdm.plugins.locker24health.status.Status.GREEN, evaluate(with).status());
+        assertEquals(Status.GREEN, evaluate(with).status());
     }
 
     @Test
     public void downReportMarksLatestAsKioskDown() throws Exception {
-        assertTrue(storedFromGolden(true, false).isKioskDown());
+        assertEquals(1, storedFromGolden(true, false).getKioskDownRun());
+    }
+
+    private static ParsedReport kioskReport(long ts, boolean down, boolean admin) {
+        ParsedReport r = report(ts, 80);
+        r.setKioskRequired(true);
+        r.setKioskRunning(!down);
+        r.setKioskAdminUnlocked(admin);
+        return r;
+    }
+
+    @Test
+    public void freshDownReportsFormTheTrailingRun() {
+        service.store(device, batch(kioskReport(1, true, false), kioskReport(2, true, false), kioskReport(3, true, false)), R);
+        LatestRow l = capturedLatest();
+        assertEquals(3, l.getFreshReports());
+        assertEquals(3, l.getKioskDownRun());
+        assertTrue(l.isKioskDownAll());
+        assertEquals(Long.valueOf(ClockCorrection.measuredAt(R, SENT, 1)), l.getKioskDownRunStart());
+    }
+
+    @Test
+    public void upThenDownIsARunOfOneAndNotAll() {
+        service.store(device, batch(kioskReport(1, false, false), kioskReport(2, true, false)), R);
+        LatestRow l = capturedLatest();
+        assertEquals(1, l.getKioskDownRun());
+        assertFalse(l.isKioskDownAll());
+        assertEquals(Long.valueOf(ClockCorrection.measuredAt(R, SENT, 2)), l.getKioskDownRunStart());
+    }
+
+    @Test
+    public void downThenUpEndsTheRun() {
+        service.store(device, batch(kioskReport(1, true, false), kioskReport(2, false, false)), R);
+        LatestRow l = capturedLatest();
+        assertEquals(0, l.getKioskDownRun());
+        assertNull(l.getKioskDownRunStart());
+    }
+
+    @Test
+    public void adminFlaggedReportEndsTheRun() {
+        service.store(device, batch(kioskReport(1, true, false), kioskReport(2, true, true)), R);
+        assertEquals(0, capturedLatest().getKioskDownRun());
+    }
+
+    @Test
+    public void resentReportIsNotFresh() {
+        when(mapper.insertHistory(any(HistoryRow.class))).thenReturn(0);
+        service.store(device, batch(kioskReport(1, true, false)), R);
+        LatestRow l = capturedLatest();
+        assertEquals(0, l.getFreshReports());
+    }
+
+    @Test
+    public void onlyFreshReportsCount() {
+        when(mapper.insertHistory(any(HistoryRow.class))).thenReturn(0, 1, 1);
+        service.store(device, batch(kioskReport(1, false, false), kioskReport(2, true, false), kioskReport(3, true, false)), R);
+        LatestRow l = capturedLatest();
+        assertEquals(2, l.getFreshReports());
+        assertEquals(2, l.getKioskDownRun());
+        assertTrue(l.isKioskDownAll());
     }
 }

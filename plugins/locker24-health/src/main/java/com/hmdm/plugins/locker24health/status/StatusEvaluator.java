@@ -1,6 +1,11 @@
 package com.hmdm.plugins.locker24health.status;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -87,24 +92,49 @@ public final class StatusEvaluator {
             return null;
         }
         long since = c.versionMismatchSince() != null ? c.versionMismatchSince() : c.now();
-        if (c.now() - since > VERSION_GRACE_MS && !inWindow(k, c)) {
+        if (overdue(k, c, since)) {
             out.add(new Finding(Condition.KIOSK_VERSION, Severity.YELLOW,
                     "installed " + h.kioskAppVersion() + ", configured " + k.version()));
         }
         return since;
     }
 
-    private static boolean inWindow(ConfiguredKiosk k, EvalContext c) {
-        if (!k.scheduleAppUpdate() || k.from() == null || k.to() == null) {
-            return false;
+    private static boolean windowConfigured(ConfiguredKiosk k) {
+        return k.scheduleAppUpdate() && k.from() != null && k.to() != null;
+    }
+
+    private static boolean overdue(ConfiguredKiosk k, EvalContext c, long since) {
+        if (!windowConfigured(k)) {
+            return c.now() - since > VERSION_GRACE_MS;
         }
-        LocalTime t = java.time.Instant.ofEpochMilli(c.now()).atZone(c.zone()).toLocalTime();
         if (k.from().equals(k.to())) {
             return false;
         }
-        if (k.from().isBefore(k.to())) {
-            return !t.isBefore(k.from()) && t.isBefore(k.to());
+        if (inWindow(k, c.now(), c.zone())) {
+            return false;
         }
-        return !t.isBefore(k.from()) || t.isBefore(k.to());
+        return c.now() >= firstWindowEnd(k, since, c.zone());
+    }
+
+    private static boolean inWindow(ConfiguredKiosk k, long now, ZoneId zone) {
+        LocalTime t = Instant.ofEpochMilli(now).atZone(zone).toLocalTime().truncatedTo(ChronoUnit.MINUTES);
+        LocalTime from = k.from().truncatedTo(ChronoUnit.MINUTES);
+        LocalTime to = k.to().truncatedTo(ChronoUnit.MINUTES);
+        if (!from.isAfter(to)) {
+            return !t.isBefore(from) && !t.isAfter(to);
+        }
+        return !t.isBefore(from) || !t.isAfter(to);
+    }
+
+    private static long firstWindowEnd(ConfiguredKiosk k, long since, ZoneId zone) {
+        LocalTime from = k.from().truncatedTo(ChronoUnit.MINUTES);
+        LocalTime to = k.to().truncatedTo(ChronoUnit.MINUTES);
+        LocalDate day = Instant.ofEpochMilli(since).atZone(zone).toLocalDate();
+        ZonedDateTime start = ZonedDateTime.of(day, from, zone);
+        if (start.toInstant().toEpochMilli() < since) {
+            day = day.plusDays(1);
+        }
+        LocalDate endDay = from.isAfter(to) ? day.plusDays(1) : day;
+        return ZonedDateTime.of(endDay, to, zone).plusMinutes(1).toInstant().toEpochMilli();
     }
 }

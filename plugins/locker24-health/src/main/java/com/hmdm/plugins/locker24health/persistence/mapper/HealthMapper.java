@@ -29,7 +29,8 @@ public interface HealthMapper {
             "#{kioskRequired}, #{kioskRunning}, #{kioskAdminUnlocked}, " +
             "#{kioskAppPackage}, #{kioskAppVersion}, #{agentVersion}, #{lockerShortUid}, " +
             "#{manufacturer}, #{model}, #{reportJson}, " +
-            "CASE WHEN #{kioskDown} THEN #{measuredAt} END, CASE WHEN #{kioskDown} THEN 1 ELSE 0 END" +
+            "CASE WHEN #{freshReports} > 0 AND #{kioskDownRun} > 0 THEN #{kioskDownRunStart,jdbcType=BIGINT} END, " +
+            "CASE WHEN #{freshReports} > 0 THEN #{kioskDownRun} ELSE 0 END" +
             ") ON CONFLICT (device_id) DO UPDATE SET " +
             "customer_id = EXCLUDED.customer_id, " +
             "measured_at = EXCLUDED.measured_at, " +
@@ -48,12 +49,16 @@ public interface HealthMapper {
             "manufacturer = EXCLUDED.manufacturer, " +
             "model = EXCLUDED.model, " +
             "report_json = EXCLUDED.report_json, " +
-            "kiosk_down_since = CASE WHEN #{kioskDown} " +
-            "THEN COALESCE(locker24_device_health_latest.kiosk_down_since, EXCLUDED.measured_at) END, " +
-            "kiosk_down_reports = CASE WHEN #{kioskDown} " +
-            "THEN locker24_device_health_latest.kiosk_down_reports + " +
-            "CASE WHEN locker24_device_health_latest.measured_at < EXCLUDED.measured_at THEN 1 ELSE 0 END " +
-            "ELSE 0 END " +
+            "kiosk_down_since = CASE " +
+            "WHEN #{freshReports} = 0 THEN locker24_device_health_latest.kiosk_down_since " +
+            "WHEN #{kioskDownRun} = 0 THEN NULL " +
+            "WHEN #{kioskDownAll} THEN COALESCE(locker24_device_health_latest.kiosk_down_since, #{kioskDownRunStart,jdbcType=BIGINT}) " +
+            "ELSE #{kioskDownRunStart,jdbcType=BIGINT} END, " +
+            "kiosk_down_reports = CASE " +
+            "WHEN #{freshReports} = 0 THEN locker24_device_health_latest.kiosk_down_reports " +
+            "WHEN #{kioskDownRun} = 0 THEN 0 " +
+            "WHEN #{kioskDownAll} THEN locker24_device_health_latest.kiosk_down_reports + #{kioskDownRun} " +
+            "ELSE #{kioskDownRun} END " +
             "WHERE locker24_device_health_latest.measured_at <= EXCLUDED.measured_at")
     int upsertLatest(LatestRow row);
 

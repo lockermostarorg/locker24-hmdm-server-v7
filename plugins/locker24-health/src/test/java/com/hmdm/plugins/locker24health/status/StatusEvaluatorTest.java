@@ -221,7 +221,11 @@ public class StatusEvaluatorTest {
     }
 
     private static long at(String localTime) {
-        return ZonedDateTime.of(2026, 11, 16, Integer.parseInt(localTime.substring(0, 2)),
+        return atDay(16, localTime);
+    }
+
+    private static long atDay(int day, String localTime) {
+        return ZonedDateTime.of(2026, 11, day, Integer.parseInt(localTime.substring(0, 2)),
                 Integer.parseInt(localTime.substring(3, 5)), 0, 0, ZONE).toInstant().toEpochMilli();
     }
 
@@ -250,7 +254,8 @@ public class StatusEvaluatorTest {
         ConfiguredKiosk win = configured(true, "02:00", "05:00");
         long old = 10_000L;
         assertOnly(Status.GREEN, versionEval(outdated(), win, at("03:00"), old));
-        assertOnly(Status.YELLOW, versionEval(outdated(), win, at("05:00"), old), Condition.KIOSK_VERSION);
+        assertOnly(Status.GREEN, versionEval(outdated(), win, at("05:00"), old));
+        assertOnly(Status.YELLOW, versionEval(outdated(), win, at("05:01"), old), Condition.KIOSK_VERSION);
         assertOnly(Status.GREEN, versionEval(outdated(), win, at("02:00"), old));
         assertOnly(Status.YELLOW, versionEval(outdated(), win, at("01:59"), old), Condition.KIOSK_VERSION);
     }
@@ -261,7 +266,51 @@ public class StatusEvaluatorTest {
         long old = 10_000L;
         assertOnly(Status.GREEN, versionEval(outdated(), win, at("23:30"), old));
         assertOnly(Status.GREEN, versionEval(outdated(), win, at("01:59"), old));
-        assertOnly(Status.YELLOW, versionEval(outdated(), win, at("02:00"), old), Condition.KIOSK_VERSION);
+        assertOnly(Status.GREEN, versionEval(outdated(), win, at("02:00"), old));
+        assertOnly(Status.YELLOW, versionEval(outdated(), win, at("02:01"), old), Condition.KIOSK_VERSION);
+    }
+
+    @Test
+    public void rolloutAssignedMidMorningWaitsForTheNextFullWindow() {
+        ConfiguredKiosk win = configured(true, "02:00", "05:00");
+        long since = at("10:00");
+        assertOnly(Status.GREEN, versionEval(outdated(), win, at("12:00"), since));
+        assertOnly(Status.GREEN, versionEval(outdated(), win, at("23:00"), since));
+        assertOnly(Status.GREEN, versionEval(outdated(), win, atDay(17, "03:00"), since));
+        assertOnly(Status.GREEN, versionEval(outdated(), win, atDay(17, "05:00"), since));
+        assertOnly(Status.YELLOW, versionEval(outdated(), win, atDay(17, "05:01"), since), Condition.KIOSK_VERSION);
+        assertOnly(Status.YELLOW, versionEval(outdated(), win, atDay(18, "12:00"), since), Condition.KIOSK_VERSION);
+    }
+
+    @Test
+    public void windowThatWasAlreadyRunningAtAssignmentDoesNotCount() {
+        ConfiguredKiosk win = configured(true, "02:00", "05:00");
+        long since = at("03:00");
+        assertOnly(Status.GREEN, versionEval(outdated(), win, at("06:00"), since));
+        assertOnly(Status.GREEN, versionEval(outdated(), win, atDay(17, "05:00"), since));
+        assertOnly(Status.YELLOW, versionEval(outdated(), win, atDay(17, "05:01"), since), Condition.KIOSK_VERSION);
+    }
+
+    @Test
+    public void rolloutAcrossMidnightWindow() {
+        ConfiguredKiosk win = configured(true, "22:00", "02:00");
+        long since = at("10:00");
+        assertOnly(Status.GREEN, versionEval(outdated(), win, at("21:59"), since));
+        assertOnly(Status.GREEN, versionEval(outdated(), win, atDay(17, "02:00"), since));
+        assertOnly(Status.YELLOW, versionEval(outdated(), win, atDay(17, "02:01"), since), Condition.KIOSK_VERSION);
+    }
+
+    @Test
+    public void equalFromAndToMeansAlwaysAllowed() {
+        ConfiguredKiosk win = configured(true, "03:00", "03:00");
+        assertOnly(Status.GREEN, versionEval(outdated(), win, NOW, 10_000L));
+    }
+
+    @Test
+    public void windowOffKeepsTheTwoHourRule() {
+        ConfiguredKiosk off = configured(false, "02:00", "05:00");
+        assertOnly(Status.GREEN, versionEval(outdated(), off, at("12:00"), at("10:00")));
+        assertOnly(Status.YELLOW, versionEval(outdated(), off, at("12:01"), at("10:00") - 1), Condition.KIOSK_VERSION);
     }
 
     @Test
@@ -307,30 +356,32 @@ public class StatusEvaluatorTest {
     @Test
     public void fromLatestRowMapsEveryInput() {
         LatestRow r = new LatestRow();
-        r.setReceivedAt(NOW);
-        r.setMeasuredAt(NOW - 1);
-        r.setBatteryPct(15);
+        r.setReceivedAt(11L);
+        r.setMeasuredAt(22L);
+        r.setBatteryPct(33);
+        r.setCharging(true);
+        r.setTemperatureC(44.5f);
+        r.setFreeStorageMb(55);
         r.setKioskRequired(true);
         r.setKioskRunning(false);
-        r.setKioskDownSince(NOW - 200_000);
-        r.setKioskDownReports(1);
-        Evaluation e = StatusEvaluator.evaluate(DeviceHealth.from(r), ctx(NOW));
-        assertEquals(List.of(Condition.KIOSK_NOT_RUNNING, Condition.BATTERY_LOW), conditions(e));
-    }
-
-    @Test
-    public void kioskDownDerivation() {
-        LatestRow r = new LatestRow();
-        r.setKioskRequired(true);
-        r.setKioskRunning(false);
-        assertTrue(r.isKioskDown());
         r.setKioskAdminUnlocked(true);
-        assertFalse(r.isKioskDown());
-        r.setKioskAdminUnlocked(null);
-        r.setKioskRunning(null);
-        assertFalse(r.isKioskDown());
-        r.setKioskRunning(false);
-        r.setKioskRequired(false);
-        assertFalse(r.isKioskDown());
+        r.setKioskAppPackage("pkg.x");
+        r.setKioskAppVersion("9.9");
+        r.setKioskDownSince(66L);
+        r.setKioskDownReports(77);
+        DeviceHealth h = DeviceHealth.from(r);
+        assertEquals(11L, h.receivedAt());
+        assertEquals(22L, h.measuredAt());
+        assertEquals(Integer.valueOf(33), h.batteryPct());
+        assertEquals(Boolean.TRUE, h.charging());
+        assertEquals(Float.valueOf(44.5f), h.temperatureC());
+        assertEquals(Integer.valueOf(55), h.freeStorageMb());
+        assertEquals(Boolean.TRUE, h.kioskRequired());
+        assertEquals(Boolean.FALSE, h.kioskRunning());
+        assertEquals(Boolean.TRUE, h.kioskAdminUnlocked());
+        assertEquals("pkg.x", h.kioskAppPackage());
+        assertEquals("9.9", h.kioskAppVersion());
+        assertEquals(Long.valueOf(66L), h.kioskDownSince());
+        assertEquals(77, h.kioskDownReports());
     }
 }

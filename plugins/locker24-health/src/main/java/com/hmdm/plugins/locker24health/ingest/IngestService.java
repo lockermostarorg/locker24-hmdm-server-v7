@@ -55,6 +55,9 @@ public class IngestService {
         h.setRssiDbm(r.getRssiDbm());
         h.setKioskRunning(r.getKioskRunning());
         h.setKioskAdminUnlocked(r.getKioskAdminUnlocked());
+        h.setKioskDown(Boolean.TRUE.equals(r.getKioskRequired())
+                && Boolean.FALSE.equals(r.getKioskRunning())
+                && !Boolean.TRUE.equals(r.getKioskAdminUnlocked()));
         return h;
     }
 

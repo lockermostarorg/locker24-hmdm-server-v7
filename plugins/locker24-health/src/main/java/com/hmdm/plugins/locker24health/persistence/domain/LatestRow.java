@@ -23,6 +23,10 @@ public class LatestRow {
     private String reportJson;
     private Long kioskDownSince;
     private int kioskDownReports;
+    private int freshReports;
+    private int kioskDownRun;
+    private Long kioskDownRunStart;
+    private boolean kioskDownAll;
 
     public Integer getDeviceId() {
         return deviceId;
@@ -176,12 +180,6 @@ public class LatestRow {
         this.reportJson = reportJson;
     }
 
-    public boolean isKioskDown() {
-        return Boolean.TRUE.equals(kioskRequired)
-                && Boolean.FALSE.equals(kioskRunning)
-                && !Boolean.TRUE.equals(kioskAdminUnlocked);
-    }
-
     public Long getKioskDownSince() {
         return kioskDownSince;
     }
@@ -196,5 +194,37 @@ public class LatestRow {
 
     public void setKioskDownReports(int kioskDownReports) {
         this.kioskDownReports = kioskDownReports;
+    }
+
+    public int getFreshReports() {
+        return freshReports;
+    }
+
+    public void setFreshReports(int freshReports) {
+        this.freshReports = freshReports;
+    }
+
+    public int getKioskDownRun() {
+        return kioskDownRun;
+    }
+
+    public void setKioskDownRun(int kioskDownRun) {
+        this.kioskDownRun = kioskDownRun;
+    }
+
+    public Long getKioskDownRunStart() {
+        return kioskDownRunStart;
+    }
+
+    public void setKioskDownRunStart(Long kioskDownRunStart) {
+        this.kioskDownRunStart = kioskDownRunStart;
+    }
+
+    public boolean isKioskDownAll() {
+        return kioskDownAll;
+    }
+
+    public void setKioskDownAll(boolean kioskDownAll) {
+        this.kioskDownAll = kioskDownAll;
     }
 }

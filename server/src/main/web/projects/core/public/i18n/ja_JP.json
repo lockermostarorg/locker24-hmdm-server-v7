@@ -1261,5 +1261,13 @@
   "release.summary.reupload.held": "Already uploaded and held. Use Release to apply it.",
   "button.notify.tablets": "Notify tablets again",
   "form.application.notify.help": "Sends the update to tablets again without moving any configuration.",
-  "form.application.release.canary.note": "Configurations pinned to this version will follow the latest version again."
+  "form.application.release.canary.note": "Configurations pinned to this version will follow the latest version again.",
+  "form.application.file.title": "Upload the APK file here. The package ID and version are read from it automatically.",
+  "form.application.release.mode.title": "Choose when tablets get this version. Configurations that follow the latest version move to it unless you hold it.",
+  "form.application.arch.split.title": "Tick this if the app ships as two APKs, one for armeabi-v7a and one for arm64-v8a, and enter a URL for each.",
+  "form.application.type.title": "Application is an Android app (APK), Web-page opens a link in the launcher, System action runs an Android intent.",
+  "form.application.intent.title": "The Android system action to run when the icon is tapped.",
+  "form.application.web.url.title": "The address of the web page to open when the icon is tapped.",
+  "form.application.iconText.title": "The label shown under the icon in the launcher. Leave empty to use the application name.",
+  "form.application.icon.title": "The picture shown in the launcher for this application. The default icon is used if none is chosen."
 }

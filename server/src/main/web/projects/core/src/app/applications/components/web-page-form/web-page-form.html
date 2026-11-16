@@ -1,16 +1,19 @@
 <form [formGroup]="formGroup">
   <hmdm-text-input
     formControlName="name"
+    [help]="'form.application.name.title' | translate"
     [label]="'form.application.name' | translate"
   ></hmdm-text-input>
 
   <hmdm-text-input
     formControlName="url"
+    [help]="'form.application.web.url.title' | translate"
     [label]="'form.application.url' | translate"
   ></hmdm-text-input>
 
   <hmdm-checkbox
     formControlName="useKiosk"
+    [help]="'form.application.use.kiosk.title' | translate"
     [label]="'form.application.use.kiosk' | translate"
   ></hmdm-checkbox>
 </form>

@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BooleanCell, TTableConfig } from 'hmdm-ui-kit';
 import { TApplicationDTO } from '../../entity/application/types/application-dto.type';
-import { AppNameCell } from '../components/app-name-cell/app-name-cell';
 import { ApplicationActionCell } from '../components/application-action-cell/application-action-cell';
 import { UrlCell } from '../components/url-cell/url-cell';
 
@@ -13,7 +12,6 @@ export class ApplicationsTableConfig {
         {
           field: 'pkg',
           title: 'table.heading.application.pkg',
-          cellRenderer: AppNameCell,
           sortable: true,
         },
         {

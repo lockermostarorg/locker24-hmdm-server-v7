@@ -1,17 +1,20 @@
 <form [formGroup]="formGroup">
   <hmdm-text-input
     formControlName="name"
+    [help]="'form.application.name.title' | translate"
     [label]="'form.application.name' | translate"
   ></hmdm-text-input>
 
   <div class="form-row form-row--cols-2">
     <hmdm-text-input
       formControlName="pkg"
+      [help]="'form.application.pkg.title' | translate"
       [label]="'form.application.pkg' | translate"
     ></hmdm-text-input>
 
     <hmdm-text-input
       formControlName="version"
+      [help]="'form.application.version.title' | translate"
       [label]="'form.application.version' | translate"
     ></hmdm-text-input>
   </div>
@@ -26,21 +29,25 @@
 
   <hmdm-checkbox
     formControlName="system"
+    [help]="'form.application.system.title' | translate"
     [label]="'form.application.system' | translate"
   ></hmdm-checkbox>
 
   <hmdm-checkbox
     formControlName="runAfterInstall"
+    [help]="'form.application.run.after.install.title' | translate"
     [label]="'form.application.run.after.install' | translate"
   ></hmdm-checkbox>
 
   <hmdm-checkbox
     formControlName="runAtBoot"
+    [help]="'form.application.run.at.boot.title' | translate"
     [label]="'form.application.run.at.boot' | translate"
   ></hmdm-checkbox>
 
   <hmdm-text-input
     formControlName="url"
+    [help]="'form.application.url.title' | translate"
     [label]="'form.application.url' | translate"
   ></hmdm-text-input>
 
@@ -48,6 +55,7 @@
     [label]="'form.application.file' | translate"
     [showError]="false"
     formControlName="file"
+    [help]="'form.application.file.title' | translate"
   ></hmdm-file-input>
 
   @if (availableSpaceWarning() !== null) {

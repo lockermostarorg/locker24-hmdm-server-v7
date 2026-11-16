@@ -1,8 +1,13 @@
 <form [formGroup]="formGroup">
-  <hmdm-text-input formControlName="name" [label]="'form.group.name' | translate"></hmdm-text-input>
+  <hmdm-text-input
+    formControlName="name"
+    [label]="'form.group.name' | translate"
+    [help]="'form.application.name.title' | translate"
+  ></hmdm-text-input>
 
   <hmdm-selector
     formControlName="intent"
+    [help]="'form.application.intent.title' | translate"
     [label]="'form.application.intent' | translate"
     [options]="actionsOptions"
   ></hmdm-selector>

@@ -1,6 +1,7 @@
 <form class="version-form" [formGroup]="formGroup">
   <hmdm-text-input
     formControlName="version"
+    [help]="'form.application.version.title' | translate"
     [label]="'form.application.version' | translate"
   ></hmdm-text-input>
 
@@ -15,11 +16,13 @@
 
   <hmdm-text-input
     formControlName="url"
+    [help]="'form.application.url.title' | translate"
     [label]="'form.application.url' | translate"
   ></hmdm-text-input>
 
   <hmdm-file-input
     formControlName="file"
+    [help]="'form.application.file.title' | translate"
     [label]="'form.application.file' | translate"
   ></hmdm-file-input>
 

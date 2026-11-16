@@ -1,6 +1,7 @@
 <form [formGroup]="formGroup">
   <hmdm-checkbox
     formControlName="showIcon"
+    [help]="'form.application.showLabel.title' | translate"
     [label]="'form.application.showLabel' | translate"
   ></hmdm-checkbox>
 
@@ -8,12 +9,14 @@
     <div class="form-icon">
       <hmdm-text-input
         formControlName="iconText"
+        [help]="'form.application.iconText.title' | translate"
         [label]="'form.application.iconText' | translate"
       ></hmdm-text-input>
 
       <div class="form-line">
         <hmdm-selector
           formControlName="iconId"
+          [help]="'form.application.icon.title' | translate"
           [label]="'form.application.icon' | translate"
           [options]="iconsOptions()"
         ></hmdm-selector>

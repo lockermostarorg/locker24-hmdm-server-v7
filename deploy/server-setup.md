@@ -250,4 +250,6 @@ sudo -u postgres psql hmdm -c '\dt locker24_*'                                  
 sudo -u postgres psql hmdm -tAc "SELECT identifier FROM plugins WHERE identifier='locker24-health'"   # 1 row
 ```
 
+Also check that the other plugin menus are still present, that `grep 'Health evaluation scheduled' /var/lib/tomcat10/logs/catalina.out` shows a line for the current start, and that no reporting device is still `unknown` 2 minutes after the start (SQL in the "Post-deploy checks" of [`README.md`](README.md)).
+
 Then open Functions -> Fleet health in the panel (it must load, even with no reports yet), and run `deploy/health-smoke.sh https://mdm.locker24.app`. The smoke script, the device checklist and the deviations from the spec are in [`docs/locker24-health.md`](../docs/locker24-health.md).

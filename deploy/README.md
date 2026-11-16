@@ -116,6 +116,14 @@ The health plugin's pop-ups go through Tomcat's internal alert endpoint, which a
    A 200 means the endpoint is open: roll back and investigate.
 3. The first real health pop-up after the deploy still arrives in the panel (the loopback call is allowed).
 4. The plugin checks and the smoke script in `docs/locker24-health.md` (tables, `plugins` row, Fleet health opens, `deploy/health-smoke.sh`).
+5. All other plugin menus are still present (Device Info, Device Log, Messaging, Push, Audit, ...). If they are gone, the health dashboard remote failed to load: see "Rollback" below.
+6. The health job runs. Core swallows a failing task module (one line on stderr, Tomcat starts normally, the smoke test still passes), so check it explicitly:
+   ```bash
+   grep 'Health evaluation scheduled' /var/lib/tomcat10/logs/catalina.out | tail -n 2     # a line from the current start; no "Failed to instantiate and initialize plugin task module" after it
+   # 2 minutes after the start: no device that reports may still be 'unknown' (the panel shows a row as unknown while `evaluated_at` is NULL; devices that never reported have no row)
+   sudo -u postgres psql hmdm -c "SELECT d.number, l.received_at FROM locker24_device_health_latest l JOIN devices d ON d.id=l.device_id WHERE l.evaluated_at IS NULL AND l.received_at > (extract(epoch FROM now())*1000)::bigint - 600000"
+   ```
+   The query must return no rows. About 30 minutes after the start the `not_charging` pop-up of M-01 must arrive if M-01 is unplugged; until it does, the deploy is not verified (it proves the job, the alert service and the loopback call).
 
 ## Rollback
 
@@ -129,6 +137,22 @@ systemctl start tomcat10
 ```
 
 Or deploy the older tag again: `deploy/deploy.sh l24-v7.04.1.0`.
+
+**Rolling back to a build before the health dashboard (changeset `-08`).** Changeset `-08` sets `baseUrl` of the `locker24-health` plugin row. An older WAR has no `locker24-health` remote, so the panel's federation init fails and EVERY plugin menu (Device Info, Device Log, Messaging, Push, Audit, ...) disappears. `deploy.sh`'s automatic rollback checks the restored WAR for `META-INF/resources/plugins/locker24-health/remoteEntry.json` inside its `WEB-INF/lib/*locker24-health*.jar` and, if it is missing, runs the one statement below itself and says so loudly (if it cannot check, it prints the statement). For a manual rollback, or whenever the plugin menus vanish, run it yourself, reload the panel, and restart Tomcat if the menus do not come back:
+
+```bash
+sudo -u postgres psql -d hmdm -v ON_ERROR_STOP=1 -c "UPDATE plugins SET baseUrl=NULL, baseUrlDev=NULL WHERE identifier='locker24-health'"
+```
+
+It touches only the `locker24-health` row. Deploying a dashboard build again does not rerun `-08`; restore the row with `UPDATE plugins SET baseUrl='/plugins/locker24-health', baseUrlDev='http://localhost:4224' WHERE identifier='locker24-health'`.
+
+A manual WAR rollback must also record itself, so the docs-only skip compares against the right commit (sha of the restored WAR if you know it, else `unknown`; with an unknown sha the skip does not match and the next push is deployed, which is safe):
+
+```bash
+echo "$(date +%Y%m%d-%H%M%S) ref=manual-rollback sha=<sha of the restored WAR, or unknown>" >> /opt/locker24/last-deploy
+```
+
+If you rolled back to a build without the health agent code, also remember the agent-side leftovers (queue file, prefs, periodic job) are only cancelled by a health-free agent build.
 
 Database, only if the old WAR cannot run against the migrated schema (this loses everything written since the dump). Do not restore with `pg_dump --clean` output over the live database: after the health plugin's migration the DROPs fail on the new foreign keys and psql would carry on. Recreate the database instead:
 
@@ -148,5 +172,6 @@ systemctl start tomcat10
 - Shared libraries: `hmdm_install.sh` also copies `server/target/shared-libs/*` into Tomcat's `lib/`. `deploy.sh` does not. If a release changes those libraries, copy them by hand and restart Tomcat.
 - Server CI uses `paths-ignore` for docs-only changes on pull requests only; pushes (to `main` and `feat/**`) always run it, because a deploy needs a CI run for every tip of `main`. If `build` ever becomes a required status check, docs-only pull requests would wait for it forever; adjust the filter then.
 - Gitleaks: `.gitleaksignore` suppresses one fingerprint, the sample `jwt.secretkey` in Headwind's `server/build.properties.example`.
+- The MDM has no nginx: iptables redirects 443 to Tomcat's 8443, which serves the panel and the public ingest directly. There is no rate limit on `/rest/public/plugin-locker24-health/report/{number}` (see the known gaps in `docs/locker24-health.md`).
 - The nightly `backup.sh` is separate and unaffected.
 - The Locker24 Health plugin's menu entry is controlled by its `plugins` row; see `deploy/server-setup.md`.

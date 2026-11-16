@@ -284,10 +284,56 @@ install_war() {
     systemctl start "$TOMCAT_SERVICE" || return 1
 }
 
+# Exit 0: the WAR ships the health dashboard remote. 1: it does not. 2: cannot tell.
+# The remote is served from the plugin jar's META-INF/resources, so look inside the jar in WEB-INF/lib.
+HEALTH_REMOTE=META-INF/resources/plugins/locker24-health/remoteEntry.json
+war_has_health_remote() {
+    local war=$1 tmp jars jar rc=1
+    command -v unzip >/dev/null 2>&1 || return 2
+    [ -f "$war" ] || return 2
+    jars=$(unzip -Z1 "$war" 2>/dev/null | grep -E '^WEB-INF/lib/.*locker24-health.*\.jar$') || jars=
+    unzip -tqq "$war" >/dev/null 2>&1 || return 2
+    [ -n "$jars" ] || return 1
+    tmp=$(mktemp -d) || return 2
+    while IFS= read -r jar; do
+        if unzip -p "$war" "$jar" > "$tmp/p.jar" 2>/dev/null && unzip -Z1 "$tmp/p.jar" 2>/dev/null | grep -qx "$HEALTH_REMOTE"; then
+            rc=0
+            break
+        fi
+    done <<< "$jars"
+    rm -rf "$tmp"
+    return $rc
+}
+
+HEALTH_MENU_SQL="UPDATE plugins SET baseUrl=NULL, baseUrlDev=NULL WHERE identifier='locker24-health'"
+
+# A WAR without the dashboard remote must not run against a database whose plugin row (changeset -08)
+# still points at it: the panel's federation init fails and EVERY plugin menu disappears.
+reset_health_menu_if_needed() {
+    local rc=0
+    war_has_health_remote "$INSTALLED_WAR" || rc=$?
+    case $rc in
+        0) note "the restored WAR serves the health dashboard remote; plugin row left as it is" ;;
+        1)
+            if (cd /tmp && sudo -u postgres psql -d "$DB_NAME" -v ON_ERROR_STOP=1 -c "$HEALTH_MENU_SQL"); then
+                loud "The restored WAR has no health dashboard remote: the plugins row of locker24-health had baseUrl/baseUrlDev SET TO NULL (no other row touched). Reload the panel; restart $TOMCAT_SERVICE if the plugin menus do not come back. Deploy a build with the dashboard again to restore it (changeset -08 will not rerun: set baseUrl='/plugins/locker24-health', baseUrlDev='http://localhost:4224' by hand)."
+            else
+                loud "The restored WAR has no health dashboard remote and the plugins row update FAILED. Run it by hand, or every plugin menu stays missing:"
+                echo "    (cd /tmp && sudo -u postgres psql -d $DB_NAME -v ON_ERROR_STOP=1 -c \"$HEALTH_MENU_SQL\")" >&2
+            fi ;;
+        *)
+            loud "Could not check whether the restored WAR has the health dashboard remote. If the plugin menus in the panel are gone, run by hand:"
+            echo "    (cd /tmp && sudo -u postgres psql -d $DB_NAME -v ON_ERROR_STOP=1 -c \"$HEALTH_MENU_SQL\")" >&2 ;;
+    esac
+}
+
 rollback() {
     trap '' HUP INT TERM PIPE
     loud "DEPLOY FAILED OR INTERRUPTED: restoring the previous WAR and restarting $TOMCAT_SERVICE"
-    if install_war "$WAR_BACKUP" && wait_healthy; then
+    local restored=0
+    install_war "$WAR_BACKUP" && restored=1
+    [ "$restored" -eq 0 ] || reset_health_menu_if_needed || true
+    if [ "$restored" -eq 1 ] && wait_healthy; then
         loud "ROLLED BACK to the previous WAR; $URL is serving again"
     else
         loud "ROLLBACK ALSO FAILED; check: journalctl -u $TOMCAT_SERVICE, /var/lib/tomcat10/logs/catalina.out"
@@ -301,6 +347,9 @@ rollback() {
     cp $WAR_BACKUP $INSTALLED_WAR && rm -rf $INSTALLED_DIR
     systemctl start $TOMCAT_SERVICE
 RESTORE
+    loud "Rolling back by hand to a build WITHOUT the health dashboard (before changeset -08)? Then also run, or every plugin menu disappears:"
+    echo "    (cd /tmp && sudo -u postgres psql -d $DB_NAME -v ON_ERROR_STOP=1 -c \"$HEALTH_MENU_SQL\")" >&2
+    echo "    echo \"\$(date +%Y%m%d-%H%M%S) ref=manual-rollback sha=<sha of the restored WAR, or unknown>\" >> /opt/locker24/last-deploy" >&2
 }
 
 on_signal() {

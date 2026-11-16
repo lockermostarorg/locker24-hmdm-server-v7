@@ -203,6 +203,17 @@ export class ApplicationService {
       .pipe(map(() => void 0));
   }
 
+  notifyApplicationVersion(
+    versionId: number,
+    mode: Exclude<TReleaseMode, 'hold'>,
+  ): Observable<TReleaseSummary> {
+    return this.http
+      .post<
+        THttpResponse<TReleaseSummary>
+      >(`rest/private/applications/versions/${versionId}/notify`, { mode })
+      .pipe(map((response) => this.summaryOf(response)));
+  }
+
   private summaryOf(response: THttpResponse<TReleaseSummary>): TReleaseSummary {
     if (response.status === 'ERROR' || !response.data) {
       throw new Error(response.message ?? 'error.internal.server');

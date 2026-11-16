@@ -18,6 +18,7 @@ describe('VersionsActionCell', () => {
   beforeEach(() => {
     dialogService = jasmine.createSpyObj('VersionDialogService', [
       'openReleaseVersionDialog',
+      'openNotifyVersionDialog',
       'openEditVersionDialog',
     ]);
     TestBed.configureTestingModule({
@@ -34,9 +35,6 @@ describe('VersionsActionCell', () => {
     const held = render({ releaseState: 'held' });
     const released = render({ releaseState: 'released' });
 
-    expect(held.nativeElement.querySelectorAll('button').length).toBe(
-      released.nativeElement.querySelectorAll('button').length + 1,
-    );
     expect(held.componentInstance.isHeld()).toBeTrue();
     expect(released.componentInstance.isHeld()).toBeFalse();
   });
@@ -47,6 +45,31 @@ describe('VersionsActionCell', () => {
     fixture.componentInstance.onReleaseClick();
 
     expect(dialogService.openReleaseVersionDialog).toHaveBeenCalledWith(
+      jasmine.objectContaining({ id: 5, version: '3' }),
+    );
+  });
+
+  it('shows Notify tablets again only on released versions, next to the other actions', () => {
+    const held = render({ releaseState: 'held' });
+    const released = render({ releaseState: 'released' });
+
+    const icons = (f: ComponentFixture<VersionsActionCell>): string[] =>
+      Array.from<HTMLElement>(f.nativeElement.querySelectorAll('mat-icon')).map((el) =>
+        el.textContent!.trim(),
+      );
+
+    expect(icons(released)).toContain('notifications');
+    expect(icons(released)).not.toContain('publish');
+    expect(icons(held)).toContain('publish');
+    expect(icons(held)).not.toContain('notifications');
+  });
+
+  it('opens the notify dialog for the row', () => {
+    const fixture = render({ releaseState: 'released', version: '3' });
+
+    fixture.componentInstance.onNotifyClick();
+
+    expect(dialogService.openNotifyVersionDialog).toHaveBeenCalledWith(
       jasmine.objectContaining({ id: 5, version: '3' }),
     );
   });

@@ -8,6 +8,7 @@ import { ApplicationService } from '../../entity/application/services/applicatio
 import { TranslateService } from '@ngx-translate/core';
 import { baseTestProviders, useEnglish } from '../../testing/test-providers';
 import { ApplicationConfigDialog } from '../components/application-config-dialog/application-config-dialog';
+import { ReleaseSummaryDialog } from '../components/release-summary-dialog/release-summary-dialog';
 import { ApplicationDialog } from '../components/application-dialog/application-dialog';
 import { DuplicatePkgDialog } from '../components/duplicate-pkg-dialog/duplicate-pkg-dialog';
 import { ApplicationDialogService } from './application-dialog.service';
@@ -76,6 +77,7 @@ describe('ApplicationDialogService add application', () => {
     service.openAddApplicationDialog();
   });
 
+  const summaries = () => opened.filter((o) => o.component === ReleaseSummaryDialog);
   const informs = () => opened.filter((o) => o.component === InformDialog);
   const configDialogs = () => opened.filter((o) => o.component === ApplicationConfigDialog);
 
@@ -93,12 +95,10 @@ describe('ApplicationDialogService add application', () => {
     expect(request.applicationId).toBe(9);
     expect(request.releaseMode).toBe('immediate');
     expect('autoUpdateDisplayed' in request).toBeFalse();
-    expect(informs().length).toBe(1);
-    expect(informs()[0].config.data?.['message']).toBe('release.summary.released');
-    expect(informs()[0].config.data?.['params']).toEqual({
-      configurations: '2 configurations',
-      devices: '5 tablets',
-    });
+    expect(summaries().length).toBe(1);
+    expect(summaries()[0].config.data?.['lines']).toEqual([
+      { text: 'Released to 2 configurations (5 assigned tablets)', warning: false },
+    ]);
     expect(configDialogs()[0].config.data).toEqual({ applicationId: 9, versionId: undefined });
   });
 
@@ -112,7 +112,9 @@ describe('ApplicationDialogService add application', () => {
 
     saveTrigger$.next(appValue('hold'));
 
-    expect(informs()[0].config.data?.['message']).toBe('release.summary.held');
+    expect(summaries()[0].config.data?.['lines']).toEqual([
+      { text: 'Held; not applied', warning: false },
+    ]);
   });
 
   it('explains that hold became a scheduled release when a new app is created', () => {
@@ -141,5 +143,21 @@ describe('ApplicationDialogService add application', () => {
 
     expect(informs().length).toBe(0);
     expect(configDialogs().length).toBe(1);
+  });
+
+  it('adds the re-upload note when a held upload was requested as schedule and came back held', () => {
+    applicationService.validatePkg.and.returnValue(
+      of([{ id: 9, name: 'N', versionCode: 1 }] as unknown as TApplicationDTO[]),
+    );
+    applicationService.createApplicationVersion.and.returnValue(
+      of({ configurations: 0, devices: 0, mode: 'hold' }),
+    );
+
+    saveTrigger$.next(appValue('schedule'));
+
+    expect(summaries()[0].config.data?.['lines']).toEqual([
+      { text: 'Held; not applied', warning: false },
+      { text: 'Already uploaded and held. Use Release to apply it.', warning: true },
+    ]);
   });
 });

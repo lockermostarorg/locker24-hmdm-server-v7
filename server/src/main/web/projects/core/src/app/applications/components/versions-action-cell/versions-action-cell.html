@@ -9,6 +9,16 @@
     >
       <mat-icon>publish</mat-icon>
     </button>
+  } @else {
+    <button
+      mat-icon-button
+      *hmdmHasPermission="'edit_application_versions'"
+      [matTooltip]="'button.notify.tablets' | translate"
+      [matTooltipShowDelay]="500"
+      (click)="onNotifyClick()"
+    >
+      <mat-icon>notifications</mat-icon>
+    </button>
   }
 
   <button

@@ -1,7 +1,14 @@
-<hmdm-dialog-template [title]="'button.release' | translate">
-  <p class="release-version">
-    {{ 'form.application.release.version' | translate: { version: version.version } }}
-  </p>
+<hmdm-dialog-template [title]="(notify ? 'button.notify.tablets' : 'button.release') | translate">
+  @if (notify) {
+    <p class="release-version">
+      {{ 'form.application.notify.help' | translate }}
+    </p>
+  } @else {
+    <p class="release-version">
+      {{ 'form.application.release.version' | translate: { version: version.version } }}
+    </p>
+    <p class="release-note">{{ 'form.application.release.canary.note' | translate }}</p>
+  }
 
   <core-release-mode-field [control]="modeControl" [allowHold]="false"></core-release-mode-field>
 

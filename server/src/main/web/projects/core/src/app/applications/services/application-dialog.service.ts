@@ -20,12 +20,13 @@ import { ApplicationService } from '../../entity/application/services/applicatio
 import { TApplicationDTO } from '../../entity/application/types/application-dto.type';
 import { TApplicationFormEmitValue } from '../types/application-form.type';
 import { ApplicationConfigDialog } from '../components/application-config-dialog/application-config-dialog';
+import { ReleaseSummaryDialog } from '../components/release-summary-dialog/release-summary-dialog';
 import { ApplicationDialog } from '../components/application-dialog/application-dialog';
 import {
   DuplicatePkgDialog,
   TDuplicatePkgDialogResult,
 } from '../components/duplicate-pkg-dialog/duplicate-pkg-dialog';
-import { TReleaseSummary } from '../../entity/application/types/release-mode.type';
+import { TReleaseMode, TReleaseSummary } from '../../entity/application/types/release-mode.type';
 import { ApplicationFacadeService } from './application-facade.service';
 
 type TSaveResult =
@@ -40,10 +41,14 @@ const saved = (entity: TApplicationDTO | null, heldAsFirstVersion = false): TSav
   heldAsFirstVersion,
 });
 
-const versionSaved = (applicationId: number, summary: TReleaseSummary): TSaveResult => ({
+const versionSaved = (
+  applicationId: number,
+  summary: TReleaseSummary,
+  requestedMode?: TReleaseMode,
+): TSaveResult => ({
   outcome: 'version-saved',
   applicationId,
-  summary,
+  summary: { ...summary, requestedMode },
 });
 
 @Injectable({ providedIn: 'root' })
@@ -79,7 +84,9 @@ export class ApplicationDialogService {
           dialogRef.close();
           this.applicationFacadeService.searchApplications();
           this.dialog
-            .open(InformDialog, { data: releaseSummaryDialogData(result.summary, this.translate) })
+            .open(ReleaseSummaryDialog, {
+              data: releaseSummaryDialogData(result.summary, this.translate),
+            })
             .afterClosed()
             .pipe(take(1))
             .subscribe(() => this.openSelectConfigurationDialog(result.applicationId));
@@ -193,7 +200,7 @@ export class ApplicationDialogService {
               useKiosk: appData.useKiosk,
               releaseMode: appData.releaseMode,
             })
-            .pipe(map((summary) => versionSaved(duplicates[0].id, summary)));
+            .pipe(map((summary) => versionSaved(duplicates[0].id, summary, appData.releaseMode)));
         }
 
         return this.dialog
@@ -233,7 +240,11 @@ export class ApplicationDialogService {
                     useKiosk: appData.useKiosk,
                     releaseMode: appData.releaseMode,
                   })
-                  .pipe(map((summary) => versionSaved(result.applicationId, summary)));
+                  .pipe(
+                    map((summary) =>
+                      versionSaved(result.applicationId, summary, appData.releaseMode),
+                    ),
+                  );
               }
 
               // 'new-app' or 'change-pkg' — proceed with normal application creation

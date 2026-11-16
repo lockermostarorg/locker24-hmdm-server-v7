@@ -67,7 +67,7 @@ export class VersionDialog extends DialogBase {
         this.applicationService.createApplicationVersion(request).subscribe({
           next: (summary) => {
             this.saving.set(false);
-            this.dialogRef.close(summary);
+            this.dialogRef.close({ ...summary, requestedMode: request.releaseMode });
           },
           error: () => {
             this.saving.set(false);

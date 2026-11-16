@@ -69,7 +69,7 @@ describe('VersionDialog', () => {
     expect(applicationService.createApplicationVersion.calls.mostRecent().args[0].releaseMode).toBe(
       'immediate',
     );
-    expect(dialogRef.close).toHaveBeenCalledWith(summary);
+    expect(dialogRef.close).toHaveBeenCalledWith({ ...summary, requestedMode: 'immediate' });
   });
 
   it('stays open and stops saving when the server answers with an error', () => {

@@ -11,8 +11,11 @@ describe('ReleaseVersionDialog', () => {
   let applicationService: jasmine.SpyObj<ApplicationService>;
   let dialogRef: jasmine.SpyObj<MatDialogRef<ReleaseVersionDialog>>;
 
-  beforeEach(() => {
-    applicationService = jasmine.createSpyObj('ApplicationService', ['releaseApplicationVersion']);
+  function setup(data: Record<string, unknown> = {}): void {
+    applicationService = jasmine.createSpyObj('ApplicationService', [
+      'releaseApplicationVersion',
+      'notifyApplicationVersion',
+    ]);
     dialogRef = jasmine.createSpyObj('MatDialogRef', ['close']);
 
     TestBed.configureTestingModule({
@@ -21,12 +24,14 @@ describe('ReleaseVersionDialog', () => {
         ...baseTestProviders(),
         { provide: ApplicationService, useValue: applicationService },
         { provide: MatDialogRef, useValue: dialogRef },
-        { provide: MAT_DIALOG_DATA, useValue: { version: { id: 12, version: '2.0' } } },
+        { provide: MAT_DIALOG_DATA, useValue: { version: { id: 12, version: '2.0' }, ...data } },
       ],
     });
     fixture = TestBed.createComponent(ReleaseVersionDialog);
     fixture.detectChanges();
-  });
+  }
+
+  beforeEach(() => setup());
 
   it('offers schedule and immediately, not hold, with schedule preselected', () => {
     expect(fixture.componentInstance.modeControl.value).toBe('schedule');
@@ -63,5 +68,35 @@ describe('ReleaseVersionDialog', () => {
 
     expect(dialogRef.close).not.toHaveBeenCalled();
     expect(fixture.componentInstance.saving()).toBeFalse();
+  });
+
+  it('tells the user that canaries pinned to the version follow the latest again', () => {
+    expect(fixture.nativeElement.textContent).toContain('form.application.release.canary.note');
+  });
+
+  describe('notify mode', () => {
+    beforeEach(() => {
+      TestBed.resetTestingModule();
+      setup({ notify: true });
+    });
+
+    it('posts to notify, not release, with the chosen mode', () => {
+      const summary = { configurations: 2, devices: 4, mode: 'immediate' as const };
+      applicationService.notifyApplicationVersion.and.returnValue(of(summary));
+      fixture.componentInstance.modeControl.setValue('immediate');
+
+      fixture.componentInstance.onSave();
+
+      expect(applicationService.notifyApplicationVersion).toHaveBeenCalledWith(12, 'immediate');
+      expect(applicationService.releaseApplicationVersion).not.toHaveBeenCalled();
+      expect(dialogRef.close).toHaveBeenCalledWith(summary);
+    });
+
+    it('shows the notify help and not the canary note', () => {
+      const text = fixture.nativeElement.textContent;
+
+      expect(text).toContain('form.application.notify.help');
+      expect(text).not.toContain('form.application.release.canary.note');
+    });
   });
 });

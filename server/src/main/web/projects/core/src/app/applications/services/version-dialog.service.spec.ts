@@ -1,10 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { TranslateService } from '@ngx-translate/core';
-import { InformDialog } from 'hmdm-ui-kit';
 import { baseTestProviders, useEnglish } from '../../testing/test-providers';
 import { of } from 'rxjs';
 import { ApplicationService } from '../../entity/application/services/application.service';
+import { ReleaseSummaryDialog } from '../components/release-summary-dialog/release-summary-dialog';
 import { ApplicationFacadeService } from './application-facade.service';
 import { VersionDialogService } from './version-dialog.service';
 import { VersionFacadeService } from './version-facade.service';
@@ -41,28 +41,29 @@ describe('VersionDialogService summary', () => {
 
   afterEach(() => dialog.closeAll());
 
-  function shown(): string {
-    const data = (dialog.open as jasmine.Spy).calls.mostRecent().args[1].data;
-    return translate.instant(data.message, data.params);
+  function shown(): string[] {
+    return (dialog.open as jasmine.Spy).calls
+      .mostRecent()
+      .args[1].data.lines.map((line: { text: string }) => line.text);
   }
 
   it('says how many configurations and tablets a release reached', () => {
     service.showSummary({ configurations: 2, devices: 5, mode: 'schedule' });
 
-    expect((dialog.open as jasmine.Spy).calls.mostRecent().args[0]).toBe(InformDialog);
-    expect(shown()).toBe('Released to 2 configurations (5 tablets)');
+    expect((dialog.open as jasmine.Spy).calls.mostRecent().args[0]).toBe(ReleaseSummaryDialog);
+    expect(shown()).toEqual(['Released to 2 configurations (5 assigned tablets)']);
   });
 
   it('says a held version was not applied', () => {
     service.showSummary({ configurations: 0, devices: 0, mode: 'hold' });
 
-    expect(shown()).toBe('Held; not applied');
+    expect(shown()).toEqual(['Held; not applied']);
   });
 
   it('uses singular wording for one configuration and one tablet', () => {
     service.showSummary({ configurations: 1, devices: 1, mode: 'immediate' });
 
-    expect(shown()).toBe('Released to 1 configuration (1 tablet)');
+    expect(shown()).toEqual(['Released to 1 configuration (1 assigned tablet)']);
   });
 
   it('refreshes the versions and applications lists after a release', () => {

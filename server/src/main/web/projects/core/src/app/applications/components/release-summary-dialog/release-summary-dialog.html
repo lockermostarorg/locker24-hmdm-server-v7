@@ -1,0 +1,9 @@
+<hmdm-dialog-template>
+  @for (line of data.lines; track $index) {
+    <p class="summary-line" [class.summary-line--warning]="line.warning">{{ line.text }}</p>
+  }
+
+  <div class="summary-actions" dialog-actions>
+    <button matButton class="primary" (click)="onOk()">{{ 'button.ok' | translate }}</button>
+  </div>
+</hmdm-dialog-template>

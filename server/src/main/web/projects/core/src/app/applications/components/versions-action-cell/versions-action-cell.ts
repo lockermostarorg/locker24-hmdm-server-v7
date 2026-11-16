@@ -54,6 +54,10 @@ export class VersionsActionCell extends BaseCellRenderer<TVersionDTO, null> {
     this.versionDialogService.openReleaseVersionDialog(this.params().data);
   }
 
+  onNotifyClick(): void {
+    this.versionDialogService.openNotifyVersionDialog(this.params().data);
+  }
+
   onEditClick(): void {
     this.versionDialogService.openEditVersionDialog(this.params().data);
   }

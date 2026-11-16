@@ -1,0 +1,15 @@
+.summary {
+  &-line {
+    margin: 0 0 8px;
+    text-align: center;
+
+    &--warning {
+      color: var(--mat-sys-error);
+    }
+  }
+
+  &-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+}

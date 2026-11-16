@@ -2,12 +2,13 @@ import { inject, Injectable } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { TranslateService } from '@ngx-translate/core';
 import { filter, take, switchMap } from 'rxjs';
-import { ConfirmDialog, InformDialog } from 'hmdm-ui-kit';
+import { ConfirmDialog } from 'hmdm-ui-kit';
 import { ApplicationService } from '../../entity/application/services/application.service';
 import { TReleaseSummary } from '../../entity/application/types/release-mode.type';
 import { TVersionDTO } from '../../entity/application/types/version-dto.type';
 import { ApplicationConfigDialog } from '../components/application-config-dialog/application-config-dialog';
 import { EditVersionDialog } from '../components/edit-version-dialog/edit-version-dialog';
+import { ReleaseSummaryDialog } from '../components/release-summary-dialog/release-summary-dialog';
 import { ReleaseVersionDialog } from '../components/release-version-dialog/release-version-dialog';
 import { VersionDialog } from '../components/version-dialog/version-dialog';
 import { releaseSummaryDialogData } from '../utils/release-summary';
@@ -54,8 +55,22 @@ export class VersionDialogService {
       });
   }
 
-  showSummary(summary: TReleaseSummary): void {
-    this.dialog.open(InformDialog, { data: releaseSummaryDialogData(summary, this.translate) });
+  openNotifyVersionDialog(version: TVersionDTO): void {
+    this.dialog
+      .open(ReleaseVersionDialog, { data: { version, notify: true }, width: '500px' })
+      .afterClosed()
+      .pipe(take(1), filter(Boolean))
+      .subscribe((summary: TReleaseSummary) => {
+        this.versionFacadeService.initLast();
+        this.applicationFacadeService.searchApplications();
+        this.showSummary(summary, true);
+      });
+  }
+
+  showSummary(summary: TReleaseSummary, notify = false): void {
+    this.dialog.open(ReleaseSummaryDialog, {
+      data: releaseSummaryDialogData(summary, this.translate, { notify }),
+    });
   }
 
   openEditVersionDialog(version: TVersionDTO): void {

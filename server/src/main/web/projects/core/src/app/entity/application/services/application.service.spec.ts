@@ -98,4 +98,39 @@ describe('ApplicationService release calls', () => {
     expect('releaseMode' in request.request.body).toBeFalse();
     request.flush({ status: 'OK', message: null, data: {} });
   });
+
+  it('posts the chosen mode to the notify endpoint and reads the full summary', () => {
+    let result: unknown;
+    service.notifyApplicationVersion(9, 'immediate').subscribe((summary) => (result = summary));
+
+    const request = http.expectOne('rest/private/applications/versions/9/notify');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ mode: 'immediate' });
+    request.flush({
+      status: 'OK',
+      message: null,
+      data: { configurations: 2, devices: 5, mode: 'immediate', pushFailed: 1, notLatest: false },
+    });
+
+    expect(result).toEqual({
+      configurations: 2,
+      devices: 5,
+      mode: 'immediate',
+      pushFailed: 1,
+      notLatest: false,
+    });
+  });
+
+  it('surfaces error.version.exists from an upload as an error', () => {
+    let failure: Error | undefined;
+    service
+      .createApplicationVersion({ applicationId: 1, version: '2', arch: null })
+      .subscribe({ error: (error) => (failure = error) });
+
+    http
+      .expectOne('rest/private/applications/versions')
+      .flush({ status: 'ERROR', message: 'error.version.exists', data: null });
+
+    expect(failure?.message).toBe('error.version.exists');
+  });
 });

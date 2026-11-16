@@ -282,7 +282,6 @@
   "error.application.id.required": "The application is not specified",
   "error.application.version.id.required": "The application version is not specified",
   "error.concurrent.update": "Another change to this application was in progress. Please try again; if you were uploading a file, upload it again",
-  "error.version.exists": "This version already exists. Increase the version number and upload again.",
   "error.notfound.object": "The requested object was not found",
   "error.application.version.deletion.prohibited": "La version es unica o bien esta siendo usada en confituraciones y no puede eliminarse",
   "error.duplicate.file": "Ya existe un archivo con el mismo nombre",
@@ -1251,10 +1250,17 @@
   "form.configuration.app.follow.latest": "Follows latest",
   "form.configuration.app.follow.latest.title": "On: the app moves to each newly released version. Off: it stays on the chosen version.",
   "form.configuration.app.pinned": "Pinned to {{version}}",
+  "release.summary.first.version": "Released on schedule: the first version of an application is always released, so it was not held.",
   "release.summary.released": "Released to {{configurations}} ({{devices}})",
+  "release.summary.notified": "Update sent for {{configurations}} ({{devices}})",
   "release.summary.configuration.one": "{{count}} configuration",
   "release.summary.configuration.other": "{{count}} configurations",
-  "release.summary.tablet.one": "{{count}} tablet",
-  "release.summary.tablet.other": "{{count}} tablets",
-  "release.summary.first.version": "Released on schedule: the first version of an application is always released, so it was not held."
+  "release.summary.tablet.one": "{{count}} assigned tablet",
+  "release.summary.tablet.other": "{{count}} assigned tablets",
+  "release.summary.push.failed": "Tablets of {{configurations}} could not be notified. Use Notify tablets again.",
+  "release.summary.not.latest": "This version is lower than the latest released version; no configuration was moved.",
+  "release.summary.reupload.held": "Already uploaded and held. Use Release to apply it.",
+  "button.notify.tablets": "Notify tablets again",
+  "form.application.notify.help": "Sends the update to tablets again without moving any configuration.",
+  "form.application.release.canary.note": "Configurations pinned to this version will follow the latest version again."
 }

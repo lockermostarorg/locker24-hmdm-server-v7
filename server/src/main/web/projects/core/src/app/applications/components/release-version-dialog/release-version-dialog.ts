@@ -21,7 +21,9 @@ import { ReleaseModeField } from '../release-mode-field/release-mode-field';
 export class ReleaseVersionDialog extends DialogBase {
   private readonly applicationService = inject(ApplicationService);
 
-  readonly version: TVersionDTO = inject(MAT_DIALOG_DATA).version;
+  private readonly data = inject(MAT_DIALOG_DATA);
+  readonly version: TVersionDTO = this.data.version;
+  readonly notify: boolean = !!this.data.notify;
   readonly modeControl = new FormControl<TReleaseMode>('schedule', {
     nonNullable: true,
     validators: [Validators.required],
@@ -34,14 +36,14 @@ export class ReleaseVersionDialog extends DialogBase {
     }
 
     this.saving.set(true);
-    this.applicationService
-      .releaseApplicationVersion(
-        this.version.id,
-        this.modeControl.value === 'immediate' ? 'immediate' : 'schedule',
-      )
-      .subscribe({
-        next: (summary) => this.dialogRef.close(summary),
-        error: () => this.saving.set(false),
-      });
+    const mode = this.modeControl.value === 'immediate' ? 'immediate' : 'schedule';
+    const call = this.notify
+      ? this.applicationService.notifyApplicationVersion(this.version.id, mode)
+      : this.applicationService.releaseApplicationVersion(this.version.id, mode);
+
+    call.subscribe({
+      next: (summary) => this.dialogRef.close(summary),
+      error: () => this.saving.set(false),
+    });
   }
 }

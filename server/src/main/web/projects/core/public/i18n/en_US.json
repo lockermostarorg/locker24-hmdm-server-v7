@@ -293,7 +293,6 @@
   "error.application.version.deletion.prohibited": "The version is either unique or used in configurations and cannot be deleted",
   "error.duplicate.file": "A file with the same name already exists",
   "error.used.file": "This file is used",
-  "error.version.exists": "The same version of this app already exists",
   "error.duplicate.configuration": "A configuration with this name already exists",
   "error.duplicate.role.name": "A role with the same name already exists",
   "error.empty.role.name": "Please specify the role name",
@@ -1256,10 +1255,17 @@
   "form.configuration.app.follow.latest": "Follows latest",
   "form.configuration.app.follow.latest.title": "On: the app moves to each newly released version. Off: it stays on the chosen version.",
   "form.configuration.app.pinned": "Pinned to {{version}}",
+  "release.summary.first.version": "Released on schedule: the first version of an application is always released, so it was not held.",
   "release.summary.released": "Released to {{configurations}} ({{devices}})",
+  "release.summary.notified": "Update sent for {{configurations}} ({{devices}})",
   "release.summary.configuration.one": "{{count}} configuration",
   "release.summary.configuration.other": "{{count}} configurations",
-  "release.summary.tablet.one": "{{count}} tablet",
-  "release.summary.tablet.other": "{{count}} tablets",
-  "release.summary.first.version": "Released on schedule: the first version of an application is always released, so it was not held."
+  "release.summary.tablet.one": "{{count}} assigned tablet",
+  "release.summary.tablet.other": "{{count}} assigned tablets",
+  "release.summary.push.failed": "Tablets of {{configurations}} could not be notified. Use Notify tablets again.",
+  "release.summary.not.latest": "This version is lower than the latest released version; no configuration was moved.",
+  "release.summary.reupload.held": "Already uploaded and held. Use Release to apply it.",
+  "button.notify.tablets": "Notify tablets again",
+  "form.application.notify.help": "Sends the update to tablets again without moving any configuration.",
+  "form.application.release.canary.note": "Configurations pinned to this version will follow the latest version again."
 }

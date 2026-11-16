@@ -134,9 +134,9 @@ public class Configuration implements CustomerData, Serializable {
     @Schema(description = "A package ID for main application")
     private Integer mainAppId;
     @Schema(description = "Whether the main application follows the latest released version")
-    private boolean followLatestMainApp = true;
+    private Boolean followLatestMainApp;
     @Schema(description = "Whether the content application follows the latest released version")
-    private boolean followLatestContentApp = true;
+    private Boolean followLatestContentApp;
     @Schema(description = "A package ID for event receiving component")
     private String eventReceivingComponent;
     @Schema(description = "A flag indicating if MDM is operating in kiosk mode")
@@ -397,19 +397,19 @@ public class Configuration implements CustomerData, Serializable {
         this.contentAppId = contentAppId;
     }
 
-    public boolean isFollowLatestMainApp() {
+    public Boolean getFollowLatestMainApp() {
         return followLatestMainApp;
     }
 
-    public void setFollowLatestMainApp(boolean followLatestMainApp) {
+    public void setFollowLatestMainApp(Boolean followLatestMainApp) {
         this.followLatestMainApp = followLatestMainApp;
     }
 
-    public boolean isFollowLatestContentApp() {
+    public Boolean getFollowLatestContentApp() {
         return followLatestContentApp;
     }
 
-    public void setFollowLatestContentApp(boolean followLatestContentApp) {
+    public void setFollowLatestContentApp(Boolean followLatestContentApp) {
         this.followLatestContentApp = followLatestContentApp;
     }
 
@@ -909,8 +909,8 @@ public class Configuration implements CustomerData, Serializable {
 
         copy.setMainAppId(getMainAppId());
         copy.setContentAppId(getContentAppId());
-        copy.setFollowLatestMainApp(isFollowLatestMainApp());
-        copy.setFollowLatestContentApp(isFollowLatestContentApp());
+        copy.setFollowLatestMainApp(getFollowLatestMainApp());
+        copy.setFollowLatestContentApp(getFollowLatestContentApp());
         copy.setEventReceivingComponent(getEventReceivingComponent());
         copy.setKioskMode(isKioskMode());
         copy.setWifiSSID(getWifiSSID());

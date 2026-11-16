@@ -26,9 +26,12 @@ import com.google.inject.Inject;
 import java.io.IOException;
 import java.net.URL;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import com.google.inject.Singleton;
 import com.hmdm.event.ConfigurationUpdatedEvent;
@@ -99,6 +102,11 @@ public class ConfigurationDAO extends AbstractLinkedDAO<Configuration, Applicati
 
     public void insertConfiguration(Configuration config) {
         insertRecord(config, configuration -> {
+            configuration.setFollowLatestMainApp(
+                    FollowLatestRules.followForConfigurationFlag(configuration.getFollowLatestMainApp(), null));
+            configuration.setFollowLatestContentApp(
+                    FollowLatestRules.followForConfigurationFlag(configuration.getFollowLatestContentApp(), null));
+            resolveRowFollowFlags(configuration.getApplications(), Collections.emptyList());
             this.mapper.insertConfiguration(configuration);
             if (configuration.getApplications().size() > 0) {
                 configuration.getApplications().forEach(app -> app.setRemove(app.getAction() == 2));
@@ -123,15 +131,25 @@ public class ConfigurationDAO extends AbstractLinkedDAO<Configuration, Applicati
         updateRecord(
                 config,
                 configuration -> {
+                    final Configuration stored = this.mapper.getConfigurationById(configuration.getId());
+                    configuration.setFollowLatestMainApp(FollowLatestRules.followForConfigurationFlag(
+                            configuration.getFollowLatestMainApp(), stored == null ? null : stored.getFollowLatestMainApp()));
+                    configuration.setFollowLatestContentApp(FollowLatestRules.followForConfigurationFlag(
+                            configuration.getFollowLatestContentApp(), stored == null ? null : stored.getFollowLatestContentApp()));
+                    resolveRowFollowFlags(configuration.getApplications(),
+                            this.mapper.getConfigurationFollowRows(configuration.getId()));
+
                     this.mapper.updateConfiguration(configuration);
                     this.mapper.removeConfigurationApplicationsById(configuration.getId());
                     if (configuration.getApplications().size() > 0) {
                         configuration.getApplications().forEach(app -> app.setRemove(app.getAction() == 2));
                         this.mapper.insertConfigurationApplications(configuration.getId(), configuration.getApplications());
                     }
+                    this.applicationMapper.moveFollowersToLatest(null, configuration.getId());
 
                     this.applicationMapper.recheckConfigurationMainApplication(configuration.getId());
                     this.applicationMapper.recheckConfigurationContentApplication(configuration.getId());
+                    this.mapper.syncMainAndContentFollowFlags(configuration.getId());
                     // #6159: When updating the configuration via configuration editor page the state of Kiosk Mode flag
                     // is specified explicitly by the submitted form value, so there is no need to re-check the state of
                     // that flag based on presence of content app in configuration
@@ -190,6 +208,40 @@ public class ConfigurationDAO extends AbstractLinkedDAO<Configuration, Applicati
                 },
                 SecurityException::onConfigurationAccessViolation
         );
+    }
+
+    private void resolveRowFollowFlags(List<Application> rows, List<Application> storedRows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        final Map<Integer, Application> storedByApp = new HashMap<>();
+        for (Application storedRow : storedRows) {
+            final Application current = storedByApp.get(storedRow.getId());
+            if (current == null || current.getAction() != 1 && storedRow.getAction() == 1) {
+                storedByApp.put(storedRow.getId(), storedRow);
+            }
+        }
+        final List<Integer> appIds = rows.stream()
+                .map(Application::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        final Map<Integer, Integer> latestByApp = new HashMap<>();
+        if (!appIds.isEmpty()) {
+            for (Application app : this.applicationMapper.getLatestVersions(appIds)) {
+                latestByApp.put(app.getId(), app.getLatestVersion());
+            }
+        }
+        for (Application row : rows) {
+            final Application storedRow = storedByApp.get(row.getId());
+            row.setFollowLatest(FollowLatestRules.followForSavedRow(
+                    row.isFollowLatest(),
+                    storedRow == null ? null : storedRow.isFollowLatest(),
+                    storedRow == null ? null : storedRow.getUsedVersionId(),
+                    row.getUsedVersionId(),
+                    latestByApp.get(row.getId())
+            ));
+        }
     }
 
     @Transactional

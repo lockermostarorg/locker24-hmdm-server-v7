@@ -30,6 +30,7 @@ import com.hmdm.rest.json.ApplicationVersionConfigurationLink;
 import com.hmdm.rest.json.LookupItem;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.SelectKey;
@@ -247,10 +248,12 @@ public interface ApplicationMapper {
 
     void insertApplicationConfigurations(@Param("applicationId") Integer applicationId,
                                          @Param("versionId") Integer applicationVersionId,
+                                         @Param("followLatest") boolean followLatest,
                                          @Param("confs") List<ApplicationConfigurationLink> configurations);
 
     void insertApplicationVersionConfigurations(@Param("applicationId") Integer applicationId,
                                                 @Param("versionId") Integer applicationVersionId,
+                                                @Param("followLatest") boolean followLatest,
                                                 @Param("confs") List<ApplicationVersionConfigurationLink> configurations);
 
     @Select({SELECT_BY_VERSION_BASE +
@@ -370,25 +373,43 @@ public interface ApplicationMapper {
             "WHERE id = #{id}")
     void recalculateLatestVersion(@Param("id") Integer applicationId);
 
-    @Update("UPDATE configurationApplications " +
-            "SET applicationVersionId = #{newId} " +
-            "WHERE applicationId = #{appId} " +
-            "AND action <> 2 " +
-            "AND EXISTS (SELECT 1 " +
-            "            FROM configurations " +
-            "            WHERE configurations.id = configurationApplications.configurationId " +
-            "            AND configurations.autoUpdate IS TRUE)")
-    int autoUpdateConfigurationsApplication(@Param("appId") Integer applicationId,
-                                            @Param("newId") Integer newAppVersionId);
+    @Select("SELECT id FROM applications WHERE id = #{id} FOR UPDATE")
+    @Options(flushCache = Options.FlushCachePolicy.TRUE, useCache = false)
+    Integer lockApplication(@Param("id") int applicationId);
 
-    @Update("UPDATE configurations " +
-            "SET mainAppId = #{newId} " +
-            "WHERE configurations.autoUpdate IS TRUE " +
-            "AND EXISTS (SELECT 1 FROM applicationVersions " +
-            "            WHERE applicationVersions.id = configurations.mainAppId" +
-            "            AND applicationVersions.applicationId = #{appId})")
-    int autoUpdateConfigurationsMainApplication(@Param("appId") Integer applicationId,
-                                                @Param("newId") Integer newAppVersionId);
+    @Select("SELECT mdm_move_followers_to_latest(#{appId,jdbcType=INTEGER}, #{configId,jdbcType=INTEGER})")
+    @Options(flushCache = Options.FlushCachePolicy.TRUE, useCache = false)
+    List<Integer> moveFollowersToLatest(@Param("appId") Integer applicationId,
+                                        @Param("configId") Integer configurationId);
+
+    @Update("UPDATE applicationVersions " +
+            "SET releaseState = 'released', releasedAt = #{releasedAt}, releaseMode = #{mode}, releasedBy = #{userId} " +
+            "WHERE id = #{id} AND releaseState = 'held'")
+    int releaseApplicationVersion(@Param("id") int versionId,
+                                  @Param("mode") String mode,
+                                  @Param("userId") Integer userId,
+                                  @Param("releasedAt") long releasedAt);
+
+    @Select("SELECT COUNT(*) FROM applicationVersions WHERE applicationId = #{id} AND releaseState = 'released'")
+    int countReleasedVersions(@Param("id") int applicationId);
+
+    @Select("SELECT COUNT(*) FROM applicationVersions WHERE applicationId = #{id}")
+    int countVersions(@Param("id") int applicationId);
+
+    @Select({"<script>SELECT id, latestVersion FROM applications WHERE id IN " +
+            "<foreach item='appId' collection='ids' open='(' separator=',' close=')'>#{appId}</foreach>" +
+            "</script>"})
+    List<Application> getLatestVersions(@Param("ids") List<Integer> applicationIds);
+
+    @Update("UPDATE configurations SET " +
+            "followLatestMainApp = COALESCE((SELECT bool_or(ca.followLatest) FROM configurationApplications ca " +
+            "    WHERE ca.configurationId = configurations.id AND ca.applicationVersionId = configurations.mainAppId " +
+            "    AND ca.action = 1), followLatestMainApp), " +
+            "followLatestContentApp = COALESCE((SELECT bool_or(ca.followLatest) FROM configurationApplications ca " +
+            "    WHERE ca.configurationId = configurations.id AND ca.applicationVersionId = configurations.contentAppId " +
+            "    AND ca.action = 1), followLatestContentApp) " +
+            "WHERE configurations.customerId = #{customerId}")
+    int syncMainAndContentFollowFlagsForCustomer(@Param("customerId") Integer customerId);
 
     // TODO : ISV : Re-check methods must be updated to find the application by package ID but not applicationId
     @Update("UPDATE configurations " +
@@ -459,15 +480,6 @@ public interface ApplicationMapper {
             "SET kioskMode = false " +
             "WHERE configurations.customerId = #{customerId} AND configurations.contentAppId IS NULL")
     int recheckConfigurationKioskModes(@Param("customerId") Integer customerId);
-
-    @Update("UPDATE configurations " +
-            "SET contentAppId = #{newId} " +
-            "WHERE configurations.autoUpdate IS TRUE " +
-            "AND EXISTS (SELECT 1 FROM applicationVersions " +
-            "            WHERE applicationVersions.id = configurations.contentAppId" +
-            "            AND applicationVersions.applicationId = #{appId})")
-    int autoUpdateConfigurationsContentApplication(@Param("appId") Integer applicationId,
-                                                   @Param("newId") Integer newAppVersionId);
 
     @Select("SELECT id " +
             "FROM applicationVersions apv1 " +

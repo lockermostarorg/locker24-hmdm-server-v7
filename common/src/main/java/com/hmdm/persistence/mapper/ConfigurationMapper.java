@@ -165,6 +165,20 @@ public interface ConfigurationMapper {
     @Delete({"DELETE FROM configurationApplications WHERE configurationId=#{id}"})
     void removeConfigurationApplicationsById(@Param("id") Integer id);
 
+    @Select("SELECT applicationId AS id, applicationVersionId AS usedVersionId, followLatest, action " +
+            "FROM configurationApplications WHERE configurationId = #{id}")
+    List<Application> getConfigurationFollowRows(@Param("id") Integer configurationId);
+
+    @Update("UPDATE configurations SET " +
+            "followLatestMainApp = COALESCE((SELECT bool_or(ca.followLatest) FROM configurationApplications ca " +
+            "    WHERE ca.configurationId = configurations.id AND ca.applicationVersionId = configurations.mainAppId " +
+            "    AND ca.action = 1), followLatestMainApp), " +
+            "followLatestContentApp = COALESCE((SELECT bool_or(ca.followLatest) FROM configurationApplications ca " +
+            "    WHERE ca.configurationId = configurations.id AND ca.applicationVersionId = configurations.contentAppId " +
+            "    AND ca.action = 1), followLatestContentApp) " +
+            "WHERE configurations.id = #{id}")
+    int syncMainAndContentFollowFlags(@Param("id") Integer configurationId);
+
     @Delete({"DELETE FROM configurationApplicationSettings WHERE extRefId = #{id}"})
     void removeConfigurationApplicationSettingsById(@Param("id") Integer id);
 

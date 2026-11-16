@@ -225,8 +225,9 @@ expect "upgrade moves a row that is behind" "$HELD3" "$(q "SELECT applicationVer
 expect "upgrade moves a main app that is behind" "$HELD3" "$(q "SELECT mainAppId FROM configurations WHERE id = $C_OLD")"
 
 fl() { q "SELECT followLatest FROM configurationApplications WHERE configurationId = $1 AND applicationId = $2" | sed 's/true/t/;s/false/f/'; }
-link_app() { render xml "$APP_XML" insertApplicationConfigurations item.configurationId="$1" applicationId="$2" versionId="$3" item.remove=FALSE item.showIcon=FALSE item.action=1 | psqlq; }
-link_version() { render xml "$APP_XML" insertApplicationVersionConfigurations item.configurationId="$1" applicationId="$2" versionId="$3" item.remove=FALSE item.showIcon=FALSE item.screenOrder=NULL item.keyCode=NULL item.bottom=FALSE item.longTap=FALSE item.action=1 | psqlq; }
+follow_for_link() { [ "$2" = "$(q "SELECT latestVersion FROM applications WHERE id = $1")" ] && echo TRUE || echo FALSE; }
+link_app() { render xml "$APP_XML" insertApplicationConfigurations item.configurationId="$1" applicationId="$2" versionId="$3" followLatest="$(follow_for_link "$2" "$3")" item.remove=FALSE item.showIcon=FALSE item.action=1 | psqlq; }
+link_version() { render xml "$APP_XML" insertApplicationVersionConfigurations item.configurationId="$1" applicationId="$2" versionId="$3" followLatest="$(follow_for_link "$2" "$3")" item.remove=FALSE item.showIcon=FALSE item.screenOrder=NULL item.keyCode=NULL item.bottom=FALSE item.longTap=FALSE item.action=1 | psqlq; }
 
 C_L1="$(mkconf c-link-latest)"
 C_L2="$(mkconf c-link-old)"

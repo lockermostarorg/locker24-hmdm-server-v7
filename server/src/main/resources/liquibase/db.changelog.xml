@@ -2824,4 +2824,129 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="16.11.26-10:03-l24-4" author="locker24" context="common">
+        <comment>mdm_move_followers_to_latest moves following rows and main/content apps behind the latest released version</comment>
+        <createProcedure>
+            DROP FUNCTION IF EXISTS mdm_move_followers_to_latest(INT, INT);
+
+            CREATE OR REPLACE FUNCTION mdm_move_followers_to_latest(p_app_id INT, p_config_id INT)
+            RETURNS SETOF INT
+            AS
+            $$
+            DECLARE
+            changed INT[] := '{}';
+            step INT[];
+            BEGIN
+            IF p_app_id IS NOT NULL THEN
+            PERFORM 1 FROM applications WHERE id = p_app_id FOR UPDATE;
+            END IF;
+
+            WITH latest AS (
+                SELECT a.id AS app_id, a.latestVersion AS version_id, mdm_app_version_comparison_index(v.version) AS idx
+                FROM applications a
+                INNER JOIN applicationVersions v ON v.id = a.latestVersion
+                WHERE p_app_id IS NULL OR a.id = p_app_id
+            ),
+            moved AS (
+                UPDATE configurations c
+                SET mainAppId = latest.version_id
+                FROM applicationVersions cur, latest
+                WHERE cur.id = c.mainAppId
+                AND latest.app_id = cur.applicationId
+                AND c.followLatestMainApp
+                AND (p_config_id IS NULL OR c.id = p_config_id)
+                AND mdm_app_version_comparison_index(cur.version) &lt; latest.idx
+                RETURNING c.id
+            )
+            SELECT COALESCE(array_agg(moved.id), '{}') INTO step FROM moved;
+            changed := changed || step;
+
+            WITH latest AS (
+                SELECT a.id AS app_id, a.latestVersion AS version_id, mdm_app_version_comparison_index(v.version) AS idx
+                FROM applications a
+                INNER JOIN applicationVersions v ON v.id = a.latestVersion
+                WHERE p_app_id IS NULL OR a.id = p_app_id
+            ),
+            moved AS (
+                UPDATE configurations c
+                SET contentAppId = latest.version_id
+                FROM applicationVersions cur, latest
+                WHERE cur.id = c.contentAppId
+                AND latest.app_id = cur.applicationId
+                AND c.followLatestContentApp
+                AND (p_config_id IS NULL OR c.id = p_config_id)
+                AND mdm_app_version_comparison_index(cur.version) &lt; latest.idx
+                RETURNING c.id
+            )
+            SELECT COALESCE(array_agg(moved.id), '{}') INTO step FROM moved;
+            changed := changed || step;
+
+            WITH latest AS (
+                SELECT a.id AS app_id, a.latestVersion AS version_id, mdm_app_version_comparison_index(v.version) AS idx
+                FROM applications a
+                INNER JOIN applicationVersions v ON v.id = a.latestVersion
+                WHERE p_app_id IS NULL OR a.id = p_app_id
+            ),
+            behind AS (
+                SELECT ca.id, ca.configurationId AS config_id, ca.applicationId AS app_id, latest.version_id
+                FROM configurationApplications ca
+                INNER JOIN latest ON latest.app_id = ca.applicationId
+                INNER JOIN applicationVersions cur ON cur.id = ca.applicationVersionId
+                WHERE ca.action = 1
+                AND ca.followLatest
+                AND (p_config_id IS NULL OR ca.configurationId = p_config_id)
+                AND mdm_app_version_comparison_index(cur.version) &lt; latest.idx
+            ),
+            covered AS (
+                SELECT DISTINCT b.config_id, b.app_id
+                FROM behind b
+                INNER JOIN configurationApplications o ON o.configurationId = b.config_id
+                    AND o.applicationId = b.app_id
+                    AND o.applicationVersionId = b.version_id
+                    AND o.action = 1
+            ),
+            keep AS (
+                SELECT MIN(b.id) AS id
+                FROM behind b
+                WHERE NOT EXISTS (SELECT 1 FROM covered c WHERE c.config_id = b.config_id AND c.app_id = b.app_id)
+                GROUP BY b.config_id, b.app_id
+            ),
+            dropped AS (
+                DELETE FROM configurationApplications d
+                USING behind b
+                WHERE d.id = b.id
+                AND b.id NOT IN (SELECT id FROM keep)
+                RETURNING d.id
+            ),
+            cleared AS (
+                DELETE FROM configurationApplications x
+                USING behind b
+                WHERE b.id IN (SELECT id FROM keep)
+                AND x.configurationId = b.config_id
+                AND x.applicationId = b.app_id
+                AND x.applicationVersionId = b.version_id
+                AND x.action &lt;&gt; 1
+                RETURNING x.id
+            ),
+            moved AS (
+                UPDATE configurationApplications u
+                SET applicationVersionId = b.version_id
+                FROM behind b
+                WHERE u.id = b.id
+                AND b.id IN (SELECT id FROM keep)
+                RETURNING u.configurationId
+            )
+            SELECT COALESCE(array_agg(moved.configurationId), '{}') INTO step FROM moved;
+            changed := changed || step;
+
+            RETURN QUERY SELECT DISTINCT unnest(changed) ORDER BY 1;
+            END;
+            $$
+            LANGUAGE 'plpgsql';
+        </createProcedure>
+        <rollback>
+            DROP FUNCTION IF EXISTS mdm_move_followers_to_latest(INT, INT);
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>

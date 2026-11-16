@@ -22,6 +22,7 @@
 package com.hmdm.persistence.domain;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -389,6 +390,7 @@ public class Application implements CustomerData, Serializable {
         this.skipVersion = skipVersion;
     }
 
+    @JsonProperty("followLatest")
     public Boolean isFollowLatest() {
         return followLatest;
     }

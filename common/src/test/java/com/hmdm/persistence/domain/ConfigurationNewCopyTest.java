@@ -2,8 +2,7 @@ package com.hmdm.persistence.domain;
 
 import org.junit.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 
 public class ConfigurationNewCopyTest {
 
@@ -15,15 +14,19 @@ public class ConfigurationNewCopyTest {
 
         Configuration copy = source.newCopy();
 
-        assertFalse(copy.isFollowLatestMainApp());
-        assertFalse(copy.isFollowLatestContentApp());
+        assertEquals(Boolean.FALSE, copy.getFollowLatestMainApp());
+        assertEquals(Boolean.FALSE, copy.getFollowLatestContentApp());
     }
 
     @Test
     public void copyKeepsFollowingMainAndContentApps() {
-        Configuration copy = new Configuration().newCopy();
+        Configuration source = new Configuration();
+        source.setFollowLatestMainApp(true);
+        source.setFollowLatestContentApp(true);
 
-        assertTrue(copy.isFollowLatestMainApp());
-        assertTrue(copy.isFollowLatestContentApp());
+        Configuration copy = source.newCopy();
+
+        assertEquals(Boolean.TRUE, copy.getFollowLatestMainApp());
+        assertEquals(Boolean.TRUE, copy.getFollowLatestContentApp());
     }
 }

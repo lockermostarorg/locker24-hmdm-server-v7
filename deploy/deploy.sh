@@ -286,16 +286,54 @@ install_war() {
 
 # Exit 0: the WAR ships the health dashboard remote. 1: it does not. 2: cannot tell.
 # The remote is served from the plugin jar's META-INF/resources, so look inside the jar in WEB-INF/lib.
+# Tools are tried in order (python3, jar, unzip); the droplet has python3 and a JDK, unzip is optional.
 HEALTH_REMOTE=META-INF/resources/plugins/locker24-health/remoteEntry.json
-war_has_health_remote() {
+HEALTH_JAR_RE='^WEB-INF/lib/.*locker24-health.*\.jar$'
+HEALTH_CHECK_TOOLS="python3 jar unzip"
+
+war_check_python3() {
+    python3 -I -c '
+import io, re, sys, zipfile
+war, remote, pat = sys.argv[1:4]
+try:
+    with zipfile.ZipFile(war) as z:
+        for n in z.namelist():
+            if re.search(pat, n):
+                with zipfile.ZipFile(io.BytesIO(z.read(n))) as j:
+                    if remote in j.namelist():
+                        sys.exit(0)
+    sys.exit(1)
+except SystemExit:
+    raise
+except Exception:
+    sys.exit(2)
+' "$1" "$HEALTH_REMOTE" "$HEALTH_JAR_RE"
+}
+
+war_check_jar() {
+    local war=$1 tmp jars name rc=1
+    war=$(cd "$(dirname "$war")" && pwd)/$(basename "$war")
+    tmp=$(mktemp -d) || return 2
+    jars=$(jar tf "$war" 2>/dev/null) || { rm -rf "$tmp"; return 2; }
+    jars=$(printf '%s\n' "$jars" | grep -E "$HEALTH_JAR_RE" || true)
+    while IFS= read -r name; do
+        [ -n "$name" ] || continue
+        if (cd "$tmp" && jar xf "$war" "$name" 2>/dev/null) && jar tf "$tmp/$name" 2>/dev/null | grep -qx "$HEALTH_REMOTE"; then
+            rc=0
+            break
+        fi
+    done <<< "$jars"
+    rm -rf "$tmp"
+    return $rc
+}
+
+war_check_unzip() {
     local war=$1 tmp jars jar rc=1
-    command -v unzip >/dev/null 2>&1 || return 2
-    [ -f "$war" ] || return 2
-    jars=$(unzip -Z1 "$war" 2>/dev/null | grep -E '^WEB-INF/lib/.*locker24-health.*\.jar$') || jars=
     unzip -tqq "$war" >/dev/null 2>&1 || return 2
-    [ -n "$jars" ] || return 1
+    jars=$(unzip -Z1 "$war" 2>/dev/null | grep -E "$HEALTH_JAR_RE" || true)
     tmp=$(mktemp -d) || return 2
     while IFS= read -r jar; do
+        [ -n "$jar" ] || continue
         if unzip -p "$war" "$jar" > "$tmp/p.jar" 2>/dev/null && unzip -Z1 "$tmp/p.jar" 2>/dev/null | grep -qx "$HEALTH_REMOTE"; then
             rc=0
             break
@@ -303,6 +341,18 @@ war_has_health_remote() {
     done <<< "$jars"
     rm -rf "$tmp"
     return $rc
+}
+
+war_has_health_remote() {
+    local war=$1 tool rc
+    [ -f "$war" ] || return 2
+    for tool in $HEALTH_CHECK_TOOLS; do
+        command -v "$tool" >/dev/null 2>&1 || continue
+        rc=0
+        "war_check_$tool" "$war" || rc=$?
+        [ "$rc" -eq 2 ] || return "$rc"
+    done
+    return 2
 }
 
 HEALTH_MENU_SQL="UPDATE plugins SET baseUrl=NULL, baseUrlDev=NULL WHERE identifier='locker24-health'"

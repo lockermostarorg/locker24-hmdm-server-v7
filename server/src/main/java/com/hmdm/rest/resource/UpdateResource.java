@@ -62,6 +62,7 @@ public class UpdateResource {
     private UnsecureDAO unsecureDAO;
     private StatsSender statsSender;
     private APKFileAnalyzer apkFileAnalyzer;
+    private PushService pushService;
 
     private static final Logger logger = LoggerFactory.getLogger(UpdateResource.class);
     private static final String WEB_MANIFEST_FILE_NAME = "hmdm_web_update_manifest.txt";
@@ -75,13 +76,15 @@ public class UpdateResource {
                           ApplicationDAO applicationDAO,
                           UnsecureDAO unsecureDAO,
                           StatsSender statsSender,
-                          APKFileAnalyzer apkFileAnalyzer) {
+                          APKFileAnalyzer apkFileAnalyzer,
+                          PushService pushService) {
         this.filesDirectory = filesDirectory;
         this.baseUrl = baseUrl;
         this.applicationDAO = applicationDAO;
         this.unsecureDAO = unsecureDAO;
         this.statsSender = statsSender;
         this.apkFileAnalyzer = apkFileAnalyzer;
+        this.pushService = pushService;
         try {
             URL url = new URL(baseUrl);
             protocol = url.getProtocol();
@@ -141,6 +144,7 @@ public class UpdateResource {
     public Response downloadUpdates(UpdateRequest request) {
 
         String webVersion = "";
+        final Set<Integer> movedConfigurations = new TreeSet<>();
 
         for (UpdateEntry app : request.getUpdates()) {
             if (app.getPkg().equals(UpdateEntry.WEB_PKG)) {
@@ -157,7 +161,7 @@ public class UpdateResource {
                         continue;
                     }
                 } else {
-                    if (!downloadAPKVersion(app, FollowLatestRules.modeForCheckForUpdates(request.isUpdate()))) {
+                    if (!downloadAPKVersion(app, FollowLatestRules.modeForCheckForUpdates(request.isUpdate()), movedConfigurations)) {
                         app.setUpdateDisabled(true);
                         app.setUpdateDisableReason(UpdateEntry.DISABLED_DOWNLOAD);
                         continue;
@@ -166,10 +170,12 @@ public class UpdateResource {
                 app.setDownloaded(true);
             }
             if (request.isUpdate() && !app.getPkg().equals(UpdateEntry.WEB_PKG)) {
-                updateAppInConfig(app);
+                movedConfigurations.addAll(updateAppInConfig(app));
                 app.setCurrentVersion(app.getVersion());
             }
         }
+
+        notifyMoved(movedConfigurations);
 
         if (request.isSendStats()) {
             statsSender.sendStats(UpdateSettings.STAT_URL, protocol, customerDomain, webVersion);
@@ -228,7 +234,7 @@ public class UpdateResource {
 
     // Download APK file and create a new version
     // Returns true if the app was downloaded successfully and false on error
-    private boolean downloadAPKVersion(UpdateEntry app, String releaseMode) {
+    private boolean downloadAPKVersion(UpdateEntry app, String releaseMode, Set<Integer> moved) {
         try {
             String name = getFileNameFromUrl(app.getUrl());
             if (!name.endsWith(".apk") && !name.endsWith(".xapk")) {
@@ -254,7 +260,7 @@ public class UpdateResource {
             version.setVersion(fileDetails.getVersion());
             version.setVersionCode(fileDetails.getVersionCode());
             final Integer userId = SecurityContext.get().getCurrentUser().map(User::getId).orElse(null);
-            applicationDAO.insertApplicationVersionWithRelease(version, releaseMode, userId);
+            moved.addAll(applicationDAO.insertApplicationVersionWithRelease(version, releaseMode, userId));
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -276,12 +282,22 @@ public class UpdateResource {
 
     // Update installedVersion to version in all configs
     // Record which configurations are affected to notify them via Push notification
-    private void updateAppInConfig(UpdateEntry app) {
+    private void notifyMoved(Set<Integer> configurationIds) {
+        for (Integer configurationId : configurationIds) {
+            try {
+                pushService.notifyDevicesOnUpdate(configurationId);
+            } catch (Exception e) {
+                logger.error("Failed to notify devices of configuration #{} on update", configurationId, e);
+            }
+        }
+    }
+
+    private List<Integer> updateAppInConfig(UpdateEntry app) {
         ApplicationVersion currentVersion = applicationDAO.findApplicationVersion(app.getPkg(), app.getCurrentVersion());
         ApplicationVersion newVersion = applicationDAO.findApplicationVersion(app.getPkg(), app.getVersion());
 
         logger.info("Application versions updated by the superadmin through 'Check for updates'");
-        applicationDAO.updateConfigurationsToVersion(currentVersion.getId(), newVersion.getId(),
+        return applicationDAO.updateConfigurationsToVersion(currentVersion.getId(), newVersion.getId(),
                 SecurityContext.get().getCurrentUser().get());
     }
 

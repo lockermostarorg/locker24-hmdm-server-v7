@@ -12,7 +12,7 @@ public class ApplicationVersionJsonTest {
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Test
-    public void releaseFieldsAreNotReadFromRequestJson() throws Exception {
+    public void onlyReleaseModeIsReadFromRequestJson() throws Exception {
         ApplicationVersion version = mapper.readValue(
                 "{\"version\":\"1.0\",\"releaseState\":\"held\",\"releasedAt\":5,\"releaseMode\":\"immediate\",\"releasedBy\":7}",
                 ApplicationVersion.class);
@@ -20,7 +20,7 @@ public class ApplicationVersionJsonTest {
         assertEquals("1.0", version.getVersion());
         assertNull(version.getReleaseState());
         assertNull(version.getReleasedAt());
-        assertNull(version.getReleaseMode());
+        assertEquals("immediate", version.getReleaseMode());
         assertNull(version.getReleasedBy());
     }
 

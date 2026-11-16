@@ -39,6 +39,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
@@ -340,16 +341,22 @@ public class ApplicationResource {
         }
         try {
             if (applicationVersion.getId() == null) {
+                final String requestedMode = normalizeUploadMode(applicationVersion.getReleaseMode());
+                final Integer userId = SecurityContext.get().getCurrentUser().map(User::getId).orElse(null);
                 // Here only "url" is coming, we may need to change it to urlArmeabi or urlArm64 if arch is set
-                this.applicationDAO.insertApplicationVersion(applicationVersion);
-                applicationVersion = this.applicationDAO.findApplicationVersionById(applicationVersion.getId());
-                return Response.OK(applicationVersion);
+                final List<Integer> moved = this.applicationDAO.insertApplicationVersionWithRelease(
+                        applicationVersion, requestedMode, userId);
+                final ApplicationVersion saved = this.applicationDAO.findApplicationVersionById(applicationVersion.getId());
+                final String mode = effectiveMode(saved, requestedMode);
+                return Response.OK(releaseAndNotify(saved, mode, moved));
             } else {
                 logger.info("Application " + applicationVersion.getApplicationId() + " version updated: " + applicationVersion.getVersion() +
                         ", user " + SecurityContext.get().getCurrentUserName());
                 this.applicationDAO.updateApplicationVersion(applicationVersion);
                 return Response.OK();
             }
+        } catch (WebApplicationException e) {
+            throw e;
         } catch (DuplicateApplicationException e) {
             logger.error("Failed to create or update application version", e);
             return Response.DUPLICATE_APPLICATION();
@@ -372,7 +379,7 @@ public class ApplicationResource {
             return Response.FILE_EXISTS();
         } catch (Exception e) {
             logger.error("Failed to create or update application version", e);
-            return Response.INTERNAL_ERROR();
+            return ReleaseErrors.unexpected(e);
         }
     }
 
@@ -452,13 +459,106 @@ public class ApplicationResource {
         } catch (SecurityException e) {
             logger.error("Prohibited to delete application version #{} by current user", id, e);
             return Response.PERMISSION_DENIED();
+        } catch (LastReleasedVersionException e) {
+            logger.error("Prohibited to delete the last released version #{}", id, e);
+            throw ReleaseErrors.badRequest("error.application.version.last.released");
         } catch (ApplicationReferenceExistsException e) {
             logger.error("Prohibited to delete application version #{} as it is still referenced in configurations", id, e);
             return Response.APPLICATION_CONFIG_REFERENCE_EXISTS();
         } catch (Exception e) {
             logger.error("Failed to delete application version #{} due to unexpected error", id, e);
-            return Response.INTERNAL_ERROR();
+            return ReleaseErrors.unexpected(e);
         }
+    }
+
+    // =================================================================================================================
+    @Operation(
+            summary = "Release application version",
+            description = "Releases a held application version: configurations following the latest version move to it"
+    )
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @Path("/versions/{id}/release")
+    public Response releaseApplicationVersion(@PathParam("id")
+                                              @Parameter(description = "Application Version ID", schema = @Schema(type = "integer"))
+                                                      Integer id,
+                                              ReleaseVersionRequest request) {
+        if (!SecurityContext.get().hasPermission("edit_application_versions")) {
+            logger.error("Unauthorized attempt to release application version by user " +
+                    SecurityContext.get().getCurrentUserName());
+            return Response.PERMISSION_DENIED();
+        }
+        final String mode = request == null ? null : request.getMode();
+        if (!FollowLatestRules.MODE_SCHEDULE.equals(mode) && !FollowLatestRules.MODE_IMMEDIATE.equals(mode)) {
+            throw ReleaseErrors.badRequest("error.release.mode.invalid");
+        }
+        try {
+            final ApplicationVersion version = id == null ? null : applicationDAO.findApplicationVersionById(id);
+            if (version == null) {
+                throw ReleaseErrors.notFound("error.notfound.object");
+            }
+            applicationDAO.findById(version.getApplicationId());
+            if (!FollowLatestRules.STATE_HELD.equals(version.getReleaseState())) {
+                throw ReleaseErrors.badRequest("error.version.already.released");
+            }
+            final User user = SecurityContext.get().getCurrentUser().get();
+            final List<Integer> moved = applicationDAO.releaseVersion(id, mode, user.getId());
+            return Response.OK(releaseAndNotify(version, mode, moved));
+        } catch (WebApplicationException e) {
+            throw e;
+        } catch (CommonAppAccessException e) {
+            logger.error("Prohibited to release application version #{} by current user", id, e);
+            return Response.COMMON_APPLICATION_ACCESS_PROHIBITED();
+        } catch (SecurityException e) {
+            logger.error("Prohibited to release application version #{} by current user", id, e);
+            return Response.PERMISSION_DENIED();
+        } catch (Exception e) {
+            logger.error("Failed to release application version #{}", id, e);
+            return ReleaseErrors.unexpected(e);
+        }
+    }
+
+    private static String normalizeUploadMode(String mode) {
+        try {
+            return FollowLatestRules.normalizeUploadMode(mode);
+        } catch (IllegalArgumentException e) {
+            throw ReleaseErrors.badRequest("error.release.mode.invalid");
+        }
+    }
+
+    private static String effectiveMode(ApplicationVersion saved, String requestedMode) {
+        if (saved == null) {
+            return requestedMode;
+        }
+        if (FollowLatestRules.STATE_HELD.equals(saved.getReleaseState())) {
+            return FollowLatestRules.MODE_HOLD;
+        }
+        return saved.getReleaseMode() != null ? saved.getReleaseMode() : requestedMode;
+    }
+
+    private ReleaseSummary releaseAndNotify(ApplicationVersion version, String mode, List<Integer> moved) {
+        int devices = 0;
+        if (moved != null && !FollowLatestRules.MODE_HOLD.equals(mode)) {
+            for (Integer configurationId : moved) {
+                try {
+                    devices += this.pushService.notifyDevicesOnUpdate(configurationId);
+                    if (FollowLatestRules.MODE_IMMEDIATE.equals(mode)) {
+                        this.pushService.notifyDevicesOnForceUpdate(configurationId);
+                    }
+                } catch (Exception e) {
+                    logger.error("Failed to notify devices of configuration #{} on release", configurationId, e);
+                }
+            }
+        }
+        final int configurations = moved == null ? 0 : moved.size();
+        if (!FollowLatestRules.MODE_HOLD.equals(mode)) {
+            final Application application = version == null ? null : applicationDAO.findById(version.getApplicationId());
+            logger.info("Release app={} version={} mode={} by={} configurations={} devices={}",
+                    application == null ? null : application.getPkg(), version == null ? null : version.getVersion(),
+                    mode, SecurityContext.get().getCurrentUserName(), configurations, devices);
+        }
+        return new ReleaseSummary(configurations, devices, mode);
     }
 
     // =================================================================================================================
@@ -533,6 +633,9 @@ public class ApplicationResource {
                     SecurityContext.get().getCurrentUserName());
             return Response.PERMISSION_DENIED();
         }
+        if (request.getApplicationId() == 0 || request.getConfigurations() == null) {
+            throw ReleaseErrors.badRequest("error.application.id.required");
+        }
         try {
             User user = SecurityContext.get().getCurrentUser().get();
             if (!user.isAllConfigAvailable()) {
@@ -562,9 +665,11 @@ public class ApplicationResource {
             }
 
             return Response.OK();
+        } catch (WebApplicationException e) {
+            throw e;
         } catch (Exception e) {
             logger.error("Unexpected error when updating application configurations", e);
-            return Response.INTERNAL_ERROR();
+            return ReleaseErrors.unexpected(e);
         }
     }
 
@@ -583,6 +688,9 @@ public class ApplicationResource {
                     SecurityContext.get().getCurrentUserName());
             return Response.PERMISSION_DENIED();
         }
+        if (request.getApplicationVersionId() == 0 || request.getConfigurations() == null) {
+            throw ReleaseErrors.badRequest("error.application.version.id.required");
+        }
         try {
             User user = SecurityContext.get().getCurrentUser().get();
             if (!user.isAllConfigAvailable()) {
@@ -600,9 +708,11 @@ public class ApplicationResource {
             }
 
             return Response.OK();
+        } catch (WebApplicationException e) {
+            throw e;
         } catch (Exception e) {
             logger.error("Unexpected error when updating application configurations", e);
-            return Response.INTERNAL_ERROR();
+            return ReleaseErrors.unexpected(e);
         }
     }
 

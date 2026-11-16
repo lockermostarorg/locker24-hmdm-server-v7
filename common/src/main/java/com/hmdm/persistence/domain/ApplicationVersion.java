@@ -64,8 +64,7 @@ public class ApplicationVersion implements Serializable {
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Long releasedAt;
 
-    @Schema(description = "How the version was released: schedule or immediate")
-    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @Schema(description = "How the version was released: schedule or immediate. On upload of a new version: schedule, immediate or hold")
     private String releaseMode;
 
     @Schema(description = "ID of the user who released the version")

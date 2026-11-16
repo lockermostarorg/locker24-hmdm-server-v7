@@ -253,14 +253,21 @@ public class ConfigurationResource {
             log.error("Unauthorized attempt to upgrade the configuration " + request.getConfigurationId());
             return Response.PERMISSION_DENIED();
         }
+        if (request.getApplicationId() == null) {
+            throw ReleaseErrors.badRequest("error.application.id.required");
+        }
         try {
-            this.configurationDAO.upgradeConfigurationApplication(request.getConfigurationId(), request.getApplicationId());
+            final boolean upgraded = this.configurationDAO.upgradeConfigurationApplication(
+                    request.getConfigurationId(), request.getApplicationId());
+            if (upgraded) {
+                this.pushService.notifyDevicesOnUpdate(request.getConfigurationId());
+            }
             final Configuration configuration = this.getConfiguration(request.getConfigurationId());
             return Response.OK(configuration);
         } catch (Exception e) {
             log.error("Failed to upgrade application #{} for configuration #{} to latest version due to unexpected error",
                     request.getConfigurationId(), request.getApplicationId(), e);
-            return Response.INTERNAL_ERROR();
+            return ReleaseErrors.unexpected(e);
         }
     }
 

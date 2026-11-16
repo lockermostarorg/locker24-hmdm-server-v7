@@ -289,6 +289,26 @@ expect "save: the application of a main/content version and its latest" "$APP_A|
 ver "$APP_A" 10.0 held >/dev/null
 expect "counts: released and all versions" "10|11" "$(render "$APP_MAPPER" countReleasedVersions id="$APP_A" | psqlq)|$(render "$APP_MAPPER" countVersions id="$APP_A" | psqlq)"
 
+APP_U="$(app com.example.u)"
+U1="$(ver "$APP_U" 1.0)"; U2="$(ver "$APP_U" 2.0)"
+recalc "$APP_U"
+behind() { render "$CONF_MAPPER" countBehindLatest configId="$1" appId="$APP_U" | psqlq; }
+upgrade() { q "SELECT mdm_config_app_upgrade($1, $APP_U)" >/dev/null; }
+C_UP_BEHIND="$(conf c-up-behind)";   row "$C_UP_BEHIND" "$APP_U" "$U1" FALSE
+C_UP_LATEST="$(conf c-up-latest)";   row "$C_UP_LATEST" "$APP_U" "$U2" TRUE
+C_UP_MAIN="$(conf c-up-main)";       q "UPDATE configurations SET mainAppId = $U1 WHERE id = $C_UP_MAIN" >/dev/null
+C_UP_REMOVE="$(conf c-up-remove)";   row "$C_UP_REMOVE" "$APP_U" "$U1" TRUE 2
+expect "upgrade guard: a pinned install row behind latest counts" "1" "$(behind "$C_UP_BEHIND")"
+expect "upgrade guard: a row already on latest does not count" "0" "$(behind "$C_UP_LATEST")"
+expect "upgrade guard: a main app behind latest counts" "1" "$(behind "$C_UP_MAIN")"
+expect "upgrade guard: a non-install row behind latest does not count" "0" "$(behind "$C_UP_REMOVE")"
+upgrade "$C_UP_BEHIND"
+expect "upgrade: a pinned row behind latest moves and stays pinned" "$U2:1:false" "$(q "SELECT applicationVersionId || ':' || action || ':' || followLatest FROM configurationApplications WHERE configurationId = $C_UP_BEHIND AND applicationId = $APP_U")"
+expect "upgrade: once upgraded the guard counts nothing" "0" "$(behind "$C_UP_BEHIND")"
+upgrade "$C_UP_LATEST"
+expect "upgrade without the guard deletes a row already on latest (why the guard exists)" "0" "$(q "SELECT COUNT(*) FROM configurationApplications WHERE configurationId = $C_UP_LATEST AND applicationId = $APP_U")"
+
+
 if [ "$FAILED" -ne 0 ]; then
   exit 1
 fi

@@ -364,16 +364,25 @@ public class ConfigurationDAO extends AbstractLinkedDAO<Configuration, Applicati
      * @param applicationId an ID of application to upgrade.
      */
     @Transactional
-    public void upgradeConfigurationApplication(Integer configurationId, Integer applicationId) {
+    public boolean upgradeConfigurationApplication(Integer configurationId, Integer applicationId) {
+        final boolean[] upgraded = {false};
         updateLinkedData(configurationId,
                 this.mapper::getConfigurationById,
                 configuration -> {
+                    this.applicationMapper.lockApplication(applicationId);
+                    if (this.mapper.countBehindLatest(configuration.getId(), applicationId) == 0) {
+                        log.debug("Application #{} is not behind the latest version in configuration #{}",
+                                applicationId, configurationId);
+                        return;
+                    }
                     this.mapper.upgradeConfigurationApplication(configuration.getId(), applicationId);
+                    upgraded[0] = true;
                     log.debug("Upgraded application #{} to most recent version for configuration #{}",
                             applicationId, configurationId);
                 },
                 SecurityException::onConfigurationAccessViolation
         );
+        return upgraded[0];
     }
 
     // Moved baseUrl here from resources due to a weird Guice issue (bug?):

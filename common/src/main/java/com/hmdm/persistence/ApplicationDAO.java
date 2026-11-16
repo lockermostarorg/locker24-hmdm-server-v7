@@ -33,6 +33,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -534,15 +536,16 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
     }
 
     @Transactional
-    public void updateConfigurationsToVersion(int fromVersionId, int toVersionId, User user) {
+    public List<Integer> updateConfigurationsToVersion(int fromVersionId, int toVersionId, User user) {
         final ApplicationVersion target = findApplicationVersionById(toVersionId);
         if (target == null) {
             throw new IllegalArgumentException("The requested application version does not exist: #" + toVersionId);
         }
         guardLinkAccess(this.mapper.findById(target.getApplicationId()), target.getApplicationId());
         this.mapper.lockApplication(target.getApplicationId());
+        final Set<Integer> changed = new TreeSet<>();
         if (FollowLatestRules.STATE_HELD.equals(target.getReleaseState())) {
-            releaseVersion(toVersionId, FollowLatestRules.MODE_SCHEDULE, user.getId());
+            changed.addAll(releaseVersion(toVersionId, FollowLatestRules.MODE_SCHEDULE, user.getId()));
         }
         final Map<Integer, ApplicationVersionConfigurationLink> onTarget = new HashMap<>();
         getApplicationVersionConfigurations(toVersionId).stream()
@@ -554,6 +557,9 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
             if (existing != null) {
                 links.add(existing);
             } else {
+                if (link.getId() != null) {
+                    changed.add(link.getConfigurationId());
+                }
                 link.setApplicationVersionId(toVersionId);
                 links.add(link);
             }
@@ -562,6 +568,7 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
         request.setApplicationVersionId(toVersionId);
         request.setConfigurations(links);
         updateApplicationVersionConfigurations(request, user, fromVersionId);
+        return new ArrayList<>(changed);
     }
 
     private static void putStoredRow(Map<Integer, Application> rows, Application row) {

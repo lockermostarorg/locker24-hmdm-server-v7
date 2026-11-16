@@ -360,8 +360,9 @@ public class ApplicationReleaseTest {
                 .thenReturn(Arrays.asList(versionLink(7, LATEST, 0), followerOnNew));
         User user = SecurityContext.get().getCurrentUser().get();
 
-        dao.updateConfigurationsToVersion(OLDER, LATEST, user);
+        List<Integer> changed = dao.updateConfigurationsToVersion(OLDER, LATEST, user);
 
+        assertEquals(Arrays.asList(7, 8), changed);
         verify(mapper).releaseApplicationVersion(eq(LATEST), eq("schedule"), eq(USER), anyLong());
         assertEquals(Arrays.asList(7), linkedConfigurations(LATEST, false));
         assertEquals(Arrays.asList(8), linkedConfigurations(LATEST, true));

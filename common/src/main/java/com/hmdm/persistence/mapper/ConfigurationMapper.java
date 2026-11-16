@@ -242,6 +242,21 @@ public interface ConfigurationMapper {
     void upgradeConfigurationApplication(@Param("configId") Integer configurationId,
                                          @Param("appId") Integer applicationId);
 
+    @Select({"SELECT (SELECT COUNT(*) FROM configurationApplications ca",
+            " JOIN applicationVersions v ON v.id = ca.applicationVersionId",
+            " JOIN applications a ON a.id = ca.applicationId",
+            " JOIN applicationVersions l ON l.id = a.latestVersion",
+            " WHERE ca.configurationId = #{configId} AND ca.applicationId = #{appId} AND ca.action = 1",
+            " AND mdm_app_version_comparison_index(v.version) < mdm_app_version_comparison_index(l.version))",
+            " + (SELECT COUNT(*) FROM configurations c",
+            " JOIN applicationVersions v ON v.id IN (c.mainAppId, c.contentAppId)",
+            " JOIN applications a ON a.id = v.applicationId",
+            " JOIN applicationVersions l ON l.id = a.latestVersion",
+            " WHERE c.id = #{configId} AND a.id = #{appId}",
+            " AND mdm_app_version_comparison_index(v.version) < mdm_app_version_comparison_index(l.version))"})
+    @Options(flushCache = Options.FlushCachePolicy.TRUE, useCache = false)
+    int countBehindLatest(@Param("configId") Integer configurationId, @Param("appId") Integer applicationId);
+
     @Select("SELECT COUNT(*) FROM devices WHERE configurationId = #{id}")
     long countDevices(@Param("id") Integer id);
 

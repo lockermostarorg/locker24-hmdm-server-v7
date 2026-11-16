@@ -42,19 +42,35 @@ public class PushService {
      * @param configurationId an ID of updated configuration.
      */
     @Transactional
-    public void notifyDevicesOnUpdate(Integer configurationId) {
-        final Configuration configuration = this.configurationDAO.getConfigurationById(configurationId);
-        if (configuration != null) {
-            final List<Device> devices
-                    = this.deviceDAO.getDeviceIdsByConfigurationId(configurationId);
-            devices.forEach(device -> {
-                PushMessage message = new PushMessage();
-                message.setDeviceId(device.getId());
-                message.setMessageType(PushMessage.TYPE_CONFIG_UPDATED);
+    public int notifyDevicesOnUpdate(Integer configurationId) {
+        return notifyDevices(configurationId, PushMessage.TYPE_CONFIG_UPDATED);
+    }
 
-                this.send(message);
-            });
+    /**
+     * <p>Sends the message that asks the devices to install application updates at once.</p>
+     *
+     * @param configurationId an ID of the configuration whose devices are notified.
+     * @return the number of devices a message was sent to.
+     */
+    @Transactional
+    public int notifyDevicesOnForceUpdate(Integer configurationId) {
+        return notifyDevices(configurationId, PushMessage.TYPE_FORCE_APP_UPDATE);
+    }
+
+    private int notifyDevices(Integer configurationId, String messageType) {
+        final Configuration configuration = this.configurationDAO.getConfigurationById(configurationId);
+        if (configuration == null) {
+            return 0;
         }
+        final List<Device> devices = this.deviceDAO.getDeviceIdsByConfigurationId(configurationId);
+        devices.forEach(device -> {
+            PushMessage message = new PushMessage();
+            message.setDeviceId(device.getId());
+            message.setMessageType(messageType);
+
+            this.send(message);
+        });
+        return devices.size();
     }
 
     /**

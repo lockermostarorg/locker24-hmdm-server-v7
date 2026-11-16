@@ -387,6 +387,22 @@ public interface ApplicationMapper {
     @Options(flushCache = Options.FlushCachePolicy.TRUE, useCache = false)
     Integer lockApplication(@Param("id") int applicationId);
 
+    @Select({"WITH r AS (UPDATE configurationApplications SET followLatest = TRUE",
+            " WHERE applicationVersionId = #{id} AND action = 1 AND followLatest = FALSE RETURNING configurationId AS cid),",
+            " c AS (UPDATE configurations SET",
+            "  followLatestMainApp = CASE WHEN mainAppId = #{id} THEN TRUE ELSE followLatestMainApp END,",
+            "  followLatestContentApp = CASE WHEN contentAppId = #{id} THEN TRUE ELSE followLatestContentApp END",
+            " WHERE (mainAppId = #{id} AND followLatestMainApp = FALSE)",
+            "    OR (contentAppId = #{id} AND followLatestContentApp = FALSE) RETURNING id AS cid)",
+            "SELECT cid FROM r UNION SELECT cid FROM c ORDER BY cid"})
+    @Options(flushCache = Options.FlushCachePolicy.TRUE, useCache = false)
+    List<Integer> repinVersionToFollowing(@Param("id") int applicationVersionId);
+
+    @Select({"SELECT configurationId FROM configurationApplications WHERE applicationVersionId = #{id} AND action = 1",
+            " UNION SELECT id FROM configurations WHERE mainAppId = #{id} OR contentAppId = #{id} ORDER BY 1"})
+    @Options(flushCache = Options.FlushCachePolicy.TRUE, useCache = false)
+    List<Integer> getConfigurationIdsOnVersion(@Param("id") int applicationVersionId);
+
     @Select("SELECT mdm_move_followers_to_latest(#{appId,jdbcType=INTEGER}, #{configId,jdbcType=INTEGER})")
     @Options(flushCache = Options.FlushCachePolicy.TRUE, useCache = false)
     List<Integer> moveFollowersToLatest(@Param("appId") Integer applicationId,

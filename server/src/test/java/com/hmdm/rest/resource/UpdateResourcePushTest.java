@@ -91,7 +91,7 @@ public class UpdateResourcePushTest {
         order.verify(applicationDAO).updateConfigurationsToVersion(eq(100), eq(101), any(User.class));
         order.verify(pushService).notifyAllDevicesOnUpdate(7);
         order.verify(pushService).notifyAllDevicesOnUpdate(8);
-        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt(), org.mockito.Matchers.anyString());
     }
 
     @Test

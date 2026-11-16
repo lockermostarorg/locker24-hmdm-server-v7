@@ -9,6 +9,7 @@ import com.hmdm.persistence.ConfigurationDAO;
 import com.hmdm.persistence.DeviceDAO;
 import com.hmdm.persistence.domain.Configuration;
 import com.hmdm.persistence.domain.Device;
+import com.hmdm.util.StringUtil;
 import org.mybatis.guice.transactional.Transactional;
 
 import java.util.List;
@@ -68,9 +69,14 @@ public class PushService {
     }
 
     @Transactional
-    public int notifyAllDevicesOnForceUpdate(Integer configurationId) {
+    public int notifyAllDevicesOnForceUpdate(Integer configurationId, String payload) {
         return notifyDevices(this.deviceDAO.getDeviceIdsByAnyCustomerConfigurationId(configurationId),
-                PushMessage.TYPE_FORCE_APP_UPDATE);
+                PushMessage.TYPE_FORCE_APP_UPDATE, payload);
+    }
+
+    public static String forceUpdatePayload(String pkg, String version, long issuedAt) {
+        return "{\"apps\":[{\"pkg\":\"" + StringUtil.jsonEscape(pkg) + "\",\"version\":\""
+                + StringUtil.jsonEscape(version) + "\"}],\"issuedAt\":" + issuedAt + "}";
     }
 
     private int notifyDevices(Integer configurationId, String messageType) {
@@ -82,10 +88,15 @@ public class PushService {
     }
 
     private int notifyDevices(List<Device> devices, String messageType) {
+        return notifyDevices(devices, messageType, null);
+    }
+
+    private int notifyDevices(List<Device> devices, String messageType, String payload) {
         devices.forEach(device -> {
             PushMessage message = new PushMessage();
             message.setDeviceId(device.getId());
             message.setMessageType(messageType);
+            message.setPayload(payload);
 
             this.send(message);
         });

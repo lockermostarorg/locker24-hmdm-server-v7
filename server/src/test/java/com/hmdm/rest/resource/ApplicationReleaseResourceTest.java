@@ -16,6 +16,7 @@ import com.hmdm.rest.json.ReleaseVersionRequest;
 import com.hmdm.rest.json.Response;
 import com.hmdm.security.SecurityContext;
 import org.junit.After;
+import org.mockito.ArgumentCaptor;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.InOrder;
@@ -128,7 +129,7 @@ public class ApplicationReleaseResourceTest {
         assertEquals("schedule", result.getMode());
         verify(pushService).notifyAllDevicesOnUpdate(5);
         verify(pushService).notifyAllDevicesOnUpdate(6);
-        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt(), anyString());
     }
 
     @Test
@@ -142,9 +143,9 @@ public class ApplicationReleaseResourceTest {
         InOrder order = inOrder(applicationDAO, pushService);
         order.verify(applicationDAO).insertApplicationVersionWithRelease(any(ApplicationVersion.class), eq("immediate"), eq(3));
         order.verify(pushService).notifyAllDevicesOnUpdate(5);
-        order.verify(pushService).notifyAllDevicesOnForceUpdate(5);
+        order.verify(pushService).notifyAllDevicesOnForceUpdate(eq(5), anyString());
         order.verify(pushService).notifyAllDevicesOnUpdate(6);
-        order.verify(pushService).notifyAllDevicesOnForceUpdate(6);
+        order.verify(pushService).notifyAllDevicesOnForceUpdate(eq(6), anyString());
     }
 
     @Test
@@ -158,7 +159,7 @@ public class ApplicationReleaseResourceTest {
         assertEquals(0, result.getDevices());
         assertEquals("hold", result.getMode());
         verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
-        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt(), anyString());
     }
 
     @Test
@@ -183,7 +184,7 @@ public class ApplicationReleaseResourceTest {
         assertEquals(0, result.getConfigurations());
         assertEquals("immediate", result.getMode());
         verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
-        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt(), anyString());
     }
 
     @Test
@@ -195,7 +196,7 @@ public class ApplicationReleaseResourceTest {
 
         assertEquals("schedule", result.getMode());
         verify(pushService).notifyAllDevicesOnUpdate(5);
-        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt(), anyString());
     }
 
     @Test
@@ -238,7 +239,7 @@ public class ApplicationReleaseResourceTest {
         order.verify(applicationDAO).releaseVersion(VERSION, "schedule", 3);
         order.verify(pushService).notifyAllDevicesOnUpdate(5);
         order.verify(pushService).notifyAllDevicesOnUpdate(6);
-        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt(), anyString());
     }
 
     @Test
@@ -251,7 +252,7 @@ public class ApplicationReleaseResourceTest {
         assertEquals("immediate", result.getMode());
         InOrder order = inOrder(pushService);
         order.verify(pushService).notifyAllDevicesOnUpdate(5);
-        order.verify(pushService).notifyAllDevicesOnForceUpdate(5);
+        order.verify(pushService).notifyAllDevicesOnForceUpdate(eq(5), anyString());
     }
 
     @Test
@@ -375,7 +376,7 @@ public class ApplicationReleaseResourceTest {
 
         assertEquals("schedule", result.getMode());
         verify(pushService).notifyAllDevicesOnUpdate(5);
-        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt(), anyString());
     }
 
     @Test
@@ -388,7 +389,7 @@ public class ApplicationReleaseResourceTest {
         verify(pushService, never()).notifyDevicesOnUpdate(anyInt());
         verify(pushService, never()).notifyDevicesOnForceUpdate(anyInt());
         verify(pushService).notifyAllDevicesOnUpdate(6);
-        verify(pushService).notifyAllDevicesOnForceUpdate(6);
+        verify(pushService).notifyAllDevicesOnForceUpdate(eq(6), anyString());
     }
 
     @Test
@@ -428,5 +429,140 @@ public class ApplicationReleaseResourceTest {
 
         assertError("error.permission.denied", () -> resource.updateApplicationVersion(upload("immediate")));
         verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
+    }
+
+    @Test
+    public void theForcePushCarriesTheExactPackageAndVersion() {
+        storedAs("held", null);
+        when(applicationDAO.releaseVersion(VERSION, "immediate", 3)).thenReturn(Arrays.asList(5));
+
+        resource.releaseApplicationVersion(VERSION, mode("immediate"));
+
+        ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
+        verify(pushService).notifyAllDevicesOnForceUpdate(eq(5), payload.capture());
+        assertTrue(payload.getValue(), payload.getValue().matches(
+                "\\{\"apps\":\\[\\{\"pkg\":\"com\\.example\\.app\",\"version\":\"2\\.0\"\\}\\],\"issuedAt\":[0-9]{13}\\}"));
+    }
+
+    @Test
+    public void scheduleNeverSendsAForcePush() {
+        storedAs("held", null);
+        when(applicationDAO.releaseVersion(VERSION, "schedule", 3)).thenReturn(Arrays.asList(5, 6));
+
+        resource.releaseApplicationVersion(VERSION, mode("schedule"));
+
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt(), anyString());
+    }
+
+    @Test
+    public void pushFailuresAreCounted() {
+        storedAs("held", null);
+        when(applicationDAO.releaseVersion(VERSION, "immediate", 3)).thenReturn(Arrays.asList(5, 6, 7));
+        when(pushService.notifyAllDevicesOnUpdate(5)).thenThrow(new RuntimeException("down"));
+        when(pushService.notifyAllDevicesOnForceUpdate(eq(7), anyString())).thenThrow(new RuntimeException("down"));
+
+        ReleaseSummary result = summary(resource.releaseApplicationVersion(VERSION, mode("immediate")));
+
+        assertEquals(3, result.getConfigurations());
+        assertEquals(2, result.getPushFailed());
+    }
+
+    @Test
+    public void aVersionBelowTheLatestIsReportedAsNotLatestAndMovesNothing() {
+        insertReturns("schedule", Collections.<Integer>emptyList());
+        storedAs("released", "schedule");
+        Application application = new Application();
+        application.setId(APP);
+        application.setPkg("com.example.app");
+        application.setLatestVersion(999);
+        when(applicationDAO.findById(APP)).thenReturn(application);
+
+        ReleaseSummary result = summary(resource.updateApplicationVersion(upload("schedule")));
+
+        assertTrue(result.isNotLatest());
+        assertEquals(0, result.getConfigurations());
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
+    }
+
+    @Test
+    public void aDuplicateVersionStringIsRefusedWithItsOwnKey() {
+        when(applicationDAO.insertApplicationVersionWithRelease(any(ApplicationVersion.class), anyString(), anyInt()))
+                .thenThrow(new com.hmdm.persistence.VersionExistsException("com.example.app", "2.0"));
+
+        assertError("error.version.exists", () -> resource.updateApplicationVersion(upload("schedule")));
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
+    }
+
+    @Test
+    public void anIdenticalFileIsAnIdempotentNoOp() {
+        insertReturns("immediate", Collections.<Integer>emptyList());
+        storedAs("released", "immediate");
+
+        ReleaseSummary result = summary(resource.updateApplicationVersion(upload("immediate")));
+
+        assertEquals(0, result.getConfigurations());
+        assertEquals(0, result.getPushFailed());
+        verify(pushService, never()).notifyAllDevicesOnUpdate(anyInt());
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt(), anyString());
+    }
+
+    @Test
+    public void notifyAgainResendsToEveryConfigurationOnTheVersionWithoutMovingAnything() {
+        storedAs("released", "immediate");
+        when(applicationDAO.getConfigurationsOnVersion(VERSION)).thenReturn(Arrays.asList(5, 6));
+        when(pushService.notifyAllDevicesOnUpdate(5)).thenReturn(2);
+        when(pushService.notifyAllDevicesOnUpdate(6)).thenReturn(3);
+
+        ReleaseSummary result = summary(resource.notifyApplicationVersion(VERSION, mode("immediate")));
+
+        assertEquals(2, result.getConfigurations());
+        assertEquals(5, result.getDevices());
+        assertEquals("immediate", result.getMode());
+        InOrder order = inOrder(pushService);
+        order.verify(pushService).notifyAllDevicesOnUpdate(5);
+        order.verify(pushService).notifyAllDevicesOnForceUpdate(eq(5), anyString());
+        order.verify(pushService).notifyAllDevicesOnUpdate(6);
+        verify(applicationDAO, never()).releaseVersion(anyInt(), anyString(), anyInt());
+        verify(applicationDAO, never()).moveFollowersToLatest(anyInt());
+    }
+
+    @Test
+    public void notifyAgainOnScheduleNeverForces() {
+        storedAs("released", "schedule");
+        when(applicationDAO.getConfigurationsOnVersion(VERSION)).thenReturn(Arrays.asList(5));
+
+        resource.notifyApplicationVersion(VERSION, mode("schedule"));
+
+        verify(pushService).notifyAllDevicesOnUpdate(5);
+        verify(pushService, never()).notifyAllDevicesOnForceUpdate(anyInt(), anyString());
+    }
+
+    @Test
+    public void notifyAgainReportsFailuresAndIsGuarded() {
+        storedAs("released", "schedule");
+        when(applicationDAO.getConfigurationsOnVersion(VERSION)).thenReturn(Arrays.asList(5, 6));
+        when(pushService.notifyAllDevicesOnUpdate(6)).thenThrow(new RuntimeException("down"));
+        assertEquals(1, summary(resource.notifyApplicationVersion(VERSION, mode("schedule"))).getPushFailed());
+
+        when(applicationDAO.getConfigurationsOnVersion(VERSION))
+                .thenThrow(com.hmdm.security.SecurityException.onApplicationAccessViolation(APP));
+        assertError("error.permission.denied", () -> resource.notifyApplicationVersion(VERSION, mode("schedule")));
+        assertError("error.release.mode.invalid", () -> resource.notifyApplicationVersion(VERSION, mode("hold")));
+        when(applicationDAO.findApplicationVersionById(anyInt())).thenReturn(null);
+        assertError("error.notfound.object", () -> resource.notifyApplicationVersion(VERSION, mode("schedule")));
+    }
+
+    @Test
+    public void notifyAgainNeedsThePermission() {
+        User user = new User();
+        user.setId(4);
+        user.setCustomerId(1);
+        UserRole role = new UserRole();
+        role.setPermissions(new ArrayList<>());
+        user.setUserRole(role);
+        SecurityContext.init(user);
+
+        assertError("error.permission.denied", () -> resource.notifyApplicationVersion(VERSION, mode("schedule")));
+        verify(applicationDAO, never()).getConfigurationsOnVersion(anyInt());
     }
 }

@@ -14,6 +14,7 @@
   "plugin.audit.action.update.version": "應用程序版本已更新",
   "plugin.audit.action.remove.version": "應用程序版本已刪除",
   "plugin.audit.action.release.version": "Application version released",
+  "plugin.audit.action.notify.version": "Tablets notified of application version",
   "plugin.audit.action.update.file": "文件已更新",
   "plugin.audit.action.remove.file": "文件已刪除",
   "plugin.audit.action.update.app.config":"應用程序配置已更改",

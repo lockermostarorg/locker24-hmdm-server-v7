@@ -155,6 +155,7 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
 
         insertRecord(application, this.mapper::insertApplication);
         final ApplicationVersion applicationVersion = new ApplicationVersion(application);
+        markFirstVersionReleased(applicationVersion);
 
         this.mapper.insertApplicationVersion(applicationVersion);
         this.mapper.recalculateLatestVersion(application.getId());
@@ -186,6 +187,7 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
             insertRecord(application, this.mapper::insertApplication);
 
             final ApplicationVersion applicationVersion = new ApplicationVersion(application);
+            markFirstVersionReleased(applicationVersion);
 
             this.mapper.insertApplicationVersion(applicationVersion);
             this.mapper.recalculateLatestVersion(application.getId());
@@ -202,6 +204,13 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
      * @param application an application to check against duplicates.
      * @throws DuplicateApplicationException if a duplicated application is found.
      */
+    private void markFirstVersionReleased(ApplicationVersion version) {
+        version.setReleaseState(FollowLatestRules.STATE_RELEASED);
+        version.setReleasedAt(System.currentTimeMillis());
+        version.setReleaseMode(FollowLatestRules.MODE_SCHEDULE);
+        version.setReleasedBy(SecurityContext.get().getCurrentUser().map(User::getId).orElse(null));
+    }
+
     private void guardDuplicateApp(Application application) {
         if (application.getPkg() != null && application.getVersion() != null) {
             final List<Application> dbApps = findByPackageIdAndVersion(application.getPkg(), application.getVersion());
@@ -233,6 +242,29 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
      * @param version an application version to check against duplicates.
      * @return id of a duplicated application if found, otherwise 0
      */
+    private boolean isIdenticalFile(Application application, ApplicationVersion existing, ApplicationVersion incoming,
+                                    int incomingVersionCode, File uploaded) {
+        if (existing == null || existing.getVersionCode() != incomingVersionCode) {
+            return false;
+        }
+        if (uploaded == null) {
+            return existing.getUrl() != null && existing.getUrl().equals(incoming.getUrl());
+        }
+        if (existing.getUrl() == null || !uploaded.exists()) {
+            return false;
+        }
+        final Customer customer = customerDAO.findById(application.getCustomerId());
+        if (customer == null) {
+            return false;
+        }
+        final String relative = FileUtil.translateURLToLocalFilePath(customer, existing.getUrl(), baseUrl);
+        if (relative == null) {
+            return false;
+        }
+        final File stored = new File(filesDirectory + File.separator + customer.getFilesDir() + File.separator + relative);
+        return stored.isFile() && stored.length() == uploaded.length();
+    }
+
     private int getDuplicateAppVersion(Application application, ApplicationVersion version) {
         return this.mapper.getDuplicateVersionForApp(
                 application.getId(), version.getId() == null ? -1 : version.getId(), version.getVersion()
@@ -983,12 +1015,40 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
         final Application requestedApplication = findById(applicationVersion.getApplicationId());
         guardVersionWriteAccess(requestedApplication, applicationVersion.getApplicationId());
 
-        // If an APK-file was set for new app then make the file available in Files area and parse the app parameters
-        // from it (package ID, version)
         final AtomicReference<String> appPkg = new AtomicReference<>();
 
         final String filePath = applicationVersion.getFilePath();
-        if (filePath != null && !filePath.trim().isEmpty()) {
+        final boolean hasFile = filePath != null && !filePath.trim().isEmpty();
+        final APKFileDetails uploadedDetails = hasFile ? this.apkFileAnalyzer.analyzeFile(filePath) : null;
+
+        this.mapper.lockApplication(requestedApplication.getId());
+        final Application existingApplication = findById(requestedApplication.getId());
+
+        final String incomingVersion = uploadedDetails != null ? uploadedDetails.getVersion() : applicationVersion.getVersion();
+        final int incomingCode = uploadedDetails != null ? uploadedDetails.getVersionCode() : applicationVersion.getVersionCode();
+        if (incomingVersion != null && StringUtil.isEmpty(applicationVersion.getArch())) {
+            final int existingId = this.mapper.getDuplicateVersionForApp(existingApplication.getId(), -1, incomingVersion);
+            if (existingId > 0) {
+                final ApplicationVersion existing = this.mapper.findVersionById(existingId);
+                if (isIdenticalFile(existingApplication, existing, applicationVersion, incomingCode, hasFile ? new File(filePath) : null)) {
+                    if (hasFile) {
+                        new File(filePath).delete();
+                    }
+                    applicationVersion.setId(existingId);
+                    log.info("Application {} version {} already exists with the same file, nothing to do",
+                            existingApplication.getPkg(), incomingVersion);
+                    return new ArrayList<>();
+                }
+                if (hasFile) {
+                    new File(filePath).delete();
+                }
+                throw new VersionExistsException(existingApplication.getPkg(), incomingVersion);
+            }
+        }
+
+        // If an APK-file was set for new app then make the file available in Files area and parse the app parameters
+        // from it (package ID, version)
+        if (hasFile) {
             final int customerId = SecurityContext.get().getCurrentUser().get().getCustomerId();
             Customer customer = customerDAO.findById(customerId);
 
@@ -1000,9 +1060,6 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
                 movedFile = FileUtil.moveFile(customer, filesDirectory, null, filePath);
             }
             if (movedFile != null) {
-                final String fileName = movedFile.getAbsolutePath();
-                final APKFileDetails apkFileDetails = this.apkFileAnalyzer.analyzeFile(fileName);
-
                 // If URL is not specified explicitly for new app then set the application URL to reference to that
                 // file
                 if ((applicationVersion.getUrl() == null || applicationVersion.getUrl().trim().isEmpty())) {
@@ -1021,7 +1078,7 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
                     }
                 }
 
-                applicationVersion.setVersion(apkFileDetails.getVersion());
+                applicationVersion.setVersion(uploadedDetails.getVersion());
             } else {
                 log.error("Could not move the uploaded .apk-file {}", filePath);
                 throw new DAOException("Could not move the uploaded .apk-file");
@@ -1034,9 +1091,6 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
                 throw new ApplicationVersionPackageMismatchException(appPkg.get(), requestedApplication.getPkg());
             }
         }
-
-        this.mapper.lockApplication(requestedApplication.getId());
-        final Application existingApplication = findById(requestedApplication.getId());
 
 //        guardDowngradeAppVersion(existingApplication, applicationVersion);
 
@@ -1106,15 +1160,28 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
         if (locked == null) {
             throw new DAOException("The requested application version does not exist: #" + versionId);
         }
+        final Set<Integer> changed = new TreeSet<>();
         if (FollowLatestRules.STATE_HELD.equals(locked.getReleaseState())) {
             this.mapper.releaseApplicationVersion(versionId, releaseMode, userId, System.currentTimeMillis());
+            changed.addAll(this.mapper.repinVersionToFollowing(versionId));
         }
         this.mapper.recalculateLatestVersion(application.getId());
 
-        final List<Integer> moved = this.mapper.moveFollowersToLatest(application.getId(), null);
+        changed.addAll(this.mapper.moveFollowersToLatest(application.getId(), null));
+        final List<Integer> moved = new ArrayList<>(changed);
         log.info("Application {} version {} released ({}) by user #{}, configurations moved: {}",
                 application.getPkg(), version.getVersion(), releaseMode, userId, moved);
         return moved;
+    }
+
+    @Transactional
+    public List<Integer> getConfigurationsOnVersion(int versionId) {
+        final ApplicationVersion version = this.mapper.findVersionById(versionId);
+        if (version == null) {
+            throw new DAOException("The requested application version does not exist: #" + versionId);
+        }
+        guardVersionWriteAccess(findById(version.getApplicationId()), version.getApplicationId());
+        return this.mapper.getConfigurationIdsOnVersion(versionId);
     }
 
     @Transactional

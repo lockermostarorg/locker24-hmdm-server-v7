@@ -282,6 +282,7 @@
   "error.application.id.required": "The application is not specified",
   "error.application.version.id.required": "The application version is not specified",
   "error.concurrent.update": "Another change to this application was in progress. Please try again; if you were uploading a file, upload it again",
+  "error.version.exists": "This version already exists. Increase the version number and upload again.",
   "error.notfound.object": "The requested object was not found",
   "error.application.version.deletion.prohibited": "Soit la version est unique, ou utilisée dans des configurations, et ne peut être supprimée",
   "error.duplicate.file": "Un fichier du même nom existe",

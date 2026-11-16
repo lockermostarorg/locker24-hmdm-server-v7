@@ -149,6 +149,7 @@ public class UpdateResource {
 
         String webVersion = "";
         final Set<Integer> movedConfigurations = new TreeSet<>();
+        final Map<String, Set<Integer>> movedByApp = new LinkedHashMap<>();
 
         for (UpdateEntry app : request.getUpdates()) {
             if (app.getPkg().equals(UpdateEntry.WEB_PKG)) {
@@ -157,6 +158,8 @@ public class UpdateResource {
             if (!app.isOutdated() || app.isUpdateDisabled()) {
                 continue;
             }
+            final Set<Integer> appMoved = new TreeSet<>();
+            movedByApp.put(app.getPkg() + " " + app.getVersion(), appMoved);
             if (!app.isDownloaded()) {
                 if (app.getPkg().equals(UpdateEntry.WEB_PKG)) {
                     if (!downloadWebApp(app)) {
@@ -165,7 +168,7 @@ public class UpdateResource {
                         continue;
                     }
                 } else {
-                    if (!downloadAPKVersion(app, FollowLatestRules.modeForCheckForUpdates(request.isUpdate()), movedConfigurations)) {
+                    if (!downloadAPKVersion(app, FollowLatestRules.modeForCheckForUpdates(request.isUpdate()), appMoved)) {
                         app.setUpdateDisabled(true);
                         app.setUpdateDisableReason(UpdateEntry.DISABLED_DOWNLOAD);
                         continue;
@@ -174,12 +177,20 @@ public class UpdateResource {
                 app.setDownloaded(true);
             }
             if (request.isUpdate() && !app.getPkg().equals(UpdateEntry.WEB_PKG)) {
-                movedConfigurations.addAll(updateAppInConfig(app));
+                appMoved.addAll(updateAppInConfig(app));
                 app.setCurrentVersion(app.getVersion());
             }
         }
 
-        notifyMoved(movedConfigurations);
+        movedByApp.values().forEach(movedConfigurations::addAll);
+        final Map<Integer, Integer> devicesByConfiguration = notifyMoved(movedConfigurations);
+        movedByApp.forEach((app, ids) -> {
+            if (!ids.isEmpty()) {
+                final int devices = ids.stream().mapToInt(id -> devicesByConfiguration.getOrDefault(id, 0)).sum();
+                logger.info("Release app={} mode=schedule by={} configurations={} devices={} configurationIds={}",
+                        app.replace(' ', '|'), SecurityContext.get().getCurrentUserName(), ids.size(), devices, ids);
+            }
+        });
 
         if (request.isSendStats()) {
             statsSender.sendStats(UpdateSettings.STAT_URL, protocol, customerDomain, webVersion);
@@ -286,14 +297,16 @@ public class UpdateResource {
 
     // Update installedVersion to version in all configs
     // Record which configurations are affected to notify them via Push notification
-    private void notifyMoved(Set<Integer> configurationIds) {
+    private Map<Integer, Integer> notifyMoved(Set<Integer> configurationIds) {
+        final Map<Integer, Integer> devices = new HashMap<>();
         for (Integer configurationId : configurationIds) {
             try {
-                pushService.notifyAllDevicesOnUpdate(configurationId);
+                devices.put(configurationId, pushService.notifyAllDevicesOnUpdate(configurationId));
             } catch (Exception e) {
                 logger.error("Failed to notify devices of configuration #{} on update", configurationId, e);
             }
         }
+        return devices;
     }
 
     private List<Integer> updateAppInConfig(UpdateEntry app) {

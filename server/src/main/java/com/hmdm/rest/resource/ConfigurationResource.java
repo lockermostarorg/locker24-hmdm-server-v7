@@ -263,7 +263,12 @@ public class ConfigurationResource {
             final boolean upgraded = this.configurationDAO.upgradeConfigurationApplication(
                     request.getConfigurationId(), request.getApplicationId());
             if (upgraded) {
-                this.pushService.notifyDevicesOnUpdate(request.getConfigurationId());
+                final int devices = this.pushService.notifyDevicesOnUpdate(request.getConfigurationId());
+                final Application application = this.applicationDAO.findById(request.getApplicationId());
+                log.info("Release app={} version={} mode=upgrade by={} configurations=1 devices={} configurationIds=[{}]",
+                        application == null ? null : application.getPkg(),
+                        application == null ? null : application.getVersion(),
+                        SecurityContext.get().getCurrentUserName(), devices, request.getConfigurationId());
             }
             final Configuration configuration = this.getConfiguration(request.getConfigurationId());
             return Response.OK(configuration);

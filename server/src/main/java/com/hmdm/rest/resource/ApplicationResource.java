@@ -373,6 +373,9 @@ public class ApplicationResource {
             args.put("actual", e.getActualPackageName());
 
             return Response.ERROR("error.application.version.pkg.mismatch", args);
+        } catch (VersionExistsException e) {
+            logger.error("Refused to create application version", e);
+            return Response.ERROR("error.version.exists");
         } catch (CommonAppAccessException e) {
             logger.error("Failed to create or update application version", e);
             return Response.COMMON_APPLICATION_ACCESS_PROHIBITED();
@@ -532,26 +535,74 @@ public class ApplicationResource {
 
     private ReleaseSummary releaseAndNotify(ApplicationVersion version, String mode, List<Integer> moved) {
         int devices = 0;
+        int failed = 0;
+        final Application application = version == null ? null : applicationDAO.findById(version.getApplicationId());
         if (moved != null && !FollowLatestRules.MODE_HOLD.equals(mode)) {
+            final String payload = PushService.forceUpdatePayload(application == null ? null : application.getPkg(),
+                    version == null ? null : version.getVersion(), System.currentTimeMillis());
             for (Integer configurationId : moved) {
                 try {
                     devices += this.pushService.notifyAllDevicesOnUpdate(configurationId);
                     if (FollowLatestRules.MODE_IMMEDIATE.equals(mode)) {
-                        this.pushService.notifyAllDevicesOnForceUpdate(configurationId);
+                        this.pushService.notifyAllDevicesOnForceUpdate(configurationId, payload);
                     }
                 } catch (Exception e) {
+                    failed++;
                     logger.error("Failed to notify devices of configuration #{} on release", configurationId, e);
                 }
             }
         }
         final int configurations = moved == null ? 0 : moved.size();
+        boolean notLatest = false;
         if (!FollowLatestRules.MODE_HOLD.equals(mode)) {
-            final Application application = version == null ? null : applicationDAO.findById(version.getApplicationId());
-            logger.info("Release app={} version={} mode={} by={} configurations={} devices={}",
+            notLatest = application != null && version != null && application.getLatestVersion() != null
+                    && version.getId() != null && !application.getLatestVersion().equals(version.getId());
+            logger.info("Release app={} version={} mode={} by={} configurations={} devices={} configurationIds={}",
                     application == null ? null : application.getPkg(), version == null ? null : version.getVersion(),
-                    mode, SecurityContext.get().getCurrentUserName(), configurations, devices);
+                    mode, SecurityContext.get().getCurrentUserName(), configurations, devices, moved);
         }
-        return new ReleaseSummary(configurations, devices, mode);
+        return new ReleaseSummary(configurations, devices, mode, failed, notLatest);
+    }
+
+    // =================================================================================================================
+    @Operation(
+            summary = "Notify tablets of an application version again",
+            description = "Re-sends the update push (and the install-now push for immediate) to every configuration currently on the version; moves nothing"
+    )
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @Path("/versions/{id}/notify")
+    public Response notifyApplicationVersion(@PathParam("id")
+                                             @Parameter(description = "Application Version ID", schema = @Schema(type = "integer"))
+                                                     Integer id,
+                                             ReleaseVersionRequest request) {
+        if (!SecurityContext.get().hasPermission("edit_application_versions")) {
+            logger.error("Unauthorized attempt to notify about application version by user " +
+                    SecurityContext.get().getCurrentUserName());
+            return Response.PERMISSION_DENIED();
+        }
+        final String mode = request == null ? null : request.getMode();
+        if (!FollowLatestRules.MODE_SCHEDULE.equals(mode) && !FollowLatestRules.MODE_IMMEDIATE.equals(mode)) {
+            return Response.ERROR("error.release.mode.invalid");
+        }
+        try {
+            final ApplicationVersion version = id == null ? null : applicationDAO.findApplicationVersionById(id);
+            if (version == null) {
+                return Response.OBJECT_NOT_FOUND_ERROR();
+            }
+            final List<Integer> configurations = applicationDAO.getConfigurationsOnVersion(id);
+            return Response.OK(releaseAndNotify(version, mode, configurations));
+        } catch (CommonAppAccessException e) {
+            logger.error("Prohibited to notify about application version #{} by current user", id, e);
+            return Response.COMMON_APPLICATION_ACCESS_PROHIBITED();
+        } catch (SecurityException e) {
+            logger.error("Prohibited to notify about application version #{} by current user", id, e);
+            return Response.PERMISSION_DENIED();
+        } catch (Exception e) {
+            logger.error("Failed to notify about application version #{}", id, e);
+            return ReleaseErrors.unexpected(e);
+        }
     }
 
     // =================================================================================================================

@@ -14,6 +14,7 @@
   "plugin.audit.action.update.version": "Версия приложения изменена",
   "plugin.audit.action.remove.version": "Версия приложения удалена",
   "plugin.audit.action.release.version": "Application version released",
+  "plugin.audit.action.notify.version": "Tablets notified of application version",
   "plugin.audit.action.update.file": "Файл изменен",
   "plugin.audit.action.remove.file": "Файл удален",
   "plugin.audit.action.update.app.config": "Изменена привязка приложения к конфигурациям",

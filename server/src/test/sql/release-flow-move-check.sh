@@ -336,6 +336,26 @@ C_UP_DOWN="$(conf c-up-downgrade)"; row "$C_UP_DOWN" "$APP_U" "$U3" FALSE; q "UP
 upgrade "$C_UP_DOWN"
 expect "unguarded function keeps a canary row (it never downgrades) but moves main under it" "$U3:1:false|$U2" "$(rows_of "$C_UP_DOWN")|$(main_of "$C_UP_DOWN" | cut -d'|' -f1)"
 
+APP_R="$(app com.example.r)"
+R1="$(ver "$APP_R" 1.0)"; R2="$(ver "$APP_R" 2.0 held)"
+recalc "$APP_R"
+C_R_CANARY="$(conf c-r-canary)";   row "$C_R_CANARY" "$APP_R" "$R2" FALSE
+C_R_BOTH="$(conf c-r-both)";       row "$C_R_BOTH" "$APP_R" "$R2" FALSE
+q "UPDATE configurations SET mainAppId = $R2, contentAppId = $R2, followLatestMainApp = FALSE, followLatestContentApp = FALSE WHERE id = $C_R_BOTH" >/dev/null
+C_R_MAINONLY="$(conf c-r-mainonly)"
+q "UPDATE configurations SET mainAppId = $R2, followLatestMainApp = FALSE, followLatestContentApp = FALSE WHERE id = $C_R_MAINONLY" >/dev/null
+C_R_OLDPIN="$(conf c-r-oldpin)";   row "$C_R_OLDPIN" "$APP_R" "$R1" FALSE
+C_R_OTHERAPP="$(conf c-r-otherapp)"; row "$C_R_OTHERAPP" "$APP_U" "$U1" FALSE
+REPINNED="$(render "$APP_MAPPER" repinVersionToFollowing id="$R2" | psqlq | sort -n | paste -sd, -)"
+expect "release repin: returns the canaries and main/content pinned to the version" "$(printf '%s\n' "$C_R_CANARY" "$C_R_BOTH" "$C_R_MAINONLY" | sort -n | paste -sd, -)" "$REPINNED"
+expect "release repin: a pinned install row on the version follows again" "$R2:1:true" "$(q "SELECT applicationVersionId || ':' || action || ':' || followLatest FROM configurationApplications WHERE configurationId = $C_R_CANARY AND applicationId = $APP_R")"
+expect "release repin: main and content pinned to the version both follow again" "true|true" "$(q "SELECT followLatestMainApp || '|' || followLatestContentApp FROM configurations WHERE id = $C_R_BOTH")"
+expect "release repin: only the main flag changes when only main is on the version" "true|false" "$(q "SELECT followLatestMainApp || '|' || followLatestContentApp FROM configurations WHERE id = $C_R_MAINONLY")"
+expect "release repin: a pin on another version stays" "$R1:1:false" "$(q "SELECT applicationVersionId || ':' || action || ':' || followLatest FROM configurationApplications WHERE configurationId = $C_R_OLDPIN AND applicationId = $APP_R")"
+expect "release repin: a pin of another app stays" "$U1:1:false" "$(q "SELECT applicationVersionId || ':' || action || ':' || followLatest FROM configurationApplications WHERE configurationId = $C_R_OTHERAPP AND applicationId = $APP_U")"
+expect "release repin: second call changes nothing" "" "$(render "$APP_MAPPER" repinVersionToFollowing id="$R2" | psqlq | sort -n | paste -sd, -)"
+expect "version listing: configurations on a version (rows, main, content)" "$(printf '%s\n' "$C_R_CANARY" "$C_R_BOTH" "$C_R_MAINONLY" | sort -n | paste -sd, -)" "$(moved_list "$(render "$APP_MAPPER" getConfigurationIdsOnVersion id="$R2")" | psqlq | moved_of)"
+
 if [ "$FAILED" -ne 0 ]; then
   exit 1
 fi

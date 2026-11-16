@@ -14,6 +14,7 @@
 	"plugin.audit.action.update.version": "Uygulama sürümü güncellendi",
 	"plugin.audit.action.remove.version": "Uygulama sürümü silindi",
   "plugin.audit.action.release.version": "Application version released",
+  "plugin.audit.action.notify.version": "Tablets notified of application version",
 	"plugin.audit.action.update.file": "Dosya güncellendi",
 	"plugin.audit.action.remove.file": "Dosya silindi",
 	"plugin.audit.action.update.app.config": "Uygulama yapılandırmaları değiştirildi",

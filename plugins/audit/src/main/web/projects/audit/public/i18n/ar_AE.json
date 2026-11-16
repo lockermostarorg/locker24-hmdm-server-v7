@@ -28,6 +28,7 @@
   "plugin.audit.action.update.version": "تم تحديث إصدار التطبيق" ,
   "plugin.audit.action.remove.version": "تم حذف إصدار التطبيق",
   "plugin.audit.action.release.version": "Application version released",
+  "plugin.audit.action.notify.version": "Tablets notified of application version",
   "plugin.audit.action.update.file": "تم تحديث الملف",
   "plugin.audit.action.remove.file": "تم حذف الملف",
   "plugin.audit.error": "- خطأ" ,

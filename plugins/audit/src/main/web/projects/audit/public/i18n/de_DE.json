@@ -14,6 +14,7 @@
   "plugin.audit.action.update.version": "Anwendungsversion aktualisiert",
   "plugin.audit.action.remove.version": "Anwendungsversion entfernt",
   "plugin.audit.action.release.version": "Application version released",
+  "plugin.audit.action.notify.version": "Tablets notified of application version",
   "plugin.audit.action.update.file": "Datei aktualisiert",
   "plugin.audit.action.remove.file": "Datei entfernt",
   "plugin.audit.action.update.app.config": "Anwendungskonfigurationen geändert",

@@ -17,6 +17,8 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -512,5 +514,182 @@ public class ApplicationReleaseTest {
         v.setId(id);
         v.setReleaseState(state);
         return v;
+    }
+
+    @Test
+    public void releasingAHeldVersionPutsPinnedCanariesBackOnFollowingInTheSameTransaction() {
+        when(mapper.findVersionById(NEW_VERSION)).thenReturn(version(NEW_VERSION, "held"));
+        when(mapper.repinVersionToFollowing(NEW_VERSION)).thenReturn(Arrays.asList(9, 7));
+
+        List<Integer> moved = dao.releaseVersion(NEW_VERSION, "schedule", USER);
+
+        assertEquals(Arrays.asList(7, 8, 9), moved);
+        InOrder order = inOrder(mapper);
+        order.verify(mapper).lockApplication(APP);
+        order.verify(mapper).releaseApplicationVersion(eq(NEW_VERSION), eq("schedule"), eq(USER), anyLong());
+        order.verify(mapper).repinVersionToFollowing(NEW_VERSION);
+        order.verify(mapper).recalculateLatestVersion(APP);
+        order.verify(mapper).moveFollowersToLatest(APP, null);
+    }
+
+    @Test
+    public void releasingAnAlreadyReleasedVersionDoesNotUnpinAnything() {
+        when(mapper.findVersionById(NEW_VERSION)).thenReturn(version(NEW_VERSION, "released"));
+
+        dao.releaseVersion(NEW_VERSION, "schedule", USER);
+
+        verify(mapper, never()).repinVersionToFollowing(anyInt());
+    }
+
+    @Test
+    public void configurationsOnAVersionAreListedAfterTheWriteGuard() {
+        when(mapper.findVersionById(NEW_VERSION)).thenReturn(version(NEW_VERSION, "released"));
+        when(mapper.getConfigurationIdsOnVersion(NEW_VERSION)).thenReturn(Arrays.asList(4, 5));
+
+        assertEquals(Arrays.asList(4, 5), dao.getConfigurationsOnVersion(NEW_VERSION));
+
+        Application foreign = application(LATEST);
+        foreign.setCustomerId(2);
+        when(mapper.findById(APP)).thenReturn(foreign);
+        try {
+            dao.getConfigurationsOnVersion(NEW_VERSION);
+            fail();
+        } catch (com.hmdm.security.SecurityException expected) {
+            verify(mapper, org.mockito.Mockito.times(1)).getConfigurationIdsOnVersion(NEW_VERSION);
+        }
+    }
+
+    private void existingVersion(int code, String url) {
+        when(mapper.getDuplicateVersionForApp(APP, -1, "2.0")).thenReturn(55);
+        ApplicationVersion existing = version(55, "released");
+        existing.setVersionCode(code);
+        existing.setUrl(url);
+        when(mapper.findVersionById(55)).thenReturn(existing);
+    }
+
+    @Test
+    public void aVersionStringThatAlreadyExistsIsRefusedWhateverTheMode() {
+        existingVersion(5, "http://localhost/files/a.apk");
+        ApplicationVersion incoming = newVersion();
+        incoming.setVersionCode(6);
+        incoming.setUrl("http://localhost/files/a.apk");
+
+        for (String mode : new String[]{"hold", "schedule", "immediate"}) {
+            try {
+                dao.insertApplicationVersionWithRelease(incoming, mode, USER);
+                fail();
+            } catch (VersionExistsException expected) {
+            }
+        }
+        verify(mapper, never()).insertApplicationVersion(any(ApplicationVersion.class));
+        verify(mapper, never()).updateApplicationVersion(any(ApplicationVersion.class));
+        verify(mapper, never()).releaseApplicationVersion(anyInt(), anyString(), anyInt(), anyLong());
+        verify(mapper, never()).moveFollowersToLatest(any(), any());
+    }
+
+    @Test
+    public void theIdenticalVersionIsAnIdempotentNoOp() {
+        existingVersion(5, "http://localhost/files/a.apk");
+        ApplicationVersion incoming = newVersion();
+        incoming.setVersionCode(5);
+        incoming.setUrl("http://localhost/files/a.apk");
+
+        List<Integer> moved = dao.insertApplicationVersionWithRelease(incoming, "immediate", USER);
+
+        assertTrue(moved.isEmpty());
+        assertEquals(Integer.valueOf(55), incoming.getId());
+        verify(mapper, never()).insertApplicationVersion(any(ApplicationVersion.class));
+        verify(mapper, never()).updateApplicationVersion(any(ApplicationVersion.class));
+        verify(mapper, never()).moveFollowersToLatest(any(), any());
+    }
+
+    private ApplicationDAO fileDao(File files, APKFileAnalyzer analyzer) {
+        com.hmdm.persistence.domain.Customer customer = new com.hmdm.persistence.domain.Customer();
+        customer.setId(1);
+        customer.setFilesDir("c");
+        when(customerDAO.findById(1)).thenReturn(customer);
+        com.hmdm.rest.json.APKFileDetails details = new com.hmdm.rest.json.APKFileDetails();
+        details.setVersion("2.0");
+        details.setVersionCode(5);
+        when(analyzer.analyzeFile(anyString())).thenReturn(details);
+        return new ApplicationDAO(mapper, customerDAO, files.getAbsolutePath(), "http://localhost", "", analyzer);
+    }
+
+    private ApplicationVersion uploadedFile(File tmp, byte[] content) throws Exception {
+        Files.write(tmp.toPath(), content);
+        ApplicationVersion incoming = newVersion();
+        incoming.setFilePath(tmp.getAbsolutePath());
+        return incoming;
+    }
+
+    @Test
+    public void anUploadedFileWithTheSameVersionCodeAndSizeIsTheIdenticalFile() throws Exception {
+        File files = Files.createTempDirectory("files").toFile();
+        File stored = new File(files, "c/a.apk");
+        stored.getParentFile().mkdirs();
+        Files.write(stored.toPath(), new byte[]{1, 2, 3});
+        existingVersion(5, "http://localhost/files/c/a.apk");
+        File tmp = File.createTempFile("upload", ".apk");
+        ApplicationDAO fileDao = fileDao(files, mock(APKFileAnalyzer.class));
+
+        List<Integer> moved = fileDao.insertApplicationVersionWithRelease(uploadedFile(tmp, new byte[]{9, 9, 9}), "schedule", USER);
+
+        assertTrue(moved.isEmpty());
+        assertTrue(stored.exists());
+        assertEquals(false, tmp.exists());
+        verify(mapper, never()).insertApplicationVersion(any(ApplicationVersion.class));
+    }
+
+    @Test
+    public void anUploadedFileOfAnotherSizeIsRefusedAndTheStoredFileIsKept() throws Exception {
+        File files = Files.createTempDirectory("files").toFile();
+        File stored = new File(files, "c/a.apk");
+        stored.getParentFile().mkdirs();
+        Files.write(stored.toPath(), new byte[]{1, 2, 3});
+        existingVersion(5, "http://localhost/files/c/a.apk");
+        File tmp = File.createTempFile("upload", ".apk");
+        ApplicationDAO fileDao = fileDao(files, mock(APKFileAnalyzer.class));
+
+        try {
+            fileDao.insertApplicationVersionWithRelease(uploadedFile(tmp, new byte[]{9, 9, 9, 9}), "schedule", USER);
+            fail();
+        } catch (VersionExistsException expected) {
+            assertEquals(3, stored.length());
+            verify(mapper, never()).insertApplicationVersion(any(ApplicationVersion.class));
+        }
+    }
+
+    @Test
+    public void anAdditionalArchitectureOfAnExistingVersionStillMerges() {
+        existingVersion(5, "http://localhost/files/a.apk");
+        ApplicationVersion incoming = newVersion();
+        incoming.setArch("arm64-v8a");
+        incoming.setSplit(true);
+        incoming.setVersionCode(5);
+        incoming.setUrlArm64("http://localhost/files/a64.apk");
+        when(mapper.getDuplicateVersionForApp(APP, -1, "2.0")).thenReturn(55);
+
+        dao.insertApplicationVersionWithRelease(incoming, "schedule", USER);
+
+        verify(mapper).updateApplicationVersion(incoming);
+    }
+
+    @Test
+    public void theFirstVersionOfAWebApplicationCarriesReleaseMetadata() {
+        Application web = new Application();
+        web.setUrl("http://example.com");
+        web.setName("web");
+        doAnswer(invocation -> {
+            ((Application) invocation.getArguments()[0]).setId(APP);
+            return 1;
+        }).when(mapper).insertApplication(any(Application.class));
+
+        dao.insertWebApplication(web);
+
+        ApplicationVersion inserted = insertedVersion();
+        assertEquals("released", inserted.getReleaseState());
+        assertNotNull(inserted.getReleasedAt());
+        assertEquals("schedule", inserted.getReleaseMode());
+        assertEquals(Integer.valueOf(USER), inserted.getReleasedBy());
     }
 }

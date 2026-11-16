@@ -32,7 +32,7 @@ Changeset `-08` sets `baseUrl` of the `locker24-health` plugin row. A WAR from b
 sudo -u postgres psql -d hmdm -v ON_ERROR_STOP=1 -c "UPDATE plugins SET baseUrl=NULL, baseUrlDev=NULL WHERE identifier='locker24-health'"
 ```
 
-Reload the panel; restart Tomcat if the menus do not come back. It touches only the `locker24-health` row. A manual WAR rollback also appends a line to `/opt/locker24/last-deploy`: `<timestamp> ref=manual-rollback sha=<sha of the restored WAR if known, else unknown>`. With an unknown sha the docs-only skip never matches, so the next push is deployed (safe). The full procedure is in the Rollback section of `deploy/README.md`.
+Reload the panel; restart Tomcat if the menus do not come back. It touches only the `locker24-health` row. A manual WAR rollback also appends a line to `/opt/locker24/last-deploy`: `<timestamp> ref=manual-rollback sha=<40-hex sha of the restored WAR, or forty zeros if unknown> note=manual`. The sha must be the full 40 hex characters followed by a space, or the forced command ignores the line. With forty zeros the docs-only comparison fails, so the next push is deployed (safe). The full procedure is in the Rollback section of `deploy/README.md`.
 
 Agent rollout order: the ingest endpoint must answer before the agent `6.40-l24.5` goes to the fleet. It already does on `mdm.locker24.app`. Then the kiosk app (PostBox QA `1.2.8+23`, PostBox `1.3.2+25`), then set the app setting `health_interval_minutes` (default 5, the agent clamps it to 1..8).
 

@@ -399,7 +399,7 @@ rollback() {
 RESTORE
     loud "Rolling back by hand to a build WITHOUT the health dashboard (before changeset -08)? Then also run, or every plugin menu disappears:"
     echo "    (cd /tmp && sudo -u postgres psql -d $DB_NAME -v ON_ERROR_STOP=1 -c \"$HEALTH_MENU_SQL\")" >&2
-    echo "    echo \"\$(date +%Y%m%d-%H%M%S) ref=manual-rollback sha=<sha of the restored WAR, or unknown>\" >> /opt/locker24/last-deploy" >&2
+    echo "    echo \"\$(date +%Y%m%d-%H%M%S) ref=manual-rollback sha=<40-hex sha of the restored WAR, or 0000000000000000000000000000000000000000> note=manual\" >> /opt/locker24/last-deploy" >&2
 }
 
 on_signal() {

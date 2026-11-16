@@ -149,7 +149,7 @@ It touches only the `locker24-health` row. Deploying a dashboard build again doe
 A manual WAR rollback must also record itself, so the docs-only skip compares against the right commit (sha of the restored WAR if you know it, else `unknown`; with an unknown sha the skip does not match and the next push is deployed, which is safe):
 
 ```bash
-echo "$(date +%Y%m%d-%H%M%S) ref=manual-rollback sha=<sha of the restored WAR, or unknown>" >> /opt/locker24/last-deploy
+echo "$(date +%Y%m%d-%H%M%S) ref=manual-rollback sha=<40-hex sha of the restored WAR, or 0000000000000000000000000000000000000000> note=manual" >> /opt/locker24/last-deploy
 ```
 
 If you rolled back to a build without the health agent code, also remember the agent-side leftovers (queue file, prefs, periodic job) are only cancelled by a health-free agent build.

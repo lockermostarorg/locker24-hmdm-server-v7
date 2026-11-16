@@ -26,12 +26,14 @@ import com.google.inject.Inject;
 import java.io.IOException;
 import java.net.URL;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.google.inject.Singleton;
 import com.hmdm.event.ConfigurationUpdatedEvent;
@@ -100,17 +102,23 @@ public class ConfigurationDAO extends AbstractLinkedDAO<Configuration, Applicati
         return c != null;
     }
 
+    @Transactional
     public void insertConfiguration(Configuration config) {
         insertRecord(config, configuration -> {
+            lockApplications(configuration.getApplications(), Collections.emptyList());
             configuration.setFollowLatestMainApp(
                     FollowLatestRules.followForConfigurationFlag(configuration.getFollowLatestMainApp(), null));
             configuration.setFollowLatestContentApp(
                     FollowLatestRules.followForConfigurationFlag(configuration.getFollowLatestContentApp(), null));
-            resolveRowFollowFlags(configuration.getApplications(), Collections.emptyList());
+            final List<Integer> turnedOn = resolveRowFollowFlags(configuration.getApplications(), Collections.emptyList());
             this.mapper.insertConfiguration(configuration);
             if (configuration.getApplications().size() > 0) {
                 configuration.getApplications().forEach(app -> app.setRemove(app.getAction() == 2));
                 this.mapper.insertConfigurationApplications(configuration.getId(), configuration.getApplications());
+                turnedOn.forEach(appId -> this.applicationMapper.moveRowToLatest(configuration.getId(), appId));
+                this.applicationMapper.recheckConfigurationMainApplication(configuration.getId());
+                this.applicationMapper.recheckConfigurationContentApplication(configuration.getId());
+                this.mapper.syncMainAndContentFollowFlags(configuration.getId());
             }
             if (configuration.getApplicationSettings() != null && !configuration.getApplicationSettings().isEmpty()) {
                 this.mapper.insertConfigurationApplicationSettings(configuration.getId(), configuration.getApplicationSettings());
@@ -131,12 +139,14 @@ public class ConfigurationDAO extends AbstractLinkedDAO<Configuration, Applicati
         updateRecord(
                 config,
                 configuration -> {
+                    final List<Application> storedRows = this.mapper.getConfigurationFollowRows(configuration.getId());
+                    lockApplications(configuration.getApplications(), storedRows);
                     final Configuration stored = this.mapper.getConfigurationById(configuration.getId());
                     configuration.setFollowLatestMainApp(FollowLatestRules.followForConfigurationFlag(
                             configuration.getFollowLatestMainApp(), stored == null ? null : stored.getFollowLatestMainApp()));
                     configuration.setFollowLatestContentApp(FollowLatestRules.followForConfigurationFlag(
                             configuration.getFollowLatestContentApp(), stored == null ? null : stored.getFollowLatestContentApp()));
-                    resolveRowFollowFlags(configuration.getApplications(),
+                    final List<Integer> turnedOn = resolveRowFollowFlags(configuration.getApplications(),
                             this.mapper.getConfigurationFollowRows(configuration.getId()));
 
                     this.mapper.updateConfiguration(configuration);
@@ -145,7 +155,7 @@ public class ConfigurationDAO extends AbstractLinkedDAO<Configuration, Applicati
                         configuration.getApplications().forEach(app -> app.setRemove(app.getAction() == 2));
                         this.mapper.insertConfigurationApplications(configuration.getId(), configuration.getApplications());
                     }
-                    this.applicationMapper.moveFollowersToLatest(null, configuration.getId());
+                    turnedOn.forEach(appId -> this.applicationMapper.moveRowToLatest(configuration.getId(), appId));
 
                     this.applicationMapper.recheckConfigurationMainApplication(configuration.getId());
                     this.applicationMapper.recheckConfigurationContentApplication(configuration.getId());
@@ -210,9 +220,21 @@ public class ConfigurationDAO extends AbstractLinkedDAO<Configuration, Applicati
         );
     }
 
-    private void resolveRowFollowFlags(List<Application> rows, List<Application> storedRows) {
+    private void lockApplications(List<Application> rows, List<Application> storedRows) {
+        Stream.concat(
+                        rows == null ? Stream.empty() : rows.stream(),
+                        storedRows == null ? Stream.empty() : storedRows.stream())
+                .map(Application::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .forEach(this.applicationMapper::lockApplication);
+    }
+
+    private List<Integer> resolveRowFollowFlags(List<Application> rows, List<Application> storedRows) {
+        final List<Integer> turnedOn = new ArrayList<>();
         if (rows == null || rows.isEmpty()) {
-            return;
+            return turnedOn;
         }
         final Map<Integer, Application> storedByApp = new HashMap<>();
         for (Application storedRow : storedRows) {
@@ -234,14 +256,21 @@ public class ConfigurationDAO extends AbstractLinkedDAO<Configuration, Applicati
         }
         for (Application row : rows) {
             final Application storedRow = storedByApp.get(row.getId());
-            row.setFollowLatest(FollowLatestRules.followForSavedRow(
+            final Boolean storedFlag = storedRow == null ? null : storedRow.isFollowLatest();
+            final boolean follow = FollowLatestRules.followForSavedRow(
                     row.isFollowLatest(),
-                    storedRow == null ? null : storedRow.isFollowLatest(),
+                    storedFlag,
                     storedRow == null ? null : storedRow.getUsedVersionId(),
                     row.getUsedVersionId(),
                     latestByApp.get(row.getId())
-            ));
+            );
+            if (follow && row.getAction() == 1 && row.getId() != null
+                    && FollowLatestRules.movesToLatestOnSave(row.isFollowLatest(), storedFlag)) {
+                turnedOn.add(row.getId());
+            }
+            row.setFollowLatest(follow);
         }
+        return turnedOn;
     }
 
     @Transactional

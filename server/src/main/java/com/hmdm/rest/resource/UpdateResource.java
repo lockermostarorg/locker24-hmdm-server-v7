@@ -24,6 +24,7 @@ package com.hmdm.rest.resource;
 import com.google.common.io.Files;
 import com.hmdm.notification.PushService;
 import com.hmdm.persistence.ApplicationDAO;
+import com.hmdm.persistence.FollowLatestRules;
 import com.hmdm.persistence.UnsecureDAO;
 import com.hmdm.persistence.UserDAO;
 import com.hmdm.persistence.domain.Application;
@@ -156,7 +157,7 @@ public class UpdateResource {
                         continue;
                     }
                 } else {
-                    if (!downloadAPKVersion(app)) {
+                    if (!downloadAPKVersion(app, FollowLatestRules.modeForCheckForUpdates(request.isUpdate()))) {
                         app.setUpdateDisabled(true);
                         app.setUpdateDisableReason(UpdateEntry.DISABLED_DOWNLOAD);
                         continue;
@@ -227,7 +228,7 @@ public class UpdateResource {
 
     // Download APK file and create a new version
     // Returns true if the app was downloaded successfully and false on error
-    private boolean downloadAPKVersion(UpdateEntry app) {
+    private boolean downloadAPKVersion(UpdateEntry app, String releaseMode) {
         try {
             String name = getFileNameFromUrl(app.getUrl());
             if (!name.endsWith(".apk") && !name.endsWith(".xapk")) {
@@ -252,7 +253,8 @@ public class UpdateResource {
             version.setApplicationId(appList.get(0).getId());
             version.setVersion(fileDetails.getVersion());
             version.setVersionCode(fileDetails.getVersionCode());
-            applicationDAO.insertApplicationVersion(version);
+            final Integer userId = SecurityContext.get().getCurrentUser().map(User::getId).orElse(null);
+            applicationDAO.insertApplicationVersionWithRelease(version, releaseMode, userId);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -278,15 +280,9 @@ public class UpdateResource {
         ApplicationVersion currentVersion = applicationDAO.findApplicationVersion(app.getPkg(), app.getCurrentVersion());
         ApplicationVersion newVersion = applicationDAO.findApplicationVersion(app.getPkg(), app.getVersion());
 
-        LinkConfigurationsToAppVersionRequest request = new LinkConfigurationsToAppVersionRequest();
-        request.setApplicationVersionId(newVersion.getId());
-        List<ApplicationVersionConfigurationLink> linkList = applicationDAO.getApplicationVersionConfigurations(currentVersion.getId());
-        for (ApplicationVersionConfigurationLink link : linkList) {
-            link.setApplicationVersionId(newVersion.getId());
-        }
-        request.setConfigurations(linkList);
         logger.info("Application versions updated by the superadmin through 'Check for updates'");
-        applicationDAO.updateApplicationVersionConfigurations(request, SecurityContext.get().getCurrentUser().get());
+        applicationDAO.updateConfigurationsToVersion(currentVersion.getId(), newVersion.getId(),
+                SecurityContext.get().getCurrentUser().get());
     }
 
     private void processWebAppEntry(UpdateEntry entry) {

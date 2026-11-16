@@ -373,7 +373,7 @@ public interface ApplicationMapper {
             "WHERE id = #{id}")
     void recalculateLatestVersion(@Param("id") Integer applicationId);
 
-    @Select("SELECT id FROM applications WHERE id = #{id} FOR UPDATE")
+    @Select("SELECT id FROM applications WHERE id = #{id} FOR NO KEY UPDATE")
     @Options(flushCache = Options.FlushCachePolicy.TRUE, useCache = false)
     Integer lockApplication(@Param("id") int applicationId);
 
@@ -382,6 +382,18 @@ public interface ApplicationMapper {
     List<Integer> moveFollowersToLatest(@Param("appId") Integer applicationId,
                                         @Param("configId") Integer configurationId);
 
+    @Update("UPDATE configurationApplications SET applicationVersionId = a.latestVersion " +
+            "FROM applications a, applicationVersions cur, applicationVersions lat " +
+            "WHERE configurationApplications.configurationId = #{configId} " +
+            "AND configurationApplications.applicationId = #{appId} " +
+            "AND configurationApplications.action = 1 " +
+            "AND configurationApplications.followLatest " +
+            "AND a.id = configurationApplications.applicationId " +
+            "AND lat.id = a.latestVersion " +
+            "AND cur.id = configurationApplications.applicationVersionId " +
+            "AND mdm_app_version_comparison_index(cur.version) < mdm_app_version_comparison_index(lat.version)")
+    int moveRowToLatest(@Param("configId") Integer configurationId, @Param("appId") Integer applicationId);
+
     @Update("UPDATE applicationVersions " +
             "SET releaseState = 'released', releasedAt = #{releasedAt}, releaseMode = #{mode}, releasedBy = #{userId} " +
             "WHERE id = #{id} AND releaseState = 'held'")
@@ -389,6 +401,10 @@ public interface ApplicationMapper {
                                   @Param("mode") String mode,
                                   @Param("userId") Integer userId,
                                   @Param("releasedAt") long releasedAt);
+
+    @Select("SELECT configurationId AS id, action, followLatest FROM configurationApplications " +
+            "WHERE applicationVersionId = #{id}")
+    List<Application> getVersionConfigurationRows(@Param("id") int applicationVersionId);
 
     @Select("SELECT COUNT(*) FROM applicationVersions WHERE applicationId = #{id} AND releaseState = 'released'")
     int countReleasedVersions(@Param("id") int applicationId);
@@ -490,7 +506,11 @@ public interface ApplicationMapper {
             "LIMIT 1")
     Integer getPrecedingVersion(@Param("id") Integer applicationId);
 
-    @Update("UPDATE configurationApplications SET showIcon = #{showIcon}, remove = #{remove}, action = #{action} WHERE id = #{id}")
+    @Update("UPDATE configurationApplications SET showIcon = #{showIcon}, remove = #{remove}, action = #{action}, " +
+            "followLatest = CASE WHEN action <> 1 AND #{action} = 1 " +
+            "    THEN COALESCE(applicationVersionId = (SELECT latestVersion FROM applications WHERE applications.id = configurationApplications.applicationId), FALSE) " +
+            "    ELSE followLatest END " +
+            "WHERE id = #{id}")
     void updateApplicationConfigurationLink(ApplicationConfigurationLink link);
 
     @Delete("DELETE FROM configurationApplications WHERE id = #{id}")

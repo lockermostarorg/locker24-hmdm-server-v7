@@ -176,6 +176,83 @@ expect "race (lower first): pinned rows untouched" "$A1:1:false|$A2:1:false" "$(
 expect "race (lower first): the higher upload moves the followers again" "$EXPECTED" "$(cat "$WORK/second.out")"
 expect "race (lower first): one install row per app per configuration" "0" "$(single_install_rows)"
 
+LATEST_A() { q "SELECT latestVersion FROM applications WHERE id = $APP_A"; }
+C_RACE="$(conf c-race)"
+race_reset() {
+  q "DELETE FROM configurationApplications WHERE configurationId = $C_RACE" >/dev/null
+  row "$C_RACE" "$APP_A" "$(LATEST_A)" TRUE
+  row "$C_RACE" "$APP_B" "$B2" TRUE
+  q "UPDATE configurations SET mainAppId = $(LATEST_A), followLatestMainApp = TRUE WHERE id = $C_RACE" >/dev/null
+}
+
+save_session() {
+  local pause="$1"
+  {
+    echo "BEGIN;"
+    for id in $(printf '%s\n' "$APP_A" "$APP_B" | sort -n); do LOCK_SQL "$id"; echo ";"; done
+    echo "CREATE TEMP TABLE saved ON COMMIT DROP AS SELECT * FROM configurationApplications WHERE configurationId = $C_RACE;"
+    echo "UPDATE configurations SET description = 'saved' WHERE id = $C_RACE;"
+    render "$CONF_MAPPER" removeConfigurationApplicationsById id="$C_RACE"; echo ";"
+    echo "INSERT INTO configurationApplications (configurationId, applicationId, applicationVersionId, action, followLatest) SELECT configurationId, applicationId, applicationVersionId, action, followLatest FROM saved;"
+    render "$APP_MAPPER" recheckConfigurationMainApplication configurationId="$C_RACE"; echo ";"
+    render "$APP_MAPPER" recheckConfigurationContentApplication configurationId="$C_RACE"; echo ";"
+    render "$CONF_MAPPER" syncMainAndContentFollowFlags id="$C_RACE"; echo ";"
+    echo "SELECT pg_sleep($pause);"
+    echo "COMMIT;"
+  } | psqlq >/dev/null 2>"$WORK/save.err" && echo committed || { cat "$WORK/save.err" >&2; echo failed; }
+}
+
+slow_upload_session() {
+  local version="$1" pause="$2" pause_after="${3:-0}"
+  {
+    echo "BEGIN;"
+    LOCK_SQL "$APP_A"; echo ";"
+    echo "INSERT INTO applicationVersions (applicationId, version, versionCode, releaseState, releasedAt, releaseMode) VALUES ($APP_A, '$version', 1, 'released', 1, 'schedule');"
+    RECALC_SQL "$APP_A"; echo ";"
+    echo "SELECT pg_sleep($pause);"
+    moved_list "$(MOVE_SQL "$APP_A" NULL)"
+    echo "SELECT pg_sleep($pause_after);"
+    echo "COMMIT;"
+  } | psqlq 2>"$WORK/upload.err" | moved_of | grep -q . && echo committed || { cat "$WORK/upload.err" >&2; echo failed; }
+}
+
+race_reset
+slow_upload_session 8.0 3 >"$WORK/upload.res" &
+UPID=$!
+sleep 1
+SAVE_RES="$(save_session 0)"
+wait "$UPID"
+A8="$(q "SELECT id FROM applicationVersions WHERE applicationId = $APP_A AND version = '8.0'")"
+expect "save during upload: both commit (no deadlock)" "committed committed" "$(cat "$WORK/upload.res") $SAVE_RES"
+expect "save during upload: latest is the upload" "$A8" "$(LATEST_A)"
+expect "save during upload: the saved row follows on the new version" "$A8:1:true" "$(ver_of "$C_RACE" "$APP_A")"
+expect "save during upload: main app on the new version" "$A8" "$(q "SELECT mainAppId FROM configurations WHERE id = $C_RACE")"
+expect "save during upload: one install row per app" "0" "$(single_install_rows)"
+
+race_reset
+slow_upload_session 8.5 0 3 >"$WORK/upload.res" &
+UPID=$!
+sleep 1
+SAVE_RES="$(save_session 0)"
+wait "$UPID"
+A85="$(q "SELECT id FROM applicationVersions WHERE applicationId = $APP_A AND version = '8.5'")"
+expect "save after the move, before the upload commits: both commit" "committed committed" "$(cat "$WORK/upload.res") $SAVE_RES"
+expect "save after the move, before the upload commits: no lost move" "$A85:1:true" "$(ver_of "$C_RACE" "$APP_A")"
+expect "save after the move, before the upload commits: main app on the new version" "$A85" "$(q "SELECT mainAppId FROM configurations WHERE id = $C_RACE")"
+
+race_reset
+save_session 3 >"$WORK/save.res" &
+SPID=$!
+sleep 1
+UP_RES="$(slow_upload_session 9.0 0)"
+wait "$SPID"
+A9="$(q "SELECT id FROM applicationVersions WHERE applicationId = $APP_A AND version = '9.0'")"
+expect "upload during save: both commit (no deadlock)" "committed committed" "$(cat "$WORK/save.res") $UP_RES"
+expect "upload during save: the saved row moves to the upload" "$A9:1:true" "$(ver_of "$C_RACE" "$APP_A")"
+expect "upload during save: main app on the new version" "$A9" "$(q "SELECT mainAppId FROM configurations WHERE id = $C_RACE")"
+expect "upload during save: other app's row kept" "$B2:1:true" "$(ver_of "$C_RACE" "$APP_B")"
+expect "upload during save: one install row per app" "0" "$(single_install_rows)"
+
 C_SAVE="$(conf c-save)";   row "$C_SAVE" "$APP_B" "$B1" TRUE
 C_SAVE2="$(conf c-save2)"; row "$C_SAVE2" "$APP_B" "$B1" TRUE
 expect "save: moving one configuration returns only it" "$C_SAVE" "$(moved_list "$(MOVE_SQL NULL "$C_SAVE")" | psqlq | moved_of)"
@@ -192,8 +269,41 @@ expect "sync (customer): main/content flags follow their install row" "true|true
 expect "sync (customer): configuration without a main app keeps its flags" "true|true" "$(q "SELECT followLatestMainApp::text || '|' || followLatestContentApp::text FROM configurations WHERE id = $C_SAVE")"
 
 expect "rows read before save: id, version, flag, action" "$APP_B|$B2|t|1" "$(render "$CONF_MAPPER" getConfigurationFollowRows id="$C_SAVE" | psqlq -F'|')"
-ver "$APP_A" 8.0 held >/dev/null
-expect "counts: released and all versions" "7|8" "$(render "$APP_MAPPER" countReleasedVersions id="$APP_A" | psqlq)|$(render "$APP_MAPPER" countVersions id="$APP_A" | psqlq)"
+C_LINK="$(conf c-link-switch)"
+row "$C_LINK" "$APP_A" "$A1" TRUE 0
+row "$C_LINK" "$APP_B" "$B2" TRUE 2
+q "INSERT INTO configurations (name, customerId) VALUES ('c-link-keep', $CUST1)" >/dev/null
+C_KEEP="$(q "SELECT id FROM configurations WHERE name = 'c-link-keep'")"
+row "$C_KEEP" "$APP_B" "$B1" FALSE
+link_update() { render "$APP_MAPPER" updateApplicationConfigurationLink showIcon=FALSE remove=FALSE action="$2" id="$1" | psqlq >/dev/null; }
+row_id() { q "SELECT id FROM configurationApplications WHERE configurationId = $1 AND applicationId = $2"; }
+link_update "$(row_id "$C_LINK" "$APP_A")" 1
+link_update "$(row_id "$C_LINK" "$APP_B")" 1
+link_update "$(row_id "$C_KEEP" "$APP_B")" 1
+expect "app dialog: a row switched to install on an older version is pinned" "$A1:1:false" "$(ver_of "$C_LINK" "$APP_A")"
+expect "app dialog: a row switched to install on the latest follows" "$B2:1:true" "$(ver_of "$C_LINK" "$APP_B")"
+expect "app dialog: an install row that stays install keeps its pin" "$B1:1:false" "$(ver_of "$C_KEEP" "$APP_B")"
+
+C_ON="$(conf c-turned-on)"
+row "$C_ON" "$APP_A" "$A1" TRUE
+row "$C_ON" "$APP_B" "$B1" FALSE
+render "$APP_MAPPER" moveRowToLatest configId="$C_ON" appId="$APP_A" | psqlq >/dev/null
+render "$APP_MAPPER" moveRowToLatest configId="$C_ON" appId="$APP_B" | psqlq >/dev/null
+expect "save: a row turned on moves to the latest" "$(LATEST_A):1:true" "$(ver_of "$C_ON" "$APP_A")"
+expect "save: a pinned row is not moved by the row move" "$B1:1:false" "$(ver_of "$C_ON" "$APP_B")"
+q "UPDATE applicationVersions SET releaseState = 'held' WHERE applicationId = $APP_A AND version = '9.0'" >/dev/null
+recalc "$APP_A"
+AHEAD="$(q "INSERT INTO applicationVersions (applicationId, version, versionCode, releaseState) VALUES ($APP_A, '99.0', 1, 'held') RETURNING id" | head -1)"
+q "UPDATE configurationApplications SET applicationVersionId = $AHEAD WHERE configurationId = $C_ON AND applicationId = $APP_A" >/dev/null
+render "$APP_MAPPER" moveRowToLatest configId="$C_ON" appId="$APP_A" | psqlq >/dev/null
+expect "save: the row move never moves a row down" "$AHEAD:1:true" "$(ver_of "$C_ON" "$APP_A")"
+q "UPDATE configurationApplications SET applicationVersionId = $A9 WHERE configurationId = $C_ON AND applicationId = $APP_A" >/dev/null
+q "DELETE FROM applicationVersions WHERE id = $AHEAD" >/dev/null
+q "UPDATE applicationVersions SET releaseState = 'released' WHERE id = $A9" >/dev/null
+recalc "$APP_A"
+
+ver "$APP_A" 10.0 held >/dev/null
+expect "counts: released and all versions" "10|11" "$(render "$APP_MAPPER" countReleasedVersions id="$APP_A" | psqlq)|$(render "$APP_MAPPER" countVersions id="$APP_A" | psqlq)"
 
 if [ "$FAILED" -ne 0 ]; then
   exit 1

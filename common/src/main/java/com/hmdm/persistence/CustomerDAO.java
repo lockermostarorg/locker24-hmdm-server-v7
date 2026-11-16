@@ -269,7 +269,14 @@ public class CustomerDAO {
      * @param configurationId an ID of a configuration to copy.
      * @return an ID of configuration copy.
      */
+    @Transactional
     public Integer copyConfigurationForCustomer(Customer customer, int masterCustomerId, Integer configurationId) {
+        this.configurationMapper.getPlainConfigurationApplications(masterCustomerId, "configurationApplications", configurationId)
+                .stream()
+                .map(Application::getId)
+                .distinct()
+                .sorted()
+                .forEach(this.applicationMapper::lockApplication);
         Configuration configurationTemplate = this.configurationMapper.getConfigurationById(configurationId);
         List<Application> configApplications = this.configurationMapper.getPlainConfigurationApplications(
                 masterCustomerId, "configurationApplications", configurationId);

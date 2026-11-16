@@ -49,7 +49,7 @@ public class ReleaseFlowMapperStatementsTest {
     public void lockTakesARowLockAndIsNeverServedFromCache() {
         MappedStatement statement = configuration.getMappedStatement("com.hmdm.persistence.mapper.ApplicationMapper.lockApplication");
 
-        assertTrue(statement.getBoundSql(Collections.singletonMap("id", 5)).getSql().endsWith("FOR UPDATE"));
+        assertTrue(statement.getBoundSql(Collections.singletonMap("id", 5)).getSql().endsWith("FOR NO KEY UPDATE"));
         assertTrue(statement.isFlushCacheRequired());
     }
 
@@ -69,6 +69,14 @@ public class ReleaseFlowMapperStatementsTest {
                 "confs", Collections.singletonList(new com.hmdm.rest.json.ApplicationVersionConfigurationLink()));
 
         assertTrue(sql.getParameterMappings().stream().anyMatch(m -> m.getProperty().equals("followLatest")));
+    }
+
+    @Test
+    public void rowMoveAndVersionRowsParse() {
+        assertEquals(2, bound("com.hmdm.persistence.mapper.ApplicationMapper.moveRowToLatest", "configId", 1, "appId", 2)
+                .getParameterMappings().size());
+        assertTrue(bound("com.hmdm.persistence.mapper.ApplicationMapper.getVersionConfigurationRows", "id", 1)
+                .getSql().contains("applicationVersionId"));
     }
 
     @Test

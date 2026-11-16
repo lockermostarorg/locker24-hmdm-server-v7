@@ -1,5 +1,7 @@
 package com.hmdm.persistence;
 
+import com.hmdm.persistence.domain.Application;
+
 import java.util.Objects;
 
 public final class FollowLatestRules {
@@ -23,19 +25,39 @@ public final class FollowLatestRules {
                                             Integer storedVersionId,
                                             Integer savedVersionId,
                                             Integer latestReleasedId) {
-        if (incoming != null) {
-            return incoming;
-        }
-        if (savedVersionId == null) {
-            return stored == null || stored;
-        }
         if (stored == null) {
-            return followForLinkedVersion(savedVersionId, latestReleasedId);
+            if (incoming != null) {
+                return incoming;
+            }
+            return savedVersionId == null || followForLinkedVersion(savedVersionId, latestReleasedId);
         }
-        if (Objects.equals(savedVersionId, storedVersionId)) {
-            return stored;
+        if (turnedOn(incoming, stored)) {
+            return true;
         }
-        return stored && followForLinkedVersion(savedVersionId, latestReleasedId);
+        final boolean versionChanged = savedVersionId != null && !Objects.equals(savedVersionId, storedVersionId);
+        if (versionChanged && !followForLinkedVersion(savedVersionId, latestReleasedId)) {
+            return false;
+        }
+        return incoming != null ? incoming : stored;
+    }
+
+    public static boolean movesToLatestOnSave(Boolean incoming, Boolean stored) {
+        return Boolean.TRUE.equals(incoming) && !Boolean.TRUE.equals(stored);
+    }
+
+    public static boolean followForVersionLink(Application storedRow, int linkAction, int versionId, Integer latestReleasedId) {
+        if (storedRow != null && (storedRow.getAction() == 1 || linkAction != 1) && storedRow.isFollowLatest() != null) {
+            return storedRow.isFollowLatest();
+        }
+        return followForLinkedVersion(versionId, latestReleasedId);
+    }
+
+    public static String modeForCheckForUpdates(boolean update) {
+        return update ? MODE_SCHEDULE : MODE_HOLD;
+    }
+
+    private static boolean turnedOn(Boolean incoming, Boolean stored) {
+        return Boolean.TRUE.equals(incoming) && Boolean.FALSE.equals(stored);
     }
 
     public static boolean followForConfigurationFlag(Boolean incoming, Boolean stored) {

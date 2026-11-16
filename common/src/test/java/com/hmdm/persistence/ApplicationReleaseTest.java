@@ -48,12 +48,14 @@ public class ApplicationReleaseTest {
     private static final int USER = 3;
 
     private ApplicationMapper mapper;
+    private CustomerDAO customerDAO;
     private ApplicationDAO dao;
 
     @Before
     public void setUp() {
         mapper = mock(ApplicationMapper.class);
-        dao = new ApplicationDAO(mapper, mock(CustomerDAO.class), "/tmp", "http://localhost", "",
+        customerDAO = mock(CustomerDAO.class);
+        dao = new ApplicationDAO(mapper, customerDAO, "/tmp", "http://localhost", "",
                 mock(APKFileAnalyzer.class));
 
         User user = new User();
@@ -199,6 +201,10 @@ public class ApplicationReleaseTest {
         dao.updateApplicationVersion(edited);
 
         verify(mapper, never()).moveFollowersToLatest(any(), any());
+        InOrder order = inOrder(mapper);
+        order.verify(mapper).lockApplication(APP);
+        order.verify(mapper).updateApplicationVersion(any(ApplicationVersion.class));
+        order.verify(mapper).recalculateLatestVersion(APP);
     }
 
     @Test
@@ -242,6 +248,179 @@ public class ApplicationReleaseTest {
     }
 
     @Test
+    public void versionLinkDialogKeepsStoredFlagsOfAlreadyLinkedConfigurations() {
+        when(mapper.findVersionById(LATEST)).thenReturn(version(LATEST, "released"));
+        when(mapper.getVersionConfigurationRows(LATEST)).thenReturn(Arrays.asList(
+                storedRow(7, 1, false), storedRow(9, 0, true)));
+        User user = SecurityContext.get().getCurrentUser().get();
+        LinkConfigurationsToAppVersionRequest request = new LinkConfigurationsToAppVersionRequest();
+        request.setApplicationVersionId(LATEST);
+        request.setConfigurations(Arrays.asList(versionLink(7, LATEST, 1), versionLink(8, LATEST, 1),
+                versionLink(9, LATEST, 1)));
+
+        dao.updateApplicationVersionConfigurations(request, user);
+
+        assertEquals(Arrays.asList(7), linkedConfigurations(LATEST, false));
+        assertEquals(Arrays.asList(8, 9), linkedConfigurations(LATEST, true));
+    }
+
+    @Test
+    public void versionLinkDialogPinsNewLinksToAnOlderVersion() {
+        when(mapper.findVersionById(OLDER)).thenReturn(version(OLDER, "released"));
+        when(mapper.getVersionConfigurationRows(OLDER)).thenReturn(Arrays.asList(storedRow(7, 1, true)));
+        User user = SecurityContext.get().getCurrentUser().get();
+        LinkConfigurationsToAppVersionRequest request = new LinkConfigurationsToAppVersionRequest();
+        request.setApplicationVersionId(OLDER);
+        request.setConfigurations(Arrays.asList(versionLink(7, OLDER, 1), versionLink(8, OLDER, 1)));
+
+        dao.updateApplicationVersionConfigurations(request, user);
+
+        assertEquals(Arrays.asList(7), linkedConfigurations(OLDER, true));
+        assertEquals(Arrays.asList(8), linkedConfigurations(OLDER, false));
+    }
+
+    @Test
+    public void uploadOfACommonAppByANonSuperAdminIsRefusedBeforeLocking() {
+        Application common = application(LATEST);
+        common.setCommonApplication(true);
+        when(mapper.findById(APP)).thenReturn(common);
+        try {
+            dao.insertApplicationVersionWithRelease(newVersion(), "schedule", USER);
+            fail();
+        } catch (CommonAppAccessException expected) {
+            verify(mapper, never()).lockApplication(anyInt());
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void uploadWithoutAnApplicationIdIsRejected() {
+        ApplicationVersion v = newVersion();
+        v.setApplicationId(null);
+        dao.insertApplicationVersionWithRelease(v, "schedule", USER);
+    }
+
+    @Test
+    public void deletingACommonVersionByANonSuperAdminIsRefusedBeforeLocking() {
+        ApplicationVersion v = version(NEW_VERSION, "held");
+        v.setCommonApplication(true);
+        when(mapper.findVersionById(NEW_VERSION)).thenReturn(v);
+        try {
+            dao.removeApplicationVersionById(NEW_VERSION);
+            fail();
+        } catch (com.hmdm.security.SecurityException expected) {
+            verify(mapper, never()).lockApplication(anyInt());
+        }
+    }
+
+    @Test
+    public void turningAnAppIntoCommonLocksEverySamePackageAppFirst() {
+        when(mapper.findAllByPackageId("com.example.a")).thenReturn(Arrays.asList(application(11, LATEST), application(APP, LATEST)));
+        com.hmdm.persistence.domain.Customer customer = new com.hmdm.persistence.domain.Customer();
+        customer.setId(1);
+        when(customerDAO.findById(anyInt())).thenReturn(customer);
+
+        dao.turnApplicationIntoCommon_Transaction(APP, new java.util.HashMap<>());
+
+        InOrder order = inOrder(mapper);
+        order.verify(mapper).lockApplication(APP);
+        order.verify(mapper).lockApplication(11);
+        order.verify(mapper).insertApplication(any(Application.class));
+    }
+
+    @Test
+    public void appLinkDialogChecksAccessBeforeLocking() {
+        Application foreign = application(LATEST);
+        foreign.setCustomerId(2);
+        when(mapper.findById(APP)).thenReturn(foreign);
+        LinkConfigurationsToAppRequest request = new LinkConfigurationsToAppRequest();
+        request.setApplicationId(APP);
+        request.setConfigurations(Collections.emptyList());
+        try {
+            dao.updateApplicationConfigurations(request);
+            fail();
+        } catch (com.hmdm.security.SecurityException expected) {
+            verify(mapper, never()).lockApplication(anyInt());
+        }
+    }
+
+    @Test
+    public void checkForUpdatesRelinkKeepsFlagsAndReleasesAHeldTarget() {
+        when(mapper.findVersionById(OLDER)).thenReturn(version(OLDER, "released"));
+        when(mapper.findVersionById(LATEST)).thenReturn(version(LATEST, "held"));
+        when(mapper.getVersionConfigurationRows(OLDER)).thenReturn(Arrays.asList(storedRow(7, 1, false)));
+        when(mapper.getVersionConfigurationRows(LATEST)).thenReturn(Arrays.asList(storedRow(8, 1, true)));
+        ApplicationVersionConfigurationLink pinnedOnOld = versionLink(7, OLDER, 1);
+        pinnedOnOld.setId(50);
+        ApplicationVersionConfigurationLink notOnOld = versionLink(8, OLDER, 0);
+        ApplicationVersionConfigurationLink followerOnNew = versionLink(8, LATEST, 1);
+        followerOnNew.setId(60);
+        when(mapper.getApplicationVersionConfigurationsWithCandidates(1, USER, APP, OLDER))
+                .thenReturn(Arrays.asList(pinnedOnOld, notOnOld));
+        when(mapper.getApplicationVersionConfigurationsWithCandidates(1, USER, APP, LATEST))
+                .thenReturn(Arrays.asList(versionLink(7, LATEST, 0), followerOnNew));
+        User user = SecurityContext.get().getCurrentUser().get();
+
+        dao.updateConfigurationsToVersion(OLDER, LATEST, user);
+
+        verify(mapper).releaseApplicationVersion(eq(LATEST), eq("schedule"), eq(USER), anyLong());
+        assertEquals(Arrays.asList(7), linkedConfigurations(LATEST, false));
+        assertEquals(Arrays.asList(8), linkedConfigurations(LATEST, true));
+        assertEquals(1, linkedActions(LATEST, true).get(0).intValue());
+    }
+
+    @Test
+    public void checkForUpdatesDownloadOnlyHoldsAndUpdateReleasesOnSchedule() {
+        assertEquals("hold", FollowLatestRules.modeForCheckForUpdates(false));
+        assertEquals("schedule", FollowLatestRules.modeForCheckForUpdates(true));
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Integer> linkedActions(int versionId, boolean follow) {
+        ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
+        verify(mapper, org.mockito.Mockito.atLeast(0)).insertApplicationVersionConfigurations(eq(APP), eq(versionId),
+                eq(follow), captor.capture());
+        List<Integer> actions = new java.util.ArrayList<>();
+        for (Object list : captor.getAllValues()) {
+            for (ApplicationVersionConfigurationLink link : (List<ApplicationVersionConfigurationLink>) list) {
+                actions.add(link.getAction());
+            }
+        }
+        return actions;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Integer> linkedConfigurations(int versionId, boolean follow) {
+        ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
+        verify(mapper, org.mockito.Mockito.atLeast(0)).insertApplicationVersionConfigurations(eq(APP), eq(versionId),
+                eq(follow), captor.capture());
+        List<Integer> ids = new java.util.ArrayList<>();
+        for (Object list : captor.getAllValues()) {
+            for (ApplicationVersionConfigurationLink link : (List<ApplicationVersionConfigurationLink>) list) {
+                ids.add(link.getConfigurationId());
+            }
+        }
+        java.util.Collections.sort(ids);
+        return ids;
+    }
+
+    private static ApplicationVersionConfigurationLink versionLink(int configId, int versionId, int action) {
+        ApplicationVersionConfigurationLink link = new ApplicationVersionConfigurationLink();
+        link.setApplicationId(APP);
+        link.setConfigurationId(configId);
+        link.setApplicationVersionId(versionId);
+        link.setAction(action);
+        return link;
+    }
+
+    private static Application storedRow(int configId, int action, boolean follow) {
+        Application row = new Application();
+        row.setId(configId);
+        row.setAction(action);
+        row.setFollowLatest(follow);
+        return row;
+    }
+
+    @Test
     public void linkingTheAppLinksItsLatestVersionAndFollows() {
         LinkConfigurationsToAppRequest request = new LinkConfigurationsToAppRequest();
         request.setApplicationId(APP);
@@ -278,8 +457,12 @@ public class ApplicationReleaseTest {
     }
 
     private static Application application(Integer latest) {
+        return application(APP, latest);
+    }
+
+    private static Application application(int id, Integer latest) {
         Application a = new Application();
-        a.setId(APP);
+        a.setId(id);
         a.setCustomerId(1);
         a.setPkg("com.example.a");
         a.setLatestVersion(latest);

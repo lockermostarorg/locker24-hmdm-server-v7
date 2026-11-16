@@ -1,6 +1,6 @@
 # Deploying Locker24 MDM
 
-CI (GitHub Actions, `.github/workflows/server-ci.yml`) builds and tests every push to `main` and `feat/**` and every pull request to `main`, and scans the git history for secrets with gitleaks (the repository is public). It publishes nothing. Until Task 6 adds tests, the Locker24 plugin has no tests, so CI runs only Headwind's own.
+CI (GitHub Actions, `.github/workflows/server-ci.yml`) builds and tests every push to `main` and `feat/**` and every pull request to `main` (docs-only pull requests excepted), and scans the git history for secrets with gitleaks (the repository is public). It publishes nothing. Until Task 6 adds tests, the Locker24 plugin has no tests, so CI runs only Headwind's own.
 
 Deploying is done on the droplet: `deploy/deploy.sh <ref>` fetches the code, builds it with Maven, backs up, swaps the WAR and checks that the server is back.
 
@@ -41,15 +41,19 @@ cat /tmp/gh.key >> /root/.ssh/known_hosts
 
 ## Automatic deploys from GitHub
 
-Every push to `main` that passes Server CI is deployed by `.github/workflows/server-deploy.yml`. The workflow runs on `workflow_run` of "Server CI" (conclusion `success`, event `push`, branch `main`, same repository) and deploys the exact commit CI tested. It SSHes to `root@mdm.locker24.app` with a dedicated key whose `authorized_keys` entry runs only `/opt/locker24/deploy-forced.sh`. That script accepts nothing but `deploy <40-hex sha>` and `status <40-hex sha>`, starts `deploy.sh <sha>` as a transient systemd unit (so a dropped SSH connection never interrupts a swap), streams its log lines and exits with the deploy's exit code. If SSH drops, the workflow reconnects with `status <sha>` for up to 40 minutes. The droplet's host key is pinned in the workflow.
+Every push to `main` that passes Server CI is deployed by `.github/workflows/server-deploy.yml`. The workflow runs on `workflow_run` of "Server CI" (conclusion `success`, event `push`, branch `main`, same repository) and deploys the exact commit CI tested. It SSHes to `root@mdm.locker24.app` with a dedicated key whose `authorized_keys` entry runs only `/opt/locker24/deploy-forced.sh`. That script accepts nothing but `deploy <40-hex sha> <run id>-<attempt>` and `status <40-hex sha> <run id>-<attempt>` (the second part is a per-attempt nonce), starts `deploy.sh <sha>` as a transient systemd unit (so a dropped SSH connection never interrupts a swap), streams its log lines and exits with the deploy's exit code. If SSH drops, the workflow reconnects with `status <sha>` for up to 40 minutes. The droplet's host key is pinned in the workflow.
 
 Behaviour to know:
 
 - Deploys queue (`concurrency: mdm-deploy`, no cancelling) and never run in parallel; the forced command also refuses while any `locker24-deploy-*` unit runs, and `deploy.sh` holds its flock.
-- A CI success for a commit that is no longer the tip of `main` is skipped, so a late older run cannot overwrite a newer deploy. Docs-only pushes do not run CI, hence do not deploy.
+- A CI success for a commit that is no longer the tip of `main` is skipped, so a late older run cannot overwrite a newer deploy. Server CI runs on every push to `main` (no `paths-ignore` there), so every tip of `main`, docs-only ones included, gets a CI run and a deploy of that exact commit.
 - The forced command fetches `origin/main` and refuses any SHA that is not on it, so even a manual `force` deploy (or a leaked key) can only deploy code that went through `main`. To deploy a feature-branch commit, merge it to `main` first or run `deploy.sh` by hand.
 - It also passes `JAVA_HOME` (resolved from `java` at start) to the deploy, since systemd gives it a minimal environment.
+- The nonce makes the protocol idempotent: state is keyed by sha and nonce, so `status` never reports an earlier attempt's result (unknown nonce: exit 3). `deploy` with a nonce the host already knows follows that attempt instead of starting another; `deploy` of a sha that is already deploying (for example a re-run while the first run is still going) attaches to it; a different sha while one deploys is refused. Starting a deploy is serialised with a lock.
 - Re-running a finished workflow redeploys the same commit (a rebuild and swap, harmless).
+- The forced command also refuses a sha if a tag or branch of that name exists on the remote, and after the unit ends it checks that the checkout's HEAD is the requested sha (a mismatch is logged as WRONG COMMIT and the deploy reports failure). `deploy.sh` itself uses a 40-hex ref directly as a commit and checks HEAD after the checkout.
+- The unit has `RuntimeMaxSec=45min`; when it runs out systemd sends SIGTERM, so `deploy.sh` rolls back (it gets up to 15 minutes to do so). The unit's own errors go to `/var/log/locker24-deploy.log`. `/run` is mounted noexec on Ubuntu, so the private copy of `deploy.sh` is run with `bash <copy>`.
+- The workflow stops after 3 consecutive SSH authentication or host key failures instead of retrying for 40 minutes. A deploy exit code of 255 is reported as 254 so it cannot be taken for an SSH failure.
 - Manual deploy or rollback: Actions -> "Server deploy" -> Run workflow, with the full SHA. A SHA that is not the tip of `main` needs `force`. Manual runs do not check that CI passed.
 - The deploy runs a private copy of `deploy.sh` taken from the checkout when the deploy starts, so a changed `deploy.sh` takes effect from the deploy after the one that brings it. Re-copy `deploy-forced.sh` by hand when it changes.
 - Remote output is wrapped in `::stop-commands::` so build output cannot inject workflow commands.
@@ -58,7 +62,7 @@ Behaviour to know:
 One-time setup:
 
 1. The key pair is generated by the controller (the public key file `mdm_deploy_key.pub` comes from there); never commit the private key. To generate one yourself: `ssh-keygen -t ed25519 -N "" -C github-deploy -f mdm_deploy_key`.
-2. GitHub repo Settings -> Secrets and variables -> Actions -> New repository secret `MDM_DEPLOY_SSH_KEY`, value = the whole private key file. Delete the local private key afterwards.
+2. Put the key in a GitHub Environment so that only runs on `main` can read it: Settings -> Environments -> New environment `mdm-production`; under "Deployment branches and tags" choose "Selected branches and tags" and add `main`; do not add required reviewers (deploys are automatic). In that environment add the environment secret `MDM_DEPLOY_SSH_KEY` (the whole private key file), then delete any repository-level secret of the same name (Settings -> Secrets and variables -> Actions) and the local private key. The deploy job declares `environment: mdm-production`.
 3. On the droplet install the forced command script, then the key (one line; replace `<PUBLIC KEY>` with the key material from `mdm_deploy_key.pub`, the part after `ssh-ed25519`):
 
 ```bash
@@ -70,7 +74,7 @@ echo 'command="/opt/locker24/deploy-forced.sh",restrict ssh-ed25519 <PUBLIC KEY>
 4. Check that root may log in with a key: `sshd -T | grep -i permitrootlogin` (`prohibit-password` is fine).
 5. Test: Actions -> Server deploy -> Run workflow with the SHA currently deployed (the tip of `main`). It rebuilds and swaps; the job log shows the deploy.
 
-Tests for the forced command (Docker, stubbed systemd and deploy.sh): `deploy/test/run-forced-test.sh`.
+Tests: `deploy/test/run-forced-test.sh` (Docker, stubbed systemd, git and deploy.sh, `/run` noexec) and `deploy/test/e2e/run.sh` (privileged Docker: systemd as PID 1, real sshd, real git origin, the real `deploy.sh` and `deploy-forced.sh`; only mvn, Tomcat, pg_dump and the health URL are stubbed).
 
 ## Release a version
 
@@ -124,7 +128,7 @@ systemctl start tomcat10
 
 - The build runs as root, so a malicious build step or dependency would run as root. Accepted for now; move the build to an unprivileged build user later.
 - Shared libraries: `hmdm_install.sh` also copies `server/target/shared-libs/*` into Tomcat's `lib/`. `deploy.sh` does not. If a release changes those libraries, copy them by hand and restart Tomcat.
-- The `build` job uses `paths-ignore` for docs-only changes. If `build` ever becomes a required status check, docs-only pull requests would wait for it forever; adjust the filter then.
+- Server CI uses `paths-ignore` for docs-only changes on pull requests only; pushes (to `main` and `feat/**`) always run it, because a deploy needs a CI run for every tip of `main`. If `build` ever becomes a required status check, docs-only pull requests would wait for it forever; adjust the filter then.
 - Gitleaks: `.gitleaksignore` suppresses one fingerprint, the sample `jwt.secretkey` in Headwind's `server/build.properties.example`.
 - The nightly `backup.sh` is separate and unaffected.
 - The Locker24 Health plugin's menu entry is controlled by its `plugins` row; see `deploy/server-setup.md`.

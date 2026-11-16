@@ -37,6 +37,7 @@ jobs:
       )
     runs-on: ubuntu-latest
     timeout-minutes: 50
+    environment: mdm-production
     env:
       SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}
       FORCE: ${{ inputs.force }}
@@ -49,7 +50,7 @@ jobs:
         run: |
           sha=${SHA,,}
           if ! [[ $sha =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::'$SHA' is not a full 40-character commit SHA"
+            echo "::error::the commit is not a full 40-character SHA"
             exit 1
           fi
           tip=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
@@ -85,32 +86,46 @@ jobs:
           cat > "$known" <<'KNOWN'
           mdm.locker24.app ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOROLDK4NGm5cKf9Lpl5o5VOo9RzeW4qBqEbtqzAboir
           KNOWN
-          trap 'rm -f "$key"' EXIT
+          trap 'rm -f "$key" "$errf"' EXIT
+
+          nonce=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT
+          errf=$RUNNER_TEMP/mdm_ssh_err
 
           remote() {
             ssh -T -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
               -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known" -o GlobalKnownHostsFile=/dev/null \
               -o ForwardAgent=no -o ClearAllForwardings=yes \
               -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=4 \
-              "root@$DEPLOY_HOST" "$1 $DEPLOY_SHA"
+              "root@$DEPLOY_HOST" "$1 $DEPLOY_SHA $nonce" 2> "$errf"
           }
 
           # remote output is untrusted text: keep it from being read as workflow commands
           token=$(openssl rand -hex 16)
           echo "::stop-commands::$token"
-          echo "Deploying $DEPLOY_SHA to $DEPLOY_HOST"
+          echo "Deploying $DEPLOY_SHA to $DEPLOY_HOST (attempt $nonce)"
 
           action=deploy
           start=$SECONDS
+          auth_failures=0
           while true; do
             rc=0
             remote "$action" || rc=$?
+            cat "$errf" >&2
             if [ "$rc" -ne 255 ]; then
               if [ "$action" = status ] && [ "$rc" -eq 3 ]; then
                 action=deploy
                 continue
               fi
               break
+            fi
+            if grep -q -E 'Permission denied|Host key verification failed' "$errf"; then
+              auth_failures=$((auth_failures + 1))
+              if [ "$auth_failures" -ge 3 ]; then
+                echo "SSH authentication or host key check keeps failing, giving up"
+                break
+              fi
+            else
+              auth_failures=0
             fi
             if [ $((SECONDS - start)) -gt 2400 ]; then
               break

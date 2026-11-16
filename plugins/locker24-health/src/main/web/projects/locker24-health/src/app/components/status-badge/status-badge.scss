@@ -1,0 +1,47 @@
+:host {
+  display: inline-flex;
+}
+
+.badge {
+  --l24-status-color: var(--mat-sys-outline, #74777f);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px 2px 4px;
+  border: 1px solid var(--l24-status-color);
+  border-radius: 12px;
+  color: var(--l24-status-color);
+  background: color-mix(in srgb, var(--l24-status-color) 10%, transparent);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+
+  &--green {
+    --l24-status-color: var(--mat-sys-success, #2e7d32);
+  }
+
+  &--yellow {
+    --l24-status-color: var(--mat-sys-warning, #8a5300);
+  }
+
+  &--admin {
+    --l24-status-color: var(--mat-sys-info, #4c788c);
+    border-style: dashed;
+  }
+
+  &--red {
+    --l24-status-color: var(--mat-sys-error, #ba1a1a);
+  }
+
+  &-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+  }
+
+  &-count {
+    margin-left: 2px;
+    font-weight: 700;
+  }
+}

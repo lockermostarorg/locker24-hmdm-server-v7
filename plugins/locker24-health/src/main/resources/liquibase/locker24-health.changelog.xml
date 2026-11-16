@@ -150,4 +150,17 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="plugin-locker24-health-16.11.2026-08" author="locker24" context="common">
+        <comment>Plugin: serve the fleet health dashboard</comment>
+        <sql>
+            UPDATE plugins SET
+                baseUrl = '/plugins/locker24-health',
+                baseUrlDev = 'http://localhost:4224'
+            WHERE identifier = 'locker24-health';
+        </sql>
+        <rollback>
+            UPDATE plugins SET baseUrl = NULL, baseUrlDev = NULL WHERE identifier = 'locker24-health';
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>

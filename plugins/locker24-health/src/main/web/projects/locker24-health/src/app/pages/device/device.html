@@ -1,0 +1,163 @@
+<mat-card class="card scroll-content">
+  <div class="card-header">
+    <div class="heading">
+      <a class="back" [routerLink]="['main']" [relativeTo]="pluginRoot">
+        <mat-icon aria-hidden="true">arrow_back</mat-icon>
+        {{ 'plugin.locker24-health.fleet.title' | translate }}
+      </a>
+      <div class="card-title">
+        <h3>
+          {{ row()?.number ?? ('plugin.locker24-health.device.title' | translate) }}
+        </h3>
+        @if (row()) {
+          <l24-status-badge [status]="status()" />
+        }
+      </div>
+      @if (row()?.description) {
+        <div class="muted">{{ row()!.description }}</div>
+      }
+    </div>
+
+    <div class="card-actions">
+      <button matButton="outlined" type="button" (click)="refresh()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        {{ 'plugin.locker24-health.button.refresh' | translate }}
+      </button>
+    </div>
+  </div>
+
+  <mat-card-content class="card-content scroll-scrollable">
+    @if (rowMissing() && !error()) {
+      <p class="notice notice--warn" role="status">
+        <mat-icon aria-hidden="true">info</mat-icon>
+        {{ 'plugin.locker24-health.device.not_in_fleet' | translate }}
+      </p>
+    }
+
+    @if (row(); as current) {
+      <section
+        class="snapshot"
+        [attr.aria-label]="'plugin.locker24-health.device.snapshot' | translate"
+      >
+        @if (reasons().length) {
+          <ul class="reasons">
+            @for (reason of reasons(); track $index) {
+              <li>{{ reason | translate }}</li>
+            }
+          </ul>
+        }
+        <dl class="facts">
+          <div class="fact">
+            <dt>{{ 'plugin.locker24-health.column.lastSeen' | translate }}</dt>
+            <dd>{{ lastSeen().key | translate: { count: lastSeen().count } }}</dd>
+          </div>
+          @for (fact of facts(); track fact.key) {
+            <div class="fact">
+              <dt>{{ fact.label | translate }}</dt>
+              <dd [class.mono]="fact.mono">
+                @if (fact.translate) {
+                  {{ fact.translate | translate }}
+                } @else {
+                  {{ fact.value || '–' }}
+                }
+              </dd>
+            </div>
+          }
+        </dl>
+      </section>
+    }
+
+    <nav class="ranges" [attr.aria-label]="'plugin.locker24-health.range.label' | translate">
+      @for (range of ranges; track range) {
+        <a
+          [matButton]="hours() === range ? 'filled' : 'outlined'"
+          [routerLink]="[]"
+          [queryParams]="{ hours: range }"
+          [attr.aria-current]="hours() === range ? 'true' : null"
+          >{{ rangeLabel(range) | translate }}</a
+        >
+      }
+      <hmdm-help-tooltip [text]="'plugin.locker24-health.range.help'" />
+    </nav>
+
+    @if (error()) {
+      <p class="notice notice--error" role="alert">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        {{ error()! | translate }}
+      </p>
+    }
+
+    @if (history()?.truncated) {
+      <p class="notice notice--warn" role="status">
+        <mat-icon aria-hidden="true">info</mat-icon>
+        {{ 'plugin.locker24-health.device.truncated' | translate }}
+      </p>
+    }
+
+    @if (history()) {
+      <p class="legend muted">
+        <span class="legend-band" aria-hidden="true"></span>
+        {{ 'plugin.locker24-health.chart.legend' | translate }}
+      </p>
+
+      <div class="charts">
+        @for (chart of charts(); track chart.key) {
+          <section class="chart">
+            <h4 class="chart-title">
+              {{ chart.title | translate }}
+              <hmdm-help-tooltip [text]="chart.help" />
+            </h4>
+            @if (chart.empty) {
+              <p class="empty">{{ 'plugin.locker24-health.chart.empty' | translate }}</p>
+            } @else {
+              <div class="chart-canvas" role="img" [attr.aria-label]="chart.title | translate">
+                <hmdm-chart
+                  chartType="line"
+                  [data]="chart.data"
+                  [options]="chart.options"
+                  [plugins]="plugins"
+                  [showLegend]="false"
+                />
+              </div>
+            }
+          </section>
+        }
+      </div>
+
+      <section class="offline">
+        <h4 class="chart-title">
+          {{ 'plugin.locker24-health.offline.title' | translate }}
+          <hmdm-help-tooltip [text]="'plugin.locker24-health.offline.help'" />
+        </h4>
+        @if (periods().length === 0) {
+          <p class="muted">{{ 'plugin.locker24-health.offline.none' | translate }}</p>
+        } @else {
+          <table class="periods">
+            <thead>
+              <tr>
+                <th scope="col">{{ 'plugin.locker24-health.offline.from' | translate }}</th>
+                <th scope="col">{{ 'plugin.locker24-health.offline.to' | translate }}</th>
+                <th scope="col">{{ 'plugin.locker24-health.offline.duration' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (period of periods(); track $index) {
+                <tr>
+                  <td>{{ period.from }}</td>
+                  <td>
+                    @if (period.ongoing) {
+                      {{ 'plugin.locker24-health.offline.ongoing' | translate }}
+                    } @else {
+                      {{ period.to }}
+                    }
+                  </td>
+                  <td>{{ period.duration }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    }
+  </mat-card-content>
+</mat-card>

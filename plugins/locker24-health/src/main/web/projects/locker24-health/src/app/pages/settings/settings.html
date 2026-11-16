@@ -1,0 +1,156 @@
+<mat-card class="card">
+  <mat-card-header class="card-header">
+    <mat-card-title class="card-title">
+      <h3>{{ 'plugin.locker24-health.settings.title' | translate }}</h3>
+    </mat-card-title>
+
+    @if (editable()) {
+      <button
+        matButton="filled"
+        class="primary"
+        type="button"
+        (click)="save()"
+        [disabled]="!canSave()"
+      >
+        <mat-icon>save</mat-icon>
+        {{ 'plugin.locker24-health.button.save' | translate }}
+      </button>
+    }
+  </mat-card-header>
+
+  <mat-card-content class="card-content">
+    @if (loading()) {
+      <p class="empty">{{ 'plugin.locker24-health.loading' | translate }}</p>
+    }
+
+    @if (error()) {
+      <p class="notice notice--error" role="alert">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        {{ error()! | translate }}
+      </p>
+    }
+
+    @if (saved()) {
+      <p class="notice notice--info" role="status">
+        <mat-icon aria-hidden="true">check_circle</mat-icon>
+        {{ 'plugin.locker24-health.settings.saved' | translate }}
+      </p>
+    }
+
+    @if (settings(); as current) {
+      @if (!current.editable) {
+        <p class="notice notice--info" role="status">
+          <mat-icon aria-hidden="true">lock</mat-icon>
+          {{ 'plugin.locker24-health.settings.read_only' | translate }}
+        </p>
+      }
+
+      <form class="form" (submit)="$event.preventDefault(); save()">
+        <section class="field">
+          @if (current.editable) {
+            <hmdm-select-search
+              [formControl]="timeZoneControl"
+              [options]="zoneOptions()"
+              [label]="'plugin.locker24-health.settings.time_zone' | translate"
+              [help]="'plugin.locker24-health.settings.time_zone.help'"
+            />
+          } @else {
+            <h4 class="field-title">
+              {{ 'plugin.locker24-health.settings.time_zone' | translate }}
+              <hmdm-help-tooltip [text]="'plugin.locker24-health.settings.time_zone.help'" />
+            </h4>
+            <p class="field-value">{{ current.timeZone }}</p>
+          }
+        </section>
+
+        <section class="field webhook" aria-labelledby="l24-webhook-title">
+          <h4 id="l24-webhook-title" class="field-title">
+            {{ 'plugin.locker24-health.settings.webhook' | translate }}
+            <hmdm-help-tooltip [text]="'plugin.locker24-health.settings.webhook.help'" />
+          </h4>
+
+          <p class="webhook-state" [class.webhook-state--set]="current.webhookUrlSet">
+            <mat-icon aria-hidden="true">{{
+              current.webhookUrlSet ? 'link' : 'link_off'
+            }}</mat-icon>
+            {{
+              (current.webhookUrlSet
+                ? 'plugin.locker24-health.settings.webhook.configured'
+                : 'plugin.locker24-health.settings.webhook.not_configured'
+              ) | translate
+            }}
+          </p>
+
+          @if (current.editable) {
+            @switch (webhookMode()) {
+              @case ('keep') {
+                <div class="webhook-actions">
+                  <button matButton="outlined" type="button" (click)="startReplace()">
+                    <mat-icon>edit</mat-icon>
+                    {{
+                      (current.webhookUrlSet
+                        ? 'plugin.locker24-health.settings.webhook.change'
+                        : 'plugin.locker24-health.settings.webhook.set'
+                      ) | translate
+                    }}
+                  </button>
+                  @if (current.webhookUrlSet) {
+                    <button matButton type="button" (click)="startClear()">
+                      <mat-icon>delete</mat-icon>
+                      {{ 'plugin.locker24-health.settings.webhook.clear' | translate }}
+                    </button>
+                  }
+                </div>
+              }
+              @case ('replace') {
+                <mat-form-field appearance="outline" class="webhook-input">
+                  <mat-label>{{
+                    'plugin.locker24-health.settings.webhook.new' | translate
+                  }}</mat-label>
+                  <input
+                    matInput
+                    [type]="showUrl() ? 'text' : 'password'"
+                    [formControl]="webhookControl"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="https://"
+                  />
+                  <button
+                    matIconButton
+                    matSuffix
+                    type="button"
+                    (click)="showUrl.set(!showUrl())"
+                    [attr.aria-label]="'plugin.locker24-health.settings.webhook.toggle' | translate"
+                    [attr.aria-pressed]="showUrl()"
+                  >
+                    <mat-icon>{{ showUrl() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                  </button>
+                  <mat-hint>{{
+                    'plugin.locker24-health.settings.webhook.hint' | translate
+                  }}</mat-hint>
+                  @if (webhookControl.hasError('httpsUrl')) {
+                    <mat-error>{{
+                      'plugin.locker24-health.settings.webhook.invalid' | translate
+                    }}</mat-error>
+                  }
+                </mat-form-field>
+                <button matButton type="button" (click)="cancelWebhook()">
+                  {{ 'plugin.locker24-health.button.cancel' | translate }}
+                </button>
+              }
+              @case ('clear') {
+                <p class="notice notice--warn" role="status">
+                  <mat-icon aria-hidden="true">warning</mat-icon>
+                  {{ 'plugin.locker24-health.settings.webhook.will_clear' | translate }}
+                </p>
+                <button matButton type="button" (click)="cancelWebhook()">
+                  {{ 'plugin.locker24-health.button.cancel' | translate }}
+                </button>
+              }
+            }
+          }
+        </section>
+      </form>
+    }
+  </mat-card-content>
+</mat-card>

@@ -1,0 +1,131 @@
+@use '../../styles/shared';
+
+.updated {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 12px;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  &-link {
+    border-radius: 12px;
+    text-decoration: none;
+
+    &[aria-current='true'] {
+      box-shadow: 0 0 0 2px var(--mat-sys-primary);
+    }
+  }
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
+
+  .filter {
+    width: 200px;
+
+    &--search {
+      width: 260px;
+    }
+  }
+
+  &-clear {
+    margin-bottom: 20px;
+  }
+}
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+}
+
+.fleet {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--mat-sys-on-surface);
+
+  th,
+  td {
+    padding: 6px 10px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 2px 4px 2px 10px;
+    background: var(--mat-sys-surface-container-high, var(--mat-sys-surface));
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .th {
+    display: flex;
+    align-items: center;
+  }
+
+  .sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 2px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .sort-icon,
+  .inline-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+    vertical-align: middle;
+  }
+
+  .inline-icon--warn {
+    color: var(--mat-sys-warning, #8a5300);
+  }
+
+  .hint {
+    transform: scale(0.8);
+  }
+
+  .row {
+    cursor: pointer;
+
+    &:hover,
+    &:focus-within {
+      background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent);
+    }
+
+    &--red {
+      background: color-mix(in srgb, var(--mat-sys-error, #ba1a1a) 5%, transparent);
+    }
+  }
+
+  .reasons {
+    margin: 4px 0 0;
+    padding-left: 18px;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 12px;
+  }
+
+  .device-link {
+    color: var(--mat-sys-on-surface);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}

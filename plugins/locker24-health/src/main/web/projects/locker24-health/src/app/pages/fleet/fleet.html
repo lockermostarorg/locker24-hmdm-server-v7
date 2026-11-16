@@ -1,0 +1,216 @@
+<mat-card class="card scroll-content">
+  <mat-card-header class="card-header">
+    <mat-card-title class="card-title">
+      <h3>{{ 'plugin.locker24-health.fleet.title' | translate }}</h3>
+      <hmdm-help-tooltip [text]="'plugin.locker24-health.fleet.help'" />
+    </mat-card-title>
+
+    <div class="card-actions">
+      @if (updatedAt()) {
+        <span class="updated" [attr.title]="updatedAtText()">
+          {{ 'plugin.locker24-health.fleet.updated' | translate: { time: updatedAtText() } }}
+        </span>
+      }
+      <button matButton="outlined" type="button" (click)="refresh()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        {{ 'plugin.locker24-health.button.refresh' | translate }}
+      </button>
+    </div>
+  </mat-card-header>
+
+  <mat-card-content class="card-content scroll-scrollable">
+    <nav class="summary" [attr.aria-label]="'plugin.locker24-health.fleet.summary' | translate">
+      @for (status of statuses; track status) {
+        <a
+          class="summary-link"
+          [routerLink]="[]"
+          [queryParams]="statusLink(status)"
+          [attr.aria-current]="filter().status === status ? 'true' : null"
+        >
+          <l24-status-badge [status]="status" [count]="counts()[status]" />
+        </a>
+      }
+    </nav>
+
+    <form class="filters" [formGroup]="form" (submit)="$event.preventDefault()">
+      <mat-form-field appearance="outline" class="filter">
+        <mat-label>{{ 'plugin.locker24-health.filter.configuration' | translate }}</mat-label>
+        <mat-select formControlName="configurationId">
+          <mat-option [value]="null">{{
+            'plugin.locker24-health.filter.all' | translate
+          }}</mat-option>
+          @for (option of configurationOptions(); track option.value) {
+            <mat-option [value]="option.value">{{ option.viewValue }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter">
+        <mat-label>{{ 'plugin.locker24-health.filter.status' | translate }}</mat-label>
+        <mat-select formControlName="status">
+          <mat-option [value]="null">{{
+            'plugin.locker24-health.filter.all' | translate
+          }}</mat-option>
+          @for (status of statuses; track status) {
+            <mat-option [value]="status">
+              {{ 'plugin.locker24-health.status.' + status | translate }}
+            </mat-option>
+          }
+        </mat-select>
+        <hmdm-help-tooltip matSuffix [text]="'plugin.locker24-health.filter.status.help'" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter">
+        <mat-label>{{ 'plugin.locker24-health.filter.model' | translate }}</mat-label>
+        <mat-select formControlName="model">
+          <mat-option [value]="null">{{
+            'plugin.locker24-health.filter.all' | translate
+          }}</mat-option>
+          @for (option of modelOptions(); track option.value) {
+            <mat-option [value]="option.value">{{ option.viewValue }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter filter--search">
+        <mat-label>{{ 'plugin.locker24-health.filter.search' | translate }}</mat-label>
+        <input
+          matInput
+          type="search"
+          formControlName="search"
+          autocomplete="off"
+          [attr.title]="'plugin.locker24-health.filter.search.help' | translate"
+        />
+        <mat-icon matSuffix aria-hidden="true">search</mat-icon>
+      </mat-form-field>
+
+      @if (isFiltered()) {
+        <button matButton type="button" class="filters-clear" (click)="clearFilters()">
+          <mat-icon>filter_alt_off</mat-icon>
+          {{ 'plugin.locker24-health.filter.clear' | translate }}
+        </button>
+      }
+    </form>
+
+    @if (error()) {
+      <p class="notice notice--error" role="alert">
+        <mat-icon aria-hidden="true">cloud_off</mat-icon>
+        {{ error()! | translate }}
+      </p>
+    }
+
+    @if (truncated()) {
+      <p class="notice notice--warn" role="status">
+        <mat-icon aria-hidden="true">info</mat-icon>
+        {{ 'plugin.locker24-health.fleet.truncated' | translate }}
+      </p>
+    }
+
+    @if (!loaded()) {
+      @if (!error()) {
+        <p class="empty">{{ 'plugin.locker24-health.loading' | translate }}</p>
+      }
+    } @else if (rows().length === 0) {
+      <p class="empty">{{ 'plugin.locker24-health.fleet.empty' | translate }}</p>
+    } @else if (views().length === 0) {
+      <p class="empty">{{ 'plugin.locker24-health.fleet.no_match' | translate }}</p>
+    } @else {
+      <div class="table-wrap">
+        <table class="fleet">
+          <caption class="sr-only">
+            {{
+              'plugin.locker24-health.fleet.caption' | translate: { count: views().length }
+            }}
+          </caption>
+          <thead>
+            <tr>
+              @for (column of columns; track column.key) {
+                <th scope="col" [attr.aria-sort]="ariaSort(column.key)">
+                  <div class="th">
+                    <button type="button" class="sort" (click)="onSort(column.key)">
+                      <span>{{ column.title | translate }}</span>
+                      <mat-icon class="sort-icon" aria-hidden="true">{{
+                        sortIcon(column.key)
+                      }}</mat-icon>
+                    </button>
+                    <hmdm-help-tooltip class="hint" [text]="column.help" />
+                  </div>
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (view of views(); track view.row.deviceId) {
+              <tr
+                class="row"
+                [class.row--red]="view.status === 'red'"
+                (click)="onRowClick($event, view.row)"
+                (auxclick)="onRowClick($event, view.row)"
+              >
+                <td>
+                  <l24-status-badge [status]="view.status" />
+                  @if (view.reasons.length) {
+                    <ul class="reasons">
+                      @for (reason of view.reasons; track $index) {
+                        <li>{{ reason | translate }}</li>
+                      }
+                    </ul>
+                  }
+                </td>
+                <td>
+                  <a
+                    class="device-link"
+                    [routerLink]="['main', 'device', view.row.deviceId]"
+                    [relativeTo]="pluginRoot"
+                    >{{ view.row.number }}</a
+                  >
+                  @if (view.row.description) {
+                    <div class="muted">{{ view.row.description }}</div>
+                  }
+                </td>
+                <td>{{ view.row.configurationName }}</td>
+                <td>{{ view.row.groups }}</td>
+                <td class="mono">{{ view.row.lockerShortUid }}</td>
+                <td>
+                  <time
+                    [attr.datetime]="view.lastSeenIso"
+                    [attr.title]="view.lastSeenAbsolute || null"
+                    >{{ view.lastSeen.key | translate: { count: view.lastSeen.count } }}</time
+                  >
+                </td>
+                <td class="nowrap">
+                  {{ view.battery }}
+                  @if (view.row.charging === true) {
+                    <mat-icon
+                      class="inline-icon"
+                      [attr.title]="'plugin.locker24-health.battery.charging' | translate"
+                      aria-hidden="true"
+                      >bolt</mat-icon
+                    >
+                    <span class="sr-only">{{
+                      'plugin.locker24-health.battery.charging' | translate
+                    }}</span>
+                  } @else if (view.row.charging === false) {
+                    <mat-icon
+                      class="inline-icon inline-icon--warn"
+                      [attr.title]="'plugin.locker24-health.battery.not_charging' | translate"
+                      aria-hidden="true"
+                      >power_off</mat-icon
+                    >
+                    <span class="sr-only">{{
+                      'plugin.locker24-health.battery.not_charging' | translate
+                    }}</span>
+                  }
+                </td>
+                <td class="nowrap">{{ view.temperature }}</td>
+                <td class="mono">{{ view.row.kioskAppVersion }}</td>
+                <td class="mono">{{ view.row.agentVersion }}</td>
+                <td>{{ 'plugin.locker24-health.kiosk.' + view.kiosk | translate }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </mat-card-content>
+</mat-card>

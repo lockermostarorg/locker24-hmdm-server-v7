@@ -1,0 +1,99 @@
+.card {
+  &-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  &-title {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    h3 {
+      margin: 0;
+    }
+  }
+
+  &-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--l24-notice-color);
+  color: var(--mat-sys-on-surface);
+  background: color-mix(in srgb, var(--l24-notice-color) 8%, transparent);
+
+  mat-icon {
+    color: var(--l24-notice-color);
+    flex-shrink: 0;
+  }
+
+  &--warn {
+    --l24-notice-color: var(--mat-sys-warning, #8a5300);
+  }
+
+  &--error {
+    --l24-notice-color: var(--mat-sys-error, #ba1a1a);
+  }
+
+  &--info {
+    --l24-notice-color: var(--mat-sys-primary, #005cbb);
+  }
+}
+
+.muted {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 12px;
+}
+
+.empty {
+  margin: 24px 0;
+  text-align: center;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}

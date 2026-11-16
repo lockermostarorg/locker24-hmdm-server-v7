@@ -142,7 +142,10 @@ else
         note "[dry-run] git fetch --tags --prune; git checkout --force --detach $REF"
     else
         git_net fetch --tags --prune
-        if git rev-parse -q --verify "refs/tags/$REF^{commit}" >/dev/null; then
+        if [[ "$REF" =~ ^[0-9a-f]{40}$ ]]; then
+            git rev-parse -q --verify "$REF^{commit}" >/dev/null || { echo "commit $REF not found" >&2; exit 1; }
+            TARGET=$REF
+        elif git rev-parse -q --verify "refs/tags/$REF^{commit}" >/dev/null; then
             TARGET=refs/tags/$REF
         elif git rev-parse -q --verify "refs/remotes/origin/$REF^{commit}" >/dev/null; then
             TARGET=refs/remotes/origin/$REF
@@ -153,6 +156,10 @@ else
             exit 1
         fi
         git checkout --force --detach "$TARGET"
+        if [[ "$REF" =~ ^[0-9a-f]{40}$ ]] && [ "$(git rev-parse HEAD)" != "$REF" ]; then
+            echo "checked out $(git rev-parse HEAD) instead of the requested $REF; refusing to build" >&2
+            exit 1
+        fi
         note "checked out $(git rev-parse --short HEAD)"
     fi
 fi

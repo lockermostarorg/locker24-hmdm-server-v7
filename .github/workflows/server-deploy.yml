@@ -1,0 +1,162 @@
+name: Server deploy
+
+on:
+  workflow_run:
+    workflows: ['Server CI']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full 40-character commit SHA to deploy
+        required: true
+        type: string
+      force:
+        description: Deploy even if the SHA is not the current tip of main (older commit, rollback)
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mdm-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.ref == 'refs/heads/main' && (
+        github.event_name == 'workflow_dispatch' || (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.head_repository.full_name == github.repository
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    environment: mdm-production
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}
+      FORCE: ${{ inputs.force }}
+      EVENT: ${{ github.event_name }}
+      GH_TOKEN: ${{ github.token }}
+      DEPLOY_HOST: mdm.locker24.app
+    steps:
+      - name: Check the commit
+        id: check
+        run: |
+          sha=${SHA,,}
+          if ! [[ $sha =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::the commit is not a full 40-character SHA"
+            exit 1
+          fi
+          tip=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          deploy=true
+          if [ "$sha" != "$tip" ]; then
+            if [ "$EVENT" = workflow_dispatch ] && [ "$FORCE" = true ]; then
+              echo "::warning::$sha is not the tip of main ($tip); deploying it because force is set"
+            elif [ "$EVENT" = workflow_dispatch ]; then
+              echo "::error::$sha is not the tip of main ($tip); set force to deploy it anyway"
+              exit 1
+            else
+              echo "::notice::Skipping $sha: main has moved on to $tip, whose CI run deploys it"
+              deploy=false
+            fi
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.deploy == 'true'
+        with:
+          persist-credentials: false
+
+      - name: Deploy over SSH
+        if: steps.check.outputs.deploy == 'true'
+        env:
+          DEPLOY_SHA: ${{ steps.check.outputs.sha }}
+          SSH_KEY: ${{ secrets.MDM_DEPLOY_SSH_KEY }}
+        run: |
+          if [ -z "$SSH_KEY" ]; then
+            echo "::error::secret MDM_DEPLOY_SSH_KEY is not set"
+            exit 1
+          fi
+          umask 077
+          key=$RUNNER_TEMP/mdm_deploy_key
+          known=$RUNNER_TEMP/mdm_known_hosts
+          printf '%s\n' "$SSH_KEY" > "$key"
+          cat > "$known" <<'KNOWN'
+          mdm.locker24.app ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOROLDK4NGm5cKf9Lpl5o5VOo9RzeW4qBqEbtqzAboir
+          KNOWN
+          trap 'rm -f "$key" "$errf"' EXIT
+
+          nonce=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT
+          errf=$RUNNER_TEMP/mdm_ssh_err
+
+          sshq() {
+            ssh -T -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes \
+              -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known" -o GlobalKnownHostsFile=/dev/null \
+              -o ForwardAgent=no -o ClearAllForwardings=yes \
+              -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=4 \
+              "root@$DEPLOY_HOST" "$1" 2> "$errf"
+          }
+          remote() {
+            sshq "$1 $DEPLOY_SHA $nonce"
+          }
+
+          if [ "$EVENT" = workflow_run ]; then
+            deployed=$(sshq deployed | head -c 100 | tr -d '\r\n' || true)
+            if [[ $deployed =~ ^[0-9a-f]{40}$ ]] && bash deploy/docs-only.sh "$deployed" "$DEPLOY_SHA"; then
+              echo "::notice::Docs-only change since the deployed $deployed, not deployed"
+              echo "Docs-only change since \`$deployed\`: \`$DEPLOY_SHA\` was not deployed" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
+
+          # remote output is untrusted text: keep it from being read as workflow commands
+          token=$(openssl rand -hex 16)
+          echo "::stop-commands::$token"
+          echo "Deploying $DEPLOY_SHA to $DEPLOY_HOST (attempt $nonce)"
+
+          action=deploy
+          start=$SECONDS
+          auth_failures=0
+          while true; do
+            rc=0
+            remote "$action" || rc=$?
+            cat "$errf" >&2
+            if [ "$rc" -ne 255 ]; then
+              if [ "$action" = status ] && [ "$rc" -eq 3 ]; then
+                action=deploy
+                continue
+              fi
+              break
+            fi
+            if grep -q -E 'Permission denied|Host key verification failed' "$errf"; then
+              auth_failures=$((auth_failures + 1))
+              if [ "$auth_failures" -ge 3 ]; then
+                echo "SSH authentication or host key check keeps failing, giving up"
+                break
+              fi
+            else
+              auth_failures=0
+            fi
+            if [ $((SECONDS - start)) -gt 2400 ]; then
+              break
+            fi
+            echo "SSH connection lost, reconnecting in 15 s"
+            action=status
+            sleep 15
+          done
+
+          echo "::$token::"
+          if [ "$rc" -eq 0 ]; then
+            echo "::notice::Deployed $DEPLOY_SHA to $DEPLOY_HOST"
+            echo "Deployed \`$DEPLOY_SHA\` to $DEPLOY_HOST" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::Deploy of $DEPLOY_SHA failed (exit code $rc)"
+            exit 1
+          fi

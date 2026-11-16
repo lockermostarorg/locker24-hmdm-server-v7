@@ -3,7 +3,6 @@ name: Server CI
 on:
   push:
     branches: [main, 'feat/**']
-    paths-ignore: ['docs/**', '**/*.md']
   pull_request:
     branches: [main]
     paths-ignore: ['docs/**', '**/*.md']

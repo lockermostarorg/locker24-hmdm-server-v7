@@ -72,9 +72,9 @@ public class ReleaseFlowMapperStatementsTest {
     }
 
     @Test
-    public void rowMoveAndVersionRowsParse() {
-        assertEquals(2, bound("com.hmdm.persistence.mapper.ApplicationMapper.moveRowToLatest", "configId", 1, "appId", 2)
-                .getParameterMappings().size());
+    public void versionLookupsParse() {
+        assertTrue(bound("com.hmdm.persistence.mapper.ApplicationMapper.getApplicationOfVersion", "id", 1)
+                .getSql().contains("latestVersion"));
         assertTrue(bound("com.hmdm.persistence.mapper.ApplicationMapper.getVersionConfigurationRows", "id", 1)
                 .getSql().contains("applicationVersionId"));
     }

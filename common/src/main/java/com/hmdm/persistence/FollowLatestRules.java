@@ -2,7 +2,6 @@ package com.hmdm.persistence;
 
 import com.hmdm.persistence.domain.Application;
 
-import java.util.Objects;
 
 public final class FollowLatestRules {
 
@@ -20,29 +19,18 @@ public final class FollowLatestRules {
         return latestReleasedId != null && latestReleasedId == chosenVersionId;
     }
 
-    public static boolean followForSavedRow(Boolean incoming,
-                                            Boolean stored,
-                                            Integer storedVersionId,
-                                            Integer savedVersionId,
-                                            Integer latestReleasedId) {
-        if (stored == null) {
-            if (incoming != null) {
-                return incoming;
-            }
-            return savedVersionId == null || followForLinkedVersion(savedVersionId, latestReleasedId);
+    public static boolean followForSaved(Boolean incoming, Boolean stored, Integer savedVersionId, Integer latestReleasedId) {
+        if (incoming != null) {
+            return incoming;
         }
-        if (turnedOn(incoming, stored)) {
-            return true;
+        if (stored != null) {
+            return stored;
         }
-        final boolean versionChanged = savedVersionId != null && !Objects.equals(savedVersionId, storedVersionId);
-        if (versionChanged && !followForLinkedVersion(savedVersionId, latestReleasedId)) {
-            return false;
-        }
-        return incoming != null ? incoming : stored;
+        return savedVersionId == null || followForLinkedVersion(savedVersionId, latestReleasedId);
     }
 
-    public static boolean movesToLatestOnSave(Boolean incoming, Boolean stored) {
-        return Boolean.TRUE.equals(incoming) && !Boolean.TRUE.equals(stored);
+    public static Integer versionForSaved(boolean follow, Integer savedVersionId, Integer latestReleasedId) {
+        return follow && latestReleasedId != null ? latestReleasedId : savedVersionId;
     }
 
     public static boolean followForVersionLink(Application storedRow, int linkAction, int versionId, Integer latestReleasedId) {
@@ -54,17 +42,6 @@ public final class FollowLatestRules {
 
     public static String modeForCheckForUpdates(boolean update) {
         return update ? MODE_SCHEDULE : MODE_HOLD;
-    }
-
-    private static boolean turnedOn(Boolean incoming, Boolean stored) {
-        return Boolean.TRUE.equals(incoming) && Boolean.FALSE.equals(stored);
-    }
-
-    public static boolean followForConfigurationFlag(Boolean incoming, Boolean stored) {
-        if (incoming != null) {
-            return incoming;
-        }
-        return stored == null || stored;
     }
 
     public static String normalizeUploadMode(String mode) {

@@ -284,23 +284,7 @@ expect "app dialog: a row switched to install on an older version is pinned" "$A
 expect "app dialog: a row switched to install on the latest follows" "$B2:1:true" "$(ver_of "$C_LINK" "$APP_B")"
 expect "app dialog: an install row that stays install keeps its pin" "$B1:1:false" "$(ver_of "$C_KEEP" "$APP_B")"
 
-C_ON="$(conf c-turned-on)"
-row "$C_ON" "$APP_A" "$A1" TRUE
-row "$C_ON" "$APP_B" "$B1" FALSE
-render "$APP_MAPPER" moveRowToLatest configId="$C_ON" appId="$APP_A" | psqlq >/dev/null
-render "$APP_MAPPER" moveRowToLatest configId="$C_ON" appId="$APP_B" | psqlq >/dev/null
-expect "save: a row turned on moves to the latest" "$(LATEST_A):1:true" "$(ver_of "$C_ON" "$APP_A")"
-expect "save: a pinned row is not moved by the row move" "$B1:1:false" "$(ver_of "$C_ON" "$APP_B")"
-q "UPDATE applicationVersions SET releaseState = 'held' WHERE applicationId = $APP_A AND version = '9.0'" >/dev/null
-recalc "$APP_A"
-AHEAD="$(q "INSERT INTO applicationVersions (applicationId, version, versionCode, releaseState) VALUES ($APP_A, '99.0', 1, 'held') RETURNING id" | head -1)"
-q "UPDATE configurationApplications SET applicationVersionId = $AHEAD WHERE configurationId = $C_ON AND applicationId = $APP_A" >/dev/null
-render "$APP_MAPPER" moveRowToLatest configId="$C_ON" appId="$APP_A" | psqlq >/dev/null
-expect "save: the row move never moves a row down" "$AHEAD:1:true" "$(ver_of "$C_ON" "$APP_A")"
-q "UPDATE configurationApplications SET applicationVersionId = $A9 WHERE configurationId = $C_ON AND applicationId = $APP_A" >/dev/null
-q "DELETE FROM applicationVersions WHERE id = $AHEAD" >/dev/null
-q "UPDATE applicationVersions SET releaseState = 'released' WHERE id = $A9" >/dev/null
-recalc "$APP_A"
+expect "save: the application of a main/content version and its latest" "$APP_A|$(LATEST_A)" "$(render "$APP_MAPPER" getApplicationOfVersion id="$A1" | psqlq -F'|')"
 
 ver "$APP_A" 10.0 held >/dev/null
 expect "counts: released and all versions" "10|11" "$(render "$APP_MAPPER" countReleasedVersions id="$APP_A" | psqlq)|$(render "$APP_MAPPER" countVersions id="$APP_A" | psqlq)"

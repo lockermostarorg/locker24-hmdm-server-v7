@@ -382,17 +382,10 @@ public interface ApplicationMapper {
     List<Integer> moveFollowersToLatest(@Param("appId") Integer applicationId,
                                         @Param("configId") Integer configurationId);
 
-    @Update("UPDATE configurationApplications SET applicationVersionId = a.latestVersion " +
-            "FROM applications a, applicationVersions cur, applicationVersions lat " +
-            "WHERE configurationApplications.configurationId = #{configId} " +
-            "AND configurationApplications.applicationId = #{appId} " +
-            "AND configurationApplications.action = 1 " +
-            "AND configurationApplications.followLatest " +
-            "AND a.id = configurationApplications.applicationId " +
-            "AND lat.id = a.latestVersion " +
-            "AND cur.id = configurationApplications.applicationVersionId " +
-            "AND mdm_app_version_comparison_index(cur.version) < mdm_app_version_comparison_index(lat.version)")
-    int moveRowToLatest(@Param("configId") Integer configurationId, @Param("appId") Integer applicationId);
+    @Select("SELECT a.id, a.latestVersion FROM applicationVersions v " +
+            "INNER JOIN applications a ON a.id = v.applicationId WHERE v.id = #{id}")
+    @Options(flushCache = Options.FlushCachePolicy.TRUE, useCache = false)
+    Application getApplicationOfVersion(@Param("id") int applicationVersionId);
 
     @Update("UPDATE applicationVersions " +
             "SET releaseState = 'released', releasedAt = #{releasedAt}, releaseMode = #{mode}, releasedBy = #{userId} " +

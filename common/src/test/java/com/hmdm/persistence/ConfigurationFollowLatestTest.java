@@ -29,7 +29,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyListOf;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
@@ -92,8 +91,8 @@ public class ConfigurationFollowLatestTest {
         dao.updateConfiguration(incoming);
 
         Map<Integer, Application> saved = savedRows();
-        assertEquals(Boolean.FALSE, saved.get(APP_PINNED).isFollowLatest());
-        assertEquals(Boolean.TRUE, saved.get(APP_FOLLOWING).isFollowLatest());
+        assertRow(saved.get(APP_PINNED), false, 101);
+        assertRow(saved.get(APP_FOLLOWING), true, 202);
         ArgumentCaptor<Configuration> config = ArgumentCaptor.forClass(Configuration.class);
         verify(configurationMapper).updateConfiguration(config.capture());
         assertEquals(Boolean.FALSE, config.getValue().getFollowLatestMainApp());
@@ -101,34 +100,56 @@ public class ConfigurationFollowLatestTest {
     }
 
     @Test
-    public void savingWithExplicitFollowLatestOverridesStoredValue() {
+    public void staleSaveAfterAReleaseKeepsFollowersOnTheNewVersion() {
         when(configurationMapper.getConfigurationById(CONFIG)).thenReturn(configuration());
         when(configurationMapper.getConfigurationFollowRows(CONFIG)).thenReturn(Arrays.asList(
-                row(APP_PINNED, 101, false), row(APP_FOLLOWING, 202, true)));
+                row(APP_FOLLOWING, 202, true), row(APP_NEW, 302, true)));
 
         Configuration incoming = configuration();
         incoming.setApplications(new ArrayList<>(Arrays.asList(
-                row(APP_PINNED, 101, true), row(APP_FOLLOWING, 202, false))));
+                row(APP_FOLLOWING, 201, null), row(APP_NEW, 301, true))));
 
         dao.updateConfiguration(incoming);
 
         Map<Integer, Application> saved = savedRows();
-        assertEquals(Boolean.TRUE, saved.get(APP_PINNED).isFollowLatest());
-        assertEquals(Boolean.FALSE, saved.get(APP_FOLLOWING).isFollowLatest());
+        assertRow(saved.get(APP_FOLLOWING), true, 202);
+        assertRow(saved.get(APP_NEW), true, 302);
     }
 
     @Test
-    public void savingWithNullFollowLatestAndAnotherVersionPinsTheRow() {
+    public void explicitFalsePinsTheSentVersion() {
         when(configurationMapper.getConfigurationById(CONFIG)).thenReturn(configuration());
-        when(configurationMapper.getConfigurationFollowRows(CONFIG)).thenReturn(Arrays.asList(
-                row(APP_FOLLOWING, 202, true)));
-
+        when(configurationMapper.getConfigurationFollowRows(CONFIG)).thenReturn(Arrays.asList(row(APP_FOLLOWING, 202, true)));
         Configuration incoming = configuration();
-        incoming.setApplications(new ArrayList<>(Collections.singletonList(row(APP_FOLLOWING, 201, null))));
+        incoming.setApplications(new ArrayList<>(Collections.singletonList(row(APP_FOLLOWING, 201, false))));
 
         dao.updateConfiguration(incoming);
 
-        assertEquals(Boolean.FALSE, savedRows().get(APP_FOLLOWING).isFollowLatest());
+        assertRow(savedRows().get(APP_FOLLOWING), false, 201);
+    }
+
+    @Test
+    public void explicitTrueFollowsTheLatestWhateverVersionWasSent() {
+        when(configurationMapper.getConfigurationById(CONFIG)).thenReturn(configuration());
+        when(configurationMapper.getConfigurationFollowRows(CONFIG)).thenReturn(Arrays.asList(row(APP_PINNED, 100, false)));
+        Configuration incoming = configuration();
+        incoming.setApplications(new ArrayList<>(Collections.singletonList(row(APP_PINNED, 101, true))));
+
+        dao.updateConfiguration(incoming);
+
+        assertRow(savedRows().get(APP_PINNED), true, 102);
+    }
+
+    @Test
+    public void nullFlagOnAPinnedRowPinsTheSentVersion() {
+        when(configurationMapper.getConfigurationById(CONFIG)).thenReturn(configuration());
+        when(configurationMapper.getConfigurationFollowRows(CONFIG)).thenReturn(Arrays.asList(row(APP_PINNED, 101, false)));
+        Configuration incoming = configuration();
+        incoming.setApplications(new ArrayList<>(Collections.singletonList(row(APP_PINNED, 100, null))));
+
+        dao.updateConfiguration(incoming);
+
+        assertRow(savedRows().get(APP_PINNED), false, 100);
     }
 
     @Test
@@ -143,12 +164,70 @@ public class ConfigurationFollowLatestTest {
         dao.updateConfiguration(incoming);
 
         Map<Integer, Application> saved = savedRows();
-        assertEquals(Boolean.TRUE, saved.get(APP_NEW).isFollowLatest());
-        assertEquals(Boolean.TRUE, saved.get(APP_FOLLOWING).isFollowLatest());
-        assertEquals(Boolean.FALSE, saved.get(APP_PINNED).isFollowLatest());
-        ArgumentCaptor<Configuration> config = ArgumentCaptor.forClass(Configuration.class);
-        verify(configurationMapper).updateConfiguration(config.capture());
-        assertEquals(Boolean.TRUE, config.getValue().getFollowLatestMainApp());
+        assertRow(saved.get(APP_NEW), true, 302);
+        assertRow(saved.get(APP_FOLLOWING), true, 202);
+        assertRow(saved.get(APP_PINNED), false, 101);
+    }
+
+    @Test
+    public void newRowsWithAnExplicitFlag() {
+        when(configurationMapper.getConfigurationById(CONFIG)).thenReturn(configuration());
+        when(configurationMapper.getConfigurationFollowRows(CONFIG)).thenReturn(Collections.emptyList());
+
+        Configuration incoming = configuration();
+        incoming.setApplications(new ArrayList<>(Arrays.asList(
+                row(APP_FOLLOWING, 201, true), row(APP_PINNED, 102, false))));
+
+        dao.updateConfiguration(incoming);
+
+        Map<Integer, Application> saved = savedRows();
+        assertRow(saved.get(APP_FOLLOWING), true, 202);
+        assertRow(saved.get(APP_PINNED), false, 102);
+    }
+
+    @Test
+    public void mainAndContentAppsFollowTheSameRule() {
+        when(applicationMapper.getApplicationOfVersion(201)).thenReturn(latest(APP_FOLLOWING, 202));
+        when(applicationMapper.getApplicationOfVersion(101)).thenReturn(latest(APP_PINNED, 102));
+        Configuration stored = configuration();
+        stored.setFollowLatestMainApp(true);
+        stored.setFollowLatestContentApp(false);
+        when(configurationMapper.getConfigurationById(CONFIG)).thenReturn(stored);
+        when(configurationMapper.getConfigurationFollowRows(CONFIG)).thenReturn(Collections.emptyList());
+
+        Configuration incoming = configuration();
+        incoming.setMainAppId(201);
+        incoming.setContentAppId(101);
+        dao.updateConfiguration(incoming);
+
+        assertEquals(Boolean.TRUE, incoming.getFollowLatestMainApp());
+        assertEquals(Integer.valueOf(202), incoming.getMainAppId());
+        assertEquals(Boolean.FALSE, incoming.getFollowLatestContentApp());
+        assertEquals(Integer.valueOf(101), incoming.getContentAppId());
+
+        Configuration explicit = configuration();
+        explicit.setMainAppId(201);
+        explicit.setFollowLatestMainApp(false);
+        explicit.setContentAppId(101);
+        explicit.setFollowLatestContentApp(true);
+        dao.updateConfiguration(explicit);
+
+        assertEquals(Integer.valueOf(201), explicit.getMainAppId());
+        assertEquals(Integer.valueOf(102), explicit.getContentAppId());
+    }
+
+    @Test
+    public void newConfigurationMainAppFollowsOnlyWhenItIsTheLatest() {
+        when(applicationMapper.getApplicationOfVersion(201)).thenReturn(latest(APP_FOLLOWING, 202));
+        Configuration incoming = configuration();
+        incoming.setId(null);
+        incoming.setMainAppId(201);
+
+        dao.insertConfiguration(incoming);
+
+        assertEquals(Boolean.FALSE, incoming.getFollowLatestMainApp());
+        assertEquals(Integer.valueOf(201), incoming.getMainAppId());
+        assertEquals(Boolean.TRUE, incoming.getFollowLatestContentApp());
     }
 
     @Test
@@ -161,61 +240,22 @@ public class ConfigurationFollowLatestTest {
         dao.updateConfiguration(incoming);
 
         verify(applicationMapper, never()).moveFollowersToLatest(any(), any());
-        verify(applicationMapper, never()).moveRowToLatest(anyInt(), anyInt());
         verify(configurationMapper).syncMainAndContentFollowFlags(CONFIG);
     }
 
     @Test
-    public void echoedFollowWithAnotherVersionThatIsNotLatestPinsTheRow() {
-        when(configurationMapper.getConfigurationById(CONFIG)).thenReturn(configuration());
-        when(configurationMapper.getConfigurationFollowRows(CONFIG)).thenReturn(Arrays.asList(row(APP_FOLLOWING, 202, true)));
-        Configuration incoming = configuration();
-        incoming.setApplications(new ArrayList<>(Collections.singletonList(row(APP_FOLLOWING, 201, true))));
-
-        dao.updateConfiguration(incoming);
-
-        assertEquals(Boolean.FALSE, savedRows().get(APP_FOLLOWING).isFollowLatest());
-        verify(applicationMapper, never()).moveRowToLatest(anyInt(), anyInt());
-    }
-
-    @Test
-    public void echoedFollowWithTheLatestVersionFollows() {
-        when(configurationMapper.getConfigurationById(CONFIG)).thenReturn(configuration());
-        when(configurationMapper.getConfigurationFollowRows(CONFIG)).thenReturn(Arrays.asList(row(APP_FOLLOWING, 201, true)));
-        Configuration incoming = configuration();
-        incoming.setApplications(new ArrayList<>(Collections.singletonList(row(APP_FOLLOWING, 202, true))));
-
-        dao.updateConfiguration(incoming);
-
-        assertEquals(Boolean.TRUE, savedRows().get(APP_FOLLOWING).isFollowLatest());
-    }
-
-    @Test
-    public void turningFollowOnFollowsAndMovesTheRowEvenWithAnOlderVersion() {
-        when(configurationMapper.getConfigurationById(CONFIG)).thenReturn(configuration());
-        when(configurationMapper.getConfigurationFollowRows(CONFIG)).thenReturn(Arrays.asList(row(APP_PINNED, 100, false)));
-        Configuration incoming = configuration();
-        incoming.setApplications(new ArrayList<>(Collections.singletonList(row(APP_PINNED, 101, true))));
-
-        dao.updateConfiguration(incoming);
-
-        assertEquals(Boolean.TRUE, savedRows().get(APP_PINNED).isFollowLatest());
-        InOrder order = inOrder(configurationMapper, applicationMapper);
-        order.verify(configurationMapper).insertConfigurationApplications(eq(CONFIG), anyListOf(Application.class));
-        order.verify(applicationMapper).moveRowToLatest(CONFIG, APP_PINNED);
-        order.verify(applicationMapper).recheckConfigurationMainApplication(CONFIG);
-    }
-
-    @Test
     public void saveLocksEveryApplicationInAscendingOrderBeforeTouchingTheConfiguration() {
+        when(applicationMapper.getApplicationOfVersion(901)).thenReturn(latest(9, 901));
         when(configurationMapper.getConfigurationById(CONFIG)).thenReturn(configuration());
         when(configurationMapper.getConfigurationFollowRows(CONFIG)).thenReturn(Arrays.asList(row(APP_FOLLOWING, 202, true)));
         Configuration incoming = configuration();
+        incoming.setMainAppId(901);
         incoming.setApplications(new ArrayList<>(Arrays.asList(row(APP_NEW, null, null), row(APP_PINNED, 101, false))));
 
         dao.updateConfiguration(incoming);
 
         InOrder order = inOrder(applicationMapper, configurationMapper);
+        order.verify(applicationMapper).lockApplication(9);
         order.verify(applicationMapper).lockApplication(APP_PINNED);
         order.verify(applicationMapper).lockApplication(APP_FOLLOWING);
         order.verify(applicationMapper).lockApplication(APP_NEW);
@@ -229,22 +269,25 @@ public class ConfigurationFollowLatestTest {
         incoming.setId(null);
         incoming.setFollowLatestMainApp(null);
         incoming.setApplications(new ArrayList<>(Arrays.asList(
-                row(APP_NEW, null, null), row(APP_PINNED, 102, false), row(APP_FOLLOWING, 201, true))));
+                row(APP_NEW, null, null), row(APP_PINNED, 101, false), row(APP_FOLLOWING, 201, true))));
 
         dao.insertConfiguration(incoming);
 
         Map<Integer, Application> saved = savedRows(null);
-        assertEquals(Boolean.TRUE, saved.get(APP_NEW).isFollowLatest());
-        assertEquals(Boolean.FALSE, saved.get(APP_PINNED).isFollowLatest());
-        assertEquals(Boolean.TRUE, saved.get(APP_FOLLOWING).isFollowLatest());
+        assertRow(saved.get(APP_NEW), true, 302);
+        assertRow(saved.get(APP_PINNED), false, 101);
+        assertRow(saved.get(APP_FOLLOWING), true, 202);
         assertEquals(Boolean.TRUE, incoming.getFollowLatestMainApp());
         InOrder order = inOrder(applicationMapper, configurationMapper);
         order.verify(applicationMapper).lockApplication(APP_PINNED);
         order.verify(applicationMapper).lockApplication(APP_FOLLOWING);
         order.verify(applicationMapper).lockApplication(APP_NEW);
         order.verify(configurationMapper).insertConfiguration(any(Configuration.class));
-        verify(applicationMapper).moveRowToLatest(any(), eq(APP_FOLLOWING));
-        verify(applicationMapper, never()).moveRowToLatest(any(), eq(APP_PINNED));
+    }
+
+    private static void assertRow(Application row, boolean follow, int versionId) {
+        assertEquals(Boolean.valueOf(follow), row.isFollowLatest());
+        assertEquals(Integer.valueOf(versionId), row.getUsedVersionId());
     }
 
     @Test

@@ -20,6 +20,7 @@ public final class AlertPolicy {
     public static final long YELLOW_ALERT_AFTER_MS = 1_800_000L;
     public static final long CLEAR_AFTER_ABSENT_MS = 300_000L;
     public static final int MAX_POPUPS_PER_CYCLE = 5;
+    public static final int MAX_CLEARS_PER_CYCLE = 5;
 
     private AlertPolicy() {
     }
@@ -97,6 +98,25 @@ public final class AlertPolicy {
                     rest.stream().mapToLong(AlertEvent::at).max().getAsLong(), text));
         }
         events.stream().filter(AlertEvent::cleared).forEach(out::add);
+        return out;
+    }
+
+    private static final Comparator<AlertEvent> BY_DEVICE = Comparator
+            .comparing(AlertEvent::deviceNumber, Comparator.nullsLast(Comparator.naturalOrder()));
+
+    public static List<AlertEvent> limitClears(List<AlertEvent> events, int max) {
+        List<AlertEvent> cleared = events.stream().filter(AlertEvent::cleared).sorted(BY_DEVICE)
+                .collect(Collectors.toList());
+        if (cleared.size() <= max) {
+            return new ArrayList<>(events);
+        }
+        List<AlertEvent> out = events.stream().filter(e -> !e.cleared()).collect(Collectors.toList());
+        out.addAll(cleared.subList(0, max));
+        List<AlertEvent> rest = cleared.subList(max, cleared.size());
+        long tablets = rest.stream().map(AlertEvent::deviceId).distinct().count();
+        String text = tablets + (tablets == 1 ? " more tablet recovered" : " more tablets recovered");
+        out.add(new AlertEvent(rest.get(0).customerId(), null, null, null, null, null, Severity.YELLOW, true, null,
+                rest.stream().mapToLong(AlertEvent::at).max().getAsLong(), text));
         return out;
     }
 }

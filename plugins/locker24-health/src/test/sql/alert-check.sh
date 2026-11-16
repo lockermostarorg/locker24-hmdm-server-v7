@@ -24,7 +24,7 @@ for cs in ET.parse(changelog).getroot().findall("l:changeSet", ns):
         ddl.append(cs.find("l:sql", ns).text)
 open(os.path.join(work, "ddl.sql"), "w").write("\n".join(ddl))
 src = open(mapper).read()
-for m in re.finditer(r'@(?:Insert|Update|Delete|Select)\((.*?)\)\s*\n\s*[\w<>]+\s+(\w+)\(', src, re.S):
+for m in re.finditer(r'@(?:Insert|Update|Delete|Select)\((.*?)\)\s*\n(?:\s*@Options\([^)]*\)\s*\n)?\s*[\w<>]+\s+(\w+)\(', src, re.S):
     sql = "".join(re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1)))
     sql = re.sub(r'#\{(\w+)(?:,[^}]*)?\}', r':\1', sql)
     open(os.path.join(work, m.group(2) + ".sql"), "w").write(sql + ";\n")

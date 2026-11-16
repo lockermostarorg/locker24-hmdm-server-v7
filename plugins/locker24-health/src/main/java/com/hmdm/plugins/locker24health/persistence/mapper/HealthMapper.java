@@ -7,6 +7,7 @@ import com.hmdm.plugins.locker24health.persistence.domain.LatestRow;
 import com.hmdm.plugins.locker24health.persistence.domain.SettingsRow;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
@@ -14,6 +15,8 @@ import org.apache.ibatis.annotations.Update;
 import java.util.List;
 
 public interface HealthMapper {
+
+    int TIMEOUT_SECONDS = 30;
 
     @Insert("INSERT INTO locker24_device_health_history (" +
             "device_id, device_ts, received_at, measured_at, " +
@@ -90,15 +93,18 @@ public interface HealthMapper {
             "JOIN devices d ON d.id = l.device_id " +
             "LEFT JOIN configurations c ON c.id = d.configurationId " +
             "ORDER BY d.number, l.device_id")
+    @Options(timeout = TIMEOUT_SECONDS)
     List<EvalRow> selectEvaluationRows();
 
     @Select("SELECT id, device_id AS deviceId, customer_id AS customerId, condition, severity, " +
             "raised_at AS raisedAt, last_present_at AS lastPresentAt " +
             "FROM locker24_device_health_alerts WHERE cleared_at IS NULL ORDER BY device_id, id")
+    @Options(timeout = TIMEOUT_SECONDS)
     List<AlertRow> selectOpenAlerts();
 
     @Select("SELECT customer_id AS customerId, webhook_url AS webhookUrl, time_zone AS timeZone " +
             "FROM locker24_health_settings")
+    @Options(timeout = TIMEOUT_SECONDS)
     List<SettingsRow> selectSettings();
 
     @Update("UPDATE locker24_device_health_latest SET " +
@@ -108,6 +114,7 @@ public interface HealthMapper {
             "version_mismatch_since = #{versionMismatchSince,jdbcType=BIGINT}, " +
             "evaluated_at = #{evaluatedAt} " +
             "WHERE device_id = #{deviceId}")
+    @Options(timeout = TIMEOUT_SECONDS)
     int updateEvaluation(@Param("deviceId") int deviceId,
                          @Param("status") String status,
                          @Param("reasons") String reasons,
@@ -119,6 +126,7 @@ public interface HealthMapper {
             "(device_id, customer_id, condition, severity, raised_at, last_present_at) " +
             "VALUES (#{deviceId}, #{customerId}, #{condition}, #{severity}, #{now}, #{now}) " +
             "ON CONFLICT (device_id, condition) WHERE cleared_at IS NULL DO NOTHING")
+    @Options(timeout = TIMEOUT_SECONDS)
     int insertAlert(@Param("deviceId") int deviceId,
                     @Param("customerId") int customerId,
                     @Param("condition") String condition,
@@ -127,21 +135,26 @@ public interface HealthMapper {
 
     @Update("UPDATE locker24_device_health_alerts SET severity = 'red', last_present_at = #{now} " +
             "WHERE id = #{id} AND cleared_at IS NULL AND severity = 'yellow'")
+    @Options(timeout = TIMEOUT_SECONDS)
     int escalateAlert(@Param("id") long id, @Param("now") long now);
 
     @Update("UPDATE locker24_device_health_alerts SET last_present_at = GREATEST(last_present_at, #{now}) " +
             "WHERE id = #{id} AND cleared_at IS NULL")
+    @Options(timeout = TIMEOUT_SECONDS)
     int touchAlert(@Param("id") long id, @Param("now") long now);
 
     @Update("UPDATE locker24_device_health_alerts SET cleared_at = #{now} " +
             "WHERE id = #{id} AND cleared_at IS NULL")
+    @Options(timeout = TIMEOUT_SECONDS)
     int clearAlert(@Param("id") long id, @Param("now") long now);
 
     @Delete("DELETE FROM locker24_device_health_history WHERE id IN (" +
             "SELECT id FROM locker24_device_health_history WHERE measured_at < #{cutoff} LIMIT #{limit})")
+    @Options(timeout = TIMEOUT_SECONDS)
     int deleteHistoryBefore(@Param("cutoff") long cutoff, @Param("limit") int limit);
 
     @Delete("DELETE FROM locker24_device_health_alerts WHERE id IN (" +
             "SELECT id FROM locker24_device_health_alerts WHERE cleared_at < #{cutoff} LIMIT #{limit})")
+    @Options(timeout = TIMEOUT_SECONDS)
     int deleteClearedAlertsBefore(@Param("cutoff") long cutoff, @Param("limit") int limit);
 }

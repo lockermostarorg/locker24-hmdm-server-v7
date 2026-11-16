@@ -69,7 +69,8 @@ public class AlertDispatcher {
     }
 
     private void schedulePopups(int customerId, List<AlertEvent> all, long now) {
-        List<AlertEvent> popups = AlertPolicy.limitPopups(all, budget.available(customerId, now));
+        List<AlertEvent> popups = AlertPolicy.limitClears(
+                AlertPolicy.limitPopups(all, budget.available(customerId, now)), AlertPolicy.MAX_CLEARS_PER_CYCLE);
         int deviceRaises = (int) popups.stream().filter(e -> !e.cleared() && e.deviceId() != null).count();
         budget.spend(customerId, now, deviceRaises);
         List<Alert> alerts = new ArrayList<>(popups.size());

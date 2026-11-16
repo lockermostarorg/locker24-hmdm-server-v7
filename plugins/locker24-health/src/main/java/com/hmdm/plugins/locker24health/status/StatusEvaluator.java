@@ -36,7 +36,7 @@ public final class StatusEvaluator {
         }
         temperature(h, findings);
         if (h.freeStorageMb() != null && h.freeStorageMb() < LOW_STORAGE_MB) {
-            findings.add(new Finding(Condition.STORAGE_LOW, Severity.YELLOW, h.freeStorageMb() + " MB free"));
+            findings.add(new Finding(Condition.STORAGE_LOW, Severity.YELLOW, "storage " + h.freeStorageMb() + " MB free"));
         }
         Long since = version(h, c, findings);
 

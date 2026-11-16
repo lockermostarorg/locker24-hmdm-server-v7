@@ -105,12 +105,26 @@ public class AlertDispatcherTest {
     }
 
     @Test
-    public void clearedAreInfoAndNeverCapped() {
+    public void clearedAreInfoAndCappedWithARecoveredSummary() {
         List<AlertEvent> events = IntStream.range(1, 9).mapToObj(d -> cleared(1, d)).collect(Collectors.toList());
         dispatcher.dispatch(events, Map.of(), T);
-        List<Alert> alerts = sent(8);
+        List<Alert> alerts = sent(6);
         assertTrue(alerts.stream().allMatch(x -> x.getLevel() == Alert.INFO));
-        assertTrue(alerts.stream().allMatch(x -> x.getMessage().contains("cleared not_charging")));
+        for (int i = 0; i < 5; i++) {
+            assertEquals(Integer.valueOf(i + 1), alerts.get(i).getDeviceId());
+            assertTrue(alerts.get(i).getMessage().contains("cleared not_charging"));
+        }
+        assertNull(alerts.get(5).getDeviceId());
+        assertEquals("3 more tablets recovered", alerts.get(5).getMessage());
+    }
+
+    @Test
+    public void webhookStillGetsEveryClear() throws Exception {
+        List<AlertEvent> events = IntStream.range(1, 9).mapToObj(d -> cleared(1, d)).collect(Collectors.toList());
+        dispatcher.dispatch(events, Map.of(1, URL), T);
+        ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(webhook).send(eq(URL), body.capture());
+        assertEquals(8, new ObjectMapper().readTree(body.getValue()).get("events").size());
     }
 
     @Test

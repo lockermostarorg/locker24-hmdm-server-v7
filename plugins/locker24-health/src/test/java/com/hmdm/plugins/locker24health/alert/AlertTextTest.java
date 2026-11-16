@@ -64,7 +64,7 @@ public class AlertTextTest {
         assertEquals("M-01 (hpmo-qa): temperature 46.0 C (yellow)",
                 AlertText.message(raised(null, t.condition(), t.severity(), t.detail())));
         Finding s = finding(health(80, null, 512));
-        assertEquals("M-01 (hpmo-qa): 512 MB free (yellow)",
+        assertEquals("M-01 (hpmo-qa): storage 512 MB free (yellow)",
                 AlertText.message(raised(null, s.condition(), s.severity(), s.detail())));
         assertEquals("M-01 (hpmo-qa): not_charging",
                 AlertText.message(raised(null, Condition.NOT_CHARGING, Severity.YELLOW, "not charging")));

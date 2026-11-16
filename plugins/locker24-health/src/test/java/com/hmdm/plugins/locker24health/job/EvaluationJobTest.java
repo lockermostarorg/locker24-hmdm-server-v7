@@ -243,4 +243,29 @@ public class EvaluationJobTest {
         s.setTimeZone(zone);
         return s;
     }
+
+    @Test
+    public void loadTimeoutSkipsTheCycleQuietly() {
+        when(dao.loadEvaluationRows()).thenThrow(new org.apache.ibatis.exceptions.PersistenceException(
+                new java.sql.SQLException("canceling statement due to user request", "57014")));
+        job().runOnce();
+        verify(dao, never()).loadOpenAlerts();
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void otherLoadFailuresStillReachTheGuard() {
+        when(dao.loadEvaluationRows()).thenThrow(new IllegalStateException("db down"));
+        job().runOnce();
+    }
+
+    @Test
+    public void deviceTimeoutDoesNotStopTheCycle() {
+        when(dao.applyEvaluation(same(a), any(Evaluation.class), any(AlertDecision.class),
+                anyMapOf(Condition.class, OpenAlert.class), anyLong())).thenThrow(
+                new org.apache.ibatis.exceptions.PersistenceException(new java.sql.SQLTimeoutException("t")));
+        apply(b, List.of(event(2)));
+        apply(c, List.of());
+        job().runOnce();
+        assertEquals(List.of(event(2)), dispatched());
+    }
 }

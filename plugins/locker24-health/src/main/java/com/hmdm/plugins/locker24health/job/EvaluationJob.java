@@ -12,6 +12,7 @@ import com.hmdm.plugins.locker24health.alert.OpenAlert;
 import com.hmdm.plugins.locker24health.persistence.HealthDAO;
 import com.hmdm.plugins.locker24health.persistence.domain.EvalRow;
 import com.hmdm.plugins.locker24health.persistence.domain.SettingsRow;
+import com.hmdm.plugins.locker24health.persistence.mapper.HealthMapper;
 import com.hmdm.plugins.locker24health.status.Condition;
 import com.hmdm.plugins.locker24health.status.ConfiguredKiosk;
 import com.hmdm.plugins.locker24health.status.DeviceHealth;
@@ -70,12 +71,24 @@ public class EvaluationJob {
 
     public void runOnce() {
         long now = clock.getAsLong();
-        List<EvalRow> rows = dao.loadEvaluationRows();
-        if (rows.isEmpty()) {
-            return;
+        List<EvalRow> rows;
+        Map<Integer, Map<Condition, OpenAlert>> open;
+        Map<Integer, SettingsRow> settings;
+        try {
+            rows = dao.loadEvaluationRows();
+            if (rows.isEmpty()) {
+                return;
+            }
+            open = dao.loadOpenAlerts();
+            settings = dao.loadSettings();
+        } catch (RuntimeException e) {
+            if (DbTimeout.isTimeout(e)) {
+                failures.warn("timeout", "Health evaluation skipped: a database statement timed out after "
+                        + HealthMapper.TIMEOUT_SECONDS + " s", null);
+                return;
+            }
+            throw e;
         }
-        Map<Integer, Map<Condition, OpenAlert>> open = dao.loadOpenAlerts();
-        Map<Integer, SettingsRow> settings = dao.loadSettings();
         Map<Integer, Boolean> enabled = new HashMap<>();
         Map<Integer, ZoneId> zones = new HashMap<>();
         Map<Integer, Optional<ConfiguredKiosk>> kiosks = new HashMap<>();
@@ -93,7 +106,12 @@ public class EvaluationJob {
                 events.addAll(evaluate(row, now, kiosk, zone, open.getOrDefault(row.getDeviceId(), Map.of())));
             } catch (RuntimeException e) {
                 failed++;
-                failures.warn("device", "Health evaluation failed for device " + row.getDeviceId(), e);
+                if (DbTimeout.isTimeout(e)) {
+                    failures.warn("timeout", "Health evaluation of device " + row.getDeviceId()
+                            + ": a database statement timed out after " + HealthMapper.TIMEOUT_SECONDS + " s", null);
+                } else {
+                    failures.warn("device", "Health evaluation failed for device " + row.getDeviceId(), e);
+                }
             }
         }
         if (failed > 0) {

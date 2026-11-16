@@ -41,4 +41,21 @@ public class RetentionJobTest {
     public void thirtyDays() {
         assertEquals(30L * 24 * 3600 * 1000, RetentionJob.RETENTION_MS);
     }
+
+    @Test
+    public void historyTimeoutStillPurgesAlerts() {
+        HealthDAO dao = mock(HealthDAO.class);
+        when(dao.purgeHistoryBatch(CUTOFF, RetentionJob.BATCH)).thenReturn(RetentionJob.BATCH).thenThrow(
+                new org.apache.ibatis.exceptions.PersistenceException(new java.sql.SQLTimeoutException("t")));
+        when(dao.purgeClearedAlertsBatch(CUTOFF, RetentionJob.BATCH)).thenReturn(2);
+        new RetentionJob(dao, () -> NOW).purge();
+        verify(dao, times(1)).purgeClearedAlertsBatch(CUTOFF, RetentionJob.BATCH);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void otherFailuresReachTheGuard() {
+        HealthDAO dao = mock(HealthDAO.class);
+        when(dao.purgeHistoryBatch(CUTOFF, RetentionJob.BATCH)).thenThrow(new IllegalStateException("db down"));
+        new RetentionJob(dao, () -> NOW).purge();
+    }
 }

@@ -233,3 +233,9 @@ systemctl start tomcat10
 ```
 
 On an empty server, create the `hmdm` user and database first (section 1), then restore with `-d hmdm` as above. The dump keeps object ownership, so the `hmdm` user must exist.
+
+## 6. Updating the server
+
+Updates are built and installed on the droplet by `deploy/deploy.sh <ref>` (a release tag such as `l24-v7.04.1.1`, a branch or a SHA). It takes the pre-deploy backups and rolls the WAR back if the server does not come up. Setup (deploy key), tagging, deploying and rollback are in [`README.md`](README.md).
+
+Do not rerun `hmdm_install.sh` for an update.

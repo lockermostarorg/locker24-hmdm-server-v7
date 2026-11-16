@@ -37,3 +37,4 @@ webtarget/
 
 # Native federation files
 **/tsconfig.federation.json
+.pnpm-store/

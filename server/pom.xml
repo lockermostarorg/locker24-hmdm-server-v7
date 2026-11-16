@@ -40,6 +40,10 @@
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
         </repository>
+        <repository>
+            <id>prod-public-maven</id>
+            <url>https://prod.h-mdm.com/api/v4/projects/21/packages/maven</url>
+        </repository>
     </repositories>
 
     <dependencies>

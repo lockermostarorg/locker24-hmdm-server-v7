@@ -138,4 +138,16 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="plugin-locker24-health-16.11.2026-07" author="locker24" context="common">
+        <comment>Column,new: kiosk down streak on locker24_device_health_latest</comment>
+        <sql>
+            ALTER TABLE locker24_device_health_latest ADD COLUMN kiosk_down_since BIGINT;
+            ALTER TABLE locker24_device_health_latest ADD COLUMN kiosk_down_reports INT NOT NULL DEFAULT 0;
+        </sql>
+        <rollback>
+            ALTER TABLE locker24_device_health_latest DROP COLUMN kiosk_down_reports;
+            ALTER TABLE locker24_device_health_latest DROP COLUMN kiosk_down_since;
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>

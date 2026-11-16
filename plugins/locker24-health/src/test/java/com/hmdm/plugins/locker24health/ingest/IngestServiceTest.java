@@ -222,4 +222,47 @@ public class IngestServiceTest {
         verify(mapper).upsertLatest(any(LatestRow.class));
         verify(mapper).touchReceived(DEVICE_ID, R);
     }
+
+    private LatestRow storedFromGolden(boolean withApp, boolean kioskRunning) throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode g;
+        try (java.io.InputStream in = IngestServiceTest.class.getResourceAsStream("/report-v1.json")) {
+            g = (com.fasterxml.jackson.databind.node.ObjectNode) new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readTree(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+        }
+        if (!withApp) {
+            g.remove("app");
+        }
+        ((com.fasterxml.jackson.databind.node.ObjectNode) g.get("kiosk")).put("running", kioskRunning);
+        com.fasterxml.jackson.databind.node.ObjectNode env = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
+        env.put("sent_at", 1763290005000L);
+        env.putArray("reports").add(g);
+        service.store(device, ReportParser.parse(env.toString()), R);
+        return capturedLatest();
+    }
+
+    private static com.hmdm.plugins.locker24health.status.Evaluation evaluate(LatestRow l) {
+        return com.hmdm.plugins.locker24health.status.StatusEvaluator.evaluate(
+                com.hmdm.plugins.locker24health.status.DeviceHealth.from(l),
+                new com.hmdm.plugins.locker24health.status.EvalContext(R, 0L, null, java.time.ZoneId.of("UTC"), null));
+    }
+
+    @Test
+    public void missingAppValuesNeverChangeStatus() throws Exception {
+        LatestRow without = storedFromGolden(false, true);
+        assertNull(without.getLockerShortUid());
+        assertEquals(com.hmdm.plugins.locker24health.status.Status.GREEN, evaluate(without).status());
+    }
+
+    @Test
+    public void appValuesNeverChangeStatus() throws Exception {
+        LatestRow with = storedFromGolden(true, true);
+        assertEquals("HP01", with.getLockerShortUid());
+        assertTrue(with.getReportJson().contains("unlock HTTP 503"));
+        assertEquals(com.hmdm.plugins.locker24health.status.Status.GREEN, evaluate(with).status());
+    }
+
+    @Test
+    public void downReportMarksLatestAsKioskDown() throws Exception {
+        assertTrue(storedFromGolden(true, false).isKioskDown());
+    }
 }

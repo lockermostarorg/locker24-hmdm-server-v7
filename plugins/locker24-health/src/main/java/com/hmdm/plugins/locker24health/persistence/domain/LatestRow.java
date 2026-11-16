@@ -21,6 +21,8 @@ public class LatestRow {
     private String manufacturer;
     private String model;
     private String reportJson;
+    private Long kioskDownSince;
+    private int kioskDownReports;
 
     public Integer getDeviceId() {
         return deviceId;
@@ -172,5 +174,27 @@ public class LatestRow {
 
     public void setReportJson(String reportJson) {
         this.reportJson = reportJson;
+    }
+
+    public boolean isKioskDown() {
+        return Boolean.TRUE.equals(kioskRequired)
+                && Boolean.FALSE.equals(kioskRunning)
+                && !Boolean.TRUE.equals(kioskAdminUnlocked);
+    }
+
+    public Long getKioskDownSince() {
+        return kioskDownSince;
+    }
+
+    public void setKioskDownSince(Long kioskDownSince) {
+        this.kioskDownSince = kioskDownSince;
+    }
+
+    public int getKioskDownReports() {
+        return kioskDownReports;
+    }
+
+    public void setKioskDownReports(int kioskDownReports) {
+        this.kioskDownReports = kioskDownReports;
     }
 }

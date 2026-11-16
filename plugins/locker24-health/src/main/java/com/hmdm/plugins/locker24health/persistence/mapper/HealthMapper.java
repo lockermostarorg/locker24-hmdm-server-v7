@@ -22,13 +22,14 @@ public interface HealthMapper {
             "battery_pct, charging, temperature_c, free_storage_mb, rssi_dbm, " +
             "kiosk_required, kiosk_running, kiosk_admin_unlocked, " +
             "kiosk_app_package, kiosk_app_version, agent_version, locker_short_uid, " +
-            "manufacturer, model, report_json" +
+            "manufacturer, model, report_json, kiosk_down_since, kiosk_down_reports" +
             ") VALUES (" +
             "#{deviceId}, #{customerId}, #{receivedAt}, #{measuredAt}, " +
             "#{batteryPct}, #{charging}, #{temperatureC}, #{freeStorageMb}, #{rssiDbm}, " +
             "#{kioskRequired}, #{kioskRunning}, #{kioskAdminUnlocked}, " +
             "#{kioskAppPackage}, #{kioskAppVersion}, #{agentVersion}, #{lockerShortUid}, " +
-            "#{manufacturer}, #{model}, #{reportJson}" +
+            "#{manufacturer}, #{model}, #{reportJson}, " +
+            "CASE WHEN #{kioskDown} THEN #{measuredAt} END, CASE WHEN #{kioskDown} THEN 1 ELSE 0 END" +
             ") ON CONFLICT (device_id) DO UPDATE SET " +
             "customer_id = EXCLUDED.customer_id, " +
             "measured_at = EXCLUDED.measured_at, " +
@@ -46,7 +47,13 @@ public interface HealthMapper {
             "locker_short_uid = EXCLUDED.locker_short_uid, " +
             "manufacturer = EXCLUDED.manufacturer, " +
             "model = EXCLUDED.model, " +
-            "report_json = EXCLUDED.report_json " +
+            "report_json = EXCLUDED.report_json, " +
+            "kiosk_down_since = CASE WHEN #{kioskDown} " +
+            "THEN COALESCE(locker24_device_health_latest.kiosk_down_since, EXCLUDED.measured_at) END, " +
+            "kiosk_down_reports = CASE WHEN #{kioskDown} " +
+            "THEN locker24_device_health_latest.kiosk_down_reports + " +
+            "CASE WHEN locker24_device_health_latest.measured_at < EXCLUDED.measured_at THEN 1 ELSE 0 END " +
+            "ELSE 0 END " +
             "WHERE locker24_device_health_latest.measured_at <= EXCLUDED.measured_at")
     int upsertLatest(LatestRow row);
 

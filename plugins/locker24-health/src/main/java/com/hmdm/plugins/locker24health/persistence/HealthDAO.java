@@ -7,9 +7,14 @@ import com.hmdm.plugins.locker24health.alert.AlertEvent;
 import com.hmdm.plugins.locker24health.alert.OpenAlert;
 import com.hmdm.plugins.locker24health.persistence.domain.AlertRow;
 import com.hmdm.plugins.locker24health.persistence.domain.EvalRow;
+import com.hmdm.plugins.locker24health.persistence.domain.FleetRecord;
 import com.hmdm.plugins.locker24health.persistence.domain.HistoryRow;
 import com.hmdm.plugins.locker24health.persistence.domain.LatestRow;
 import com.hmdm.plugins.locker24health.persistence.domain.SettingsRow;
+import com.hmdm.plugins.locker24health.persistence.domain.SettingsView;
+import com.hmdm.plugins.locker24health.rest.json.FleetRow;
+import com.hmdm.plugins.locker24health.rest.json.HealthSettings;
+import com.hmdm.plugins.locker24health.ingest.ClockCorrection;
 import com.hmdm.plugins.locker24health.persistence.mapper.HealthMapper;
 import com.hmdm.plugins.locker24health.status.Condition;
 import com.hmdm.plugins.locker24health.status.Evaluation;
@@ -18,6 +23,7 @@ import com.hmdm.plugins.locker24health.status.Severity;
 import org.mybatis.guice.transactional.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -73,6 +79,81 @@ public class HealthDAO {
         latest.setKioskDownRun(run);
         latest.setKioskDownRunStart(runStart);
         latest.setKioskDownAll(allDown);
+    }
+
+    public List<FleetRow> loadFleet(int customerId, int userId, Integer configurationId, String status, String model) {
+        List<FleetRow> out = new ArrayList<>();
+        for (FleetRecord r : mapper.selectFleet(customerId, userId, configurationId, status, model)) {
+            out.add(fleetRow(r));
+        }
+        return out;
+    }
+
+    public boolean canAccessDevice(int customerId, int userId, int deviceId) {
+        return mapper.selectDeviceAccess(customerId, userId, deviceId) != null;
+    }
+
+    public List<HistoryRow> historyPoints(int deviceId, long from, long to) {
+        List<HistoryRow> rows = new ArrayList<>(mapper.selectHistoryPoints(deviceId, from, to, ClockCorrection.MAX_AGE_MS));
+        Collections.reverse(rows);
+        return rows;
+    }
+
+    public List<Long> receivedTimes(int deviceId, long from, long to) {
+        return mapper.selectReceivedTimes(deviceId, from, to);
+    }
+
+    public Long lastReceivedBefore(int deviceId, long before) {
+        return mapper.selectLastReceivedBefore(deviceId, before);
+    }
+
+    public HealthSettings loadSettings(int customerId) {
+        SettingsView v = mapper.selectCustomerSettings(customerId);
+        if (v == null) {
+            return null;
+        }
+        HealthSettings s = new HealthSettings();
+        s.setWebhookUrlSet(v.isWebhookUrlSet());
+        s.setTimeZone(v.getTimeZone());
+        return s;
+    }
+
+    public void saveSettings(int customerId, HealthSettings s) {
+        mapper.upsertCustomerSettings(customerId, s.getWebhookUrl() == null || s.getWebhookUrl().isEmpty() ? null : s.getWebhookUrl(),
+                s.getTimeZone(), s.getWebhookUrl() != null, s.getTimeZone() != null);
+    }
+
+    static FleetRow fleetRow(FleetRecord r) {
+        FleetRow f = new FleetRow();
+        f.setDeviceId(r.getDeviceId());
+        f.setNumber(r.getNumber());
+        f.setDescription(r.getDescription());
+        f.setConfigurationId(r.getConfigurationId());
+        f.setConfigurationName(r.getConfigurationName());
+        f.setGroups(r.getGroups());
+        f.setLockerShortUid(r.getLockerShortUid());
+        f.setLastSeen(r.getLastSeen());
+        f.setStatus(r.getStatus());
+        List<String> reasons = new ArrayList<>();
+        if (r.getReasons() != null) {
+            for (String c : r.getReasons().split(",")) {
+                if (!c.isEmpty()) {
+                    reasons.add(c);
+                }
+            }
+        }
+        f.setReasons(reasons);
+        f.setBatteryPct(r.getBatteryPct());
+        f.setCharging(r.getCharging());
+        f.setTemperatureC(r.getTemperatureC());
+        f.setFreeStorageMb(r.getFreeStorageMb());
+        f.setKioskAppVersion(r.getKioskAppVersion());
+        f.setAgentVersion(r.getAgentVersion());
+        f.setKioskRequired(r.getKioskRequired());
+        f.setKioskRunning(r.getKioskRunning());
+        f.setKioskAdminUnlocked(r.getKioskAdminUnlocked());
+        f.setModel(r.getModel());
+        return f;
     }
 
     public static final int MAX_REASONS_LENGTH = 256;

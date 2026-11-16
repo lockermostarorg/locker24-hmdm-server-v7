@@ -2,9 +2,11 @@ package com.hmdm.plugins.locker24health.persistence.mapper;
 
 import com.hmdm.plugins.locker24health.persistence.domain.AlertRow;
 import com.hmdm.plugins.locker24health.persistence.domain.EvalRow;
+import com.hmdm.plugins.locker24health.persistence.domain.FleetRecord;
 import com.hmdm.plugins.locker24health.persistence.domain.HistoryRow;
 import com.hmdm.plugins.locker24health.persistence.domain.LatestRow;
 import com.hmdm.plugins.locker24health.persistence.domain.SettingsRow;
+import com.hmdm.plugins.locker24health.persistence.domain.SettingsView;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Options;
@@ -157,4 +159,95 @@ public interface HealthMapper {
             "SELECT id FROM locker24_device_health_alerts WHERE cleared_at < #{cutoff} LIMIT #{limit})")
     @Options(timeout = TIMEOUT_SECONDS)
     int deleteClearedAlertsBefore(@Param("cutoff") long cutoff, @Param("limit") int limit);
+
+    String ACCESS_FILTER = "AND (u.allDevicesAvailable = TRUE OR EXISTS (" +
+            "SELECT 1 FROM deviceGroups dg " +
+            "INNER JOIN userDeviceGroupsAccess a ON a.groupId = dg.groupId AND a.userId = u.id " +
+            "WHERE dg.deviceId = d.id)) ";
+
+    int FLEET_LIMIT = 5000;
+    int HISTORY_ROW_LIMIT = 20000;
+
+    @Select("SELECT d.id AS deviceId, d.number AS number, d.description AS description, " +
+            "d.configurationId AS configurationId, c.name AS configurationName, " +
+            "(SELECT string_agg(g.name, ', ' ORDER BY g.name) FROM deviceGroups dg " +
+            "INNER JOIN groups g ON g.id = dg.groupId WHERE dg.deviceId = d.id) AS groups, " +
+            "l.locker_short_uid AS lockerShortUid, l.received_at AS lastSeen, " +
+            "CASE WHEN l.device_id IS NULL OR l.evaluated_at IS NULL THEN 'unknown' ELSE l.status END AS status, " +
+            "l.status_reasons AS reasons, l.battery_pct AS batteryPct, l.charging AS charging, " +
+            "l.temperature_c AS temperatureC, l.free_storage_mb AS freeStorageMb, " +
+            "l.kiosk_app_version AS kioskAppVersion, l.agent_version AS agentVersion, " +
+            "l.kiosk_required AS kioskRequired, l.kiosk_running AS kioskRunning, " +
+            "l.kiosk_admin_unlocked AS kioskAdminUnlocked, l.model AS model " +
+            "FROM devices d " +
+            "INNER JOIN users u ON u.id = #{userId} AND u.customerId = d.customerId " +
+            "LEFT JOIN configurations c ON c.id = d.configurationId " +
+            "LEFT JOIN locker24_device_health_latest l ON l.device_id = d.id " +
+            "WHERE d.customerId = #{customerId} " +
+            ACCESS_FILTER +
+            "AND (CAST(#{configurationId,jdbcType=INTEGER} AS INTEGER) IS NULL " +
+            "OR d.configurationId = CAST(#{configurationId,jdbcType=INTEGER} AS INTEGER)) " +
+            "AND (CAST(#{model,jdbcType=VARCHAR} AS VARCHAR) IS NULL " +
+            "OR l.model = CAST(#{model,jdbcType=VARCHAR} AS VARCHAR)) " +
+            "AND (CAST(#{status,jdbcType=VARCHAR} AS VARCHAR) IS NULL " +
+            "OR CASE WHEN l.device_id IS NULL OR l.evaluated_at IS NULL THEN 'unknown' ELSE l.status END " +
+            "= CAST(#{status,jdbcType=VARCHAR} AS VARCHAR)) " +
+            "ORDER BY d.number, d.id LIMIT " + FLEET_LIMIT)
+    @Options(timeout = TIMEOUT_SECONDS)
+    List<FleetRecord> selectFleet(@Param("customerId") int customerId,
+                                  @Param("userId") int userId,
+                                  @Param("configurationId") Integer configurationId,
+                                  @Param("status") String status,
+                                  @Param("model") String model);
+
+    @Select("SELECT d.id FROM devices d " +
+            "INNER JOIN users u ON u.id = #{userId} AND u.customerId = d.customerId " +
+            "WHERE d.id = #{deviceId} AND d.customerId = #{customerId} " +
+            ACCESS_FILTER)
+    @Options(timeout = TIMEOUT_SECONDS)
+    Integer selectDeviceAccess(@Param("customerId") int customerId,
+                               @Param("userId") int userId,
+                               @Param("deviceId") int deviceId);
+
+    @Select("SELECT measured_at AS measuredAt, battery_pct AS batteryPct, charging AS charging, " +
+            "temperature_c AS temperatureC, rssi_dbm AS rssiDbm, kiosk_running AS kioskRunning " +
+            "FROM locker24_device_health_history " +
+            "WHERE device_id = #{deviceId} AND measured_at >= #{from} AND measured_at <= #{to} " +
+            "AND received_at - measured_at < #{maxAgeMs} " +
+            "ORDER BY measured_at DESC LIMIT " + HISTORY_ROW_LIMIT)
+    @Options(timeout = TIMEOUT_SECONDS)
+    List<HistoryRow> selectHistoryPoints(@Param("deviceId") int deviceId,
+                                         @Param("from") long from,
+                                         @Param("to") long to,
+                                         @Param("maxAgeMs") long maxAgeMs);
+
+    @Select("SELECT DISTINCT received_at FROM locker24_device_health_history " +
+            "WHERE device_id = #{deviceId} AND received_at >= #{from} AND received_at <= #{to} " +
+            "ORDER BY received_at LIMIT " + HISTORY_ROW_LIMIT)
+    @Options(timeout = TIMEOUT_SECONDS)
+    List<Long> selectReceivedTimes(@Param("deviceId") int deviceId,
+                                   @Param("from") long from,
+                                   @Param("to") long to);
+
+    @Select("SELECT MAX(received_at) FROM locker24_device_health_history " +
+            "WHERE device_id = #{deviceId} AND received_at < #{before}")
+    @Options(timeout = TIMEOUT_SECONDS)
+    Long selectLastReceivedBefore(@Param("deviceId") int deviceId, @Param("before") long before);
+
+    @Select("SELECT COALESCE(webhook_url <> '', FALSE) AS webhookUrlSet, time_zone AS timeZone " +
+            "FROM locker24_health_settings WHERE customer_id = #{customerId}")
+    @Options(timeout = TIMEOUT_SECONDS)
+    SettingsView selectCustomerSettings(@Param("customerId") int customerId);
+
+    @Insert("INSERT INTO locker24_health_settings AS s (customer_id, webhook_url, time_zone) " +
+            "VALUES (#{customerId}, #{webhookUrl,jdbcType=VARCHAR}, COALESCE(CAST(#{timeZone,jdbcType=VARCHAR} AS VARCHAR), 'Europe/Sarajevo')) " +
+            "ON CONFLICT (customer_id) DO UPDATE SET " +
+            "webhook_url = CASE WHEN #{setWebhook} THEN EXCLUDED.webhook_url ELSE s.webhook_url END, " +
+            "time_zone = CASE WHEN #{setTimeZone} THEN EXCLUDED.time_zone ELSE s.time_zone END")
+    @Options(timeout = TIMEOUT_SECONDS)
+    int upsertCustomerSettings(@Param("customerId") int customerId,
+                               @Param("webhookUrl") String webhookUrl,
+                               @Param("timeZone") String timeZone,
+                               @Param("setWebhook") boolean setWebhook,
+                               @Param("setTimeZone") boolean setTimeZone);
 }

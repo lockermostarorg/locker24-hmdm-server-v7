@@ -3,6 +3,7 @@ package com.hmdm.plugins.locker24health.guice.module;
 import com.hmdm.plugin.guice.module.AbstractPluginRestModule;
 import com.hmdm.plugins.locker24health.HealthPluginConfigurationImpl;
 import com.hmdm.plugins.locker24health.rest.HealthLicenseResource;
+import com.hmdm.plugins.locker24health.rest.HealthResource;
 import com.hmdm.plugins.locker24health.rest.HealthPublicResource;
 
 import java.util.Arrays;
@@ -37,5 +38,6 @@ public class HealthRestModule extends AbstractPluginRestModule {
         super.configureServlets();
         this.bind(HealthLicenseResource.class);
         this.bind(HealthPublicResource.class);
+        this.bind(HealthResource.class);
     }
 }

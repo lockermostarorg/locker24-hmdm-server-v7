@@ -14,7 +14,8 @@ public class HealthMapperTimeoutTest {
         configuration.addMapper(HealthMapper.class);
         for (String id : new String[]{"selectEvaluationRows", "selectOpenAlerts", "selectSettings", "updateEvaluation",
                 "insertAlert", "escalateAlert", "touchAlert", "clearAlert", "deleteHistoryBefore",
-                "deleteClearedAlertsBefore"}) {
+                "deleteClearedAlertsBefore", "selectFleet", "selectDeviceAccess", "selectHistoryPoints",
+                "selectReceivedTimes", "selectLastReceivedBefore", "selectCustomerSettings", "upsertCustomerSettings"}) {
             Integer timeout = configuration.getMappedStatement(HealthMapper.class.getName() + "." + id).getTimeout();
             assertEquals(id, Integer.valueOf(HealthMapper.TIMEOUT_SECONDS), timeout);
         }

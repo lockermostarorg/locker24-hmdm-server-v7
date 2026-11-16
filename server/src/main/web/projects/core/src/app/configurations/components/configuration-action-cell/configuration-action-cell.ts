@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Router } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { BaseCellRenderer, MatButtonModule, MatIconModule, TranslatePipe } from 'hmdm-ui-kit';
 import { TConfigurationDTO } from '../../../entity/configuration/types/configuration-dto.type';
 import { HasPermissionDirective } from '../../../shared/directives/has-permission.directive';
@@ -13,6 +13,7 @@ import { ConfigurationsDialogService } from '../../services/configurations-dialo
   styleUrl: './configuration-action-cell.scss',
   imports: [
     MatIconModule,
+    RouterLink,
     MatButtonModule,
     HasPermissionDirective,
     MatTooltipModule,
@@ -20,7 +21,6 @@ import { ConfigurationsDialogService } from '../../services/configurations-dialo
   ],
 })
 export class ConfigurationActionCell extends BaseCellRenderer<TConfigurationDTO> {
-  private readonly router: Router = inject(Router);
   private readonly configurationDialogService = inject(ConfigurationsDialogService);
   private readonly qrService = inject(QrFacadeService);
 
@@ -40,10 +40,6 @@ export class ConfigurationActionCell extends BaseCellRenderer<TConfigurationDTO>
 
   onDeleteClick(): void {
     this.configurationDialogService.openDeleteDialog(this.params().data);
-  }
-
-  onEditClick(): void {
-    this.router.navigateByUrl(`home/configurations/details/${this.params().data.id}`);
   }
 
   isQrCodeAvailable(): boolean {

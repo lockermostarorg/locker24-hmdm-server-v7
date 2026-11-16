@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltip } from '@angular/material/tooltip';
-import { Router } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { BaseCellRenderer, MatButtonModule, MatIconModule, TranslatePipe } from 'hmdm-ui-kit';
 import { TApplicationDTO } from '../../../entity/application/types/application-dto.type';
 import { ApplicationDialogService } from '../../services/application-dialog.service';
@@ -15,6 +15,7 @@ import { AuthService } from '../../../shared/services/auth.service';
   styleUrl: './application-action-cell.scss',
   imports: [
     MatIconModule,
+    RouterLink,
     MatButtonModule,
     MatMenuModule,
     MatTooltip,
@@ -25,11 +26,6 @@ import { AuthService } from '../../../shared/services/auth.service';
 export class ApplicationActionCell extends BaseCellRenderer<TApplicationDTO, null> {
   private readonly applicationDialogService = inject(ApplicationDialogService);
   private readonly authService = inject(AuthService);
-  private readonly router: Router = inject(Router);
-
-  onVersionClick(): void {
-    this.router.navigate(['/home/applications', this.params().data.id, 'versions']);
-  }
 
   onConfigClick(): void {
     const id = this.getId();

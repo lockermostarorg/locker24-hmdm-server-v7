@@ -1,7 +1,7 @@
 <div class="cell">
-  <button mat-icon-button (click)="onEditClick()">
+  <a mat-icon-button [routerLink]="['/home', 'configurations', 'details', params().data.id]">
     <mat-icon>edit</mat-icon>
-  </button>
+  </a>
 
   <button
     *hmdmHasPermission="'copy_config'"

@@ -6,9 +6,9 @@
     matTooltip="{{ 'breadcrumb.application.versions' | translate }}"
     [matTooltipShowDelay]="500"
   >
-    <button matIconButton (click)="onVersionClick()">
+    <a matIconButton [routerLink]="['/home/applications', params().data.id, 'versions']">
       <mat-icon>layers</mat-icon>
-    </button>
+    </a>
   </div>
 
   <div

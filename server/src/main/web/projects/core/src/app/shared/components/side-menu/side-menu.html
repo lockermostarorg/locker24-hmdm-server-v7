@@ -15,8 +15,9 @@
       [cdkTreeNodeTypeaheadLabel]="node.name | translate"
       [class.node-locked]="node.isLocked"
       (click)="onPluginClick($event, node)"
+      (keydown.enter)="link.click()"
     >
-      <a class="menu-link" [routerLink]="node.isLocked ? null : node.route">
+      <a #link class="menu-link" tabindex="-1" [routerLink]="node.isLocked ? null : node.route">
         <mat-icon class="menu-icon">{{ node.icon }}</mat-icon>
         <span class="menu-text">{{ node.name | translate }}</span>
 

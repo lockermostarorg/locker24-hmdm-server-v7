@@ -1268,6 +1268,6 @@
   "form.application.type.title": "Application is an Android app (APK), Web-page opens a link in the launcher, System action runs an Android intent.",
   "form.application.intent.title": "The Android system action to run when the icon is tapped.",
   "form.application.web.url.title": "The address of the web page to open when the icon is tapped.",
-  "form.application.iconText.title": "The label shown under the icon in the launcher. Leave empty to use the application name.",
+  "form.application.iconText.title": "The label shown under the icon in the launcher.",
   "form.application.icon.title": "The picture shown in the launcher for this application. The default icon is used if none is chosen."
 }

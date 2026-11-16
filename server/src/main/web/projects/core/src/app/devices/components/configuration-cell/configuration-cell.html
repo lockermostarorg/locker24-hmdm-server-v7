@@ -1,3 +1,7 @@
-<a class="cell" [routerLink]="['/home', 'configurations', 'details', configurationId()]">
-  {{ configurationName() }}
-</a>
+@if (configurationId() !== undefined) {
+  <a class="cell" [routerLink]="['/home', 'configurations', 'details', configurationId()]">
+    {{ configurationName() }}
+  </a>
+} @else {
+  <span>{{ configurationName() }}</span>
+}

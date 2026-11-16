@@ -35,6 +35,8 @@ plugins/pom.xml.bak
 test/
 !plugins/**/src/test/
 !plugins/**/src/test/**
+!common/src/test/
+!common/src/test/**
 webtarget/
 
 # Native federation files

@@ -71,7 +71,7 @@ public final class StatusEvaluator {
         if (b == null || b >= 20) {
             return;
         }
-        out.add(new Finding(Condition.BATTERY_LOW, b < 10 ? Severity.RED : Severity.YELLOW, "battery " + b + "%"));
+        out.add(new Finding(Condition.BATTERY_LOW, b < 10 ? Severity.RED : Severity.YELLOW, "battery " + b + " %"));
     }
 
     private static void temperature(DeviceHealth h, List<Finding> out) {

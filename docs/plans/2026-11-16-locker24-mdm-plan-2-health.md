@@ -716,3 +716,46 @@
   - **H5.** `exitKiosk` push: yellow "kiosk off (admin)" within about 3 min (30 s tick, 60 s debounce, 1 min evaluation) and NO alert. Start kiosk again: green. An accidental loss of lock task (not admin) still turns red and alerts.
   - **H6.** The 24 h history charts render battery, temperature, RSSI and offline periods.
 - [ ] **Step 5: Commit the checklist results** (agent repo): `git add docs && git commit -m "docs: health reporting checklist for the Tab A9"`
+
+### Task 17: Server release on GitHub and deploy script (runs right after Task 5)
+
+User decision 2026-11-16: server deploys go through a GitHub release. CI builds the WAR, a release carries it, and a script on the droplet installs a given release. This pulls spec section 6 "Server CI" and "Server deploy" forward from Plan 3, for the server only. Agent APK releases stay in Plan 3.
+
+**Files:**
+- Create: `.github/workflows/server-ci.yml`, `.github/workflows/server-release.yml`, `deploy/deploy.sh`, `deploy/README.md`
+- Modify: `deploy/server-setup.md` (one section: "Updating the server")
+
+**Interfaces:**
+- Consumes: the Maven build as used in Task 5 (`mvn -DskipTests package` from the repo root), producing the panel WAR. Find its exact path and name under `server/target/`, and the installed WAR path and name on the droplet in `deploy/server-setup.md` and `hmdm_install.sh`.
+- Produces:
+  - Tag pattern `l24-v<headwind version>.<n>`, for example `l24-v7.04.1.1` (spec section 7).
+  - Release assets: the WAR plus `<war>.sha256`.
+  - `deploy/deploy.sh <tag>`.
+
+- [ ] **Step 1: CI workflow.** `server-ci.yml` runs on push and pull_request to `main` and `feat/**`.
+  - `actions/checkout`, `actions/setup-java` (temurin 17, maven cache), then `mvn -B package` with tests (Headwind's and ours).
+  - It includes the fix for the known `server/pom.xml` issue: the `prod-public-maven` repository missing for `com.hmdm.plugin:platform`. If the build needs it, add the repository to `server/pom.xml` and list that in `docs/locker24-core-changes.md`.
+- [ ] **Step 2: Release workflow.** `server-release.yml` runs on push of tags `l24-v*`.
+  - Builds the same way, then computes the sha256.
+  - Creates a GitHub release named after the tag, with auto-generated notes, and attaches the WAR plus its sha256. Use `softprops/action-gh-release` pinned to a full commit SHA, or `gh release create` with `GITHUB_TOKEN`.
+  - No secrets other than `GITHUB_TOKEN`.
+- [ ] **Step 3: `deploy/deploy.sh <tag>`.** Runs as root on the droplet. `set -euo pipefail`, idempotent, and every step is printed.
+  1. Download the release assets for `<tag>` with curl from the GitHub API. The repo is going private, so it reads a token from `/root/.config/locker24/github-token`. That is a fine-grained, read-only token for contents and releases, mode 600, never echoed.
+  2. Verify the sha256.
+  3. `pg_dump` the hmdm database to `/opt/locker24/backups/pre-deploy-<tag>-<timestamp>.sql.gz`, reusing `backup.sh`'s conventions.
+  4. Copy the current WAR to `/opt/locker24/backups/`.
+  5. Stop tomcat10, replace the WAR, then start tomcat10. Liquibase migrates on startup.
+  6. Wait up to 180 s for `https://mdm.locker24.app/` to return HTTP 200 and for port 31000 to listen. Then print the panel version from `/rest/public/about` or similar.
+  7. On failure, restore the previous WAR, restart, and say so loudly. Never restore the DB automatically; print the restore command instead.
+
+  `--dry-run` prints the steps without changing anything.
+- [ ] **Step 4: Verify locally.**
+  - `bash -n deploy/deploy.sh` and `shellcheck deploy/deploy.sh` (run shellcheck via Docker `koalaman/shellcheck:stable` if it is not installed) must be clean.
+  - `actionlint` on both workflows, via Docker `rhysd/actionlint:latest`, must be clean.
+  - `deploy.sh --dry-run l24-vX` against a fake release dir must print the steps; add a `DEPLOY_LOCAL_ASSET_DIR` override for this test only.
+- [ ] **Step 5: Docs.**
+  - `deploy/README.md`: how to cut a release (`git tag l24-v7.04.1.1 && git push origin l24-v7.04.1.1`), where the token file goes, `deploy.sh` usage, and rollback.
+  - The "Updating the server" section in `server-setup.md` points to it.
+- [ ] **Step 6: Commit.** `git add .github deploy docs && git commit -m "build: server CI, GitHub release on tag and a deploy script"`
+
+The user pushes the repo and the tag, creates the token, and runs `deploy.sh` on the droplet the first time. Until the user says otherwise, the MDM server has no quiet-hours restriction.

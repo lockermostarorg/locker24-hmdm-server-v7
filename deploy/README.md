@@ -39,6 +39,37 @@ cat /tmp/gh.key >> /root/.ssh/known_hosts
 
 4. Check: `ssh -i /root/.ssh/locker24_deploy_key -o IdentitiesOnly=yes -T git@github.com`.
 
+## Automatic deploys from GitHub
+
+Every push to `main` that passes Server CI is deployed by `.github/workflows/server-deploy.yml`. The workflow runs on `workflow_run` of "Server CI" (conclusion `success`, event `push`, branch `main`, same repository) and deploys the exact commit CI tested. It SSHes to `root@mdm.locker24.app` with a dedicated key whose `authorized_keys` entry runs only `/opt/locker24/deploy-forced.sh`. That script accepts nothing but `deploy <40-hex sha>` and `status <40-hex sha>`, starts `deploy.sh <sha>` as a transient systemd unit (so a dropped SSH connection never interrupts a swap), streams its log lines and exits with the deploy's exit code. If SSH drops, the workflow reconnects with `status <sha>` for up to 40 minutes. The droplet's host key is pinned in the workflow.
+
+Behaviour to know:
+
+- Deploys queue (`concurrency: mdm-deploy`, no cancelling) and never run in parallel; the forced command also refuses while any `locker24-deploy-*` unit runs, and `deploy.sh` holds its flock.
+- A CI success for a commit that is no longer the tip of `main` is skipped, so a late older run cannot overwrite a newer deploy. Docs-only pushes do not run CI, hence do not deploy.
+- Re-running a finished workflow redeploys the same commit (a rebuild and swap, harmless).
+- Manual deploy or rollback: Actions -> "Server deploy" -> Run workflow, with the full SHA. A SHA that is not the tip of `main` needs `force`. Manual runs do not check that CI passed.
+- The deploy runs a private copy of `deploy.sh` taken from the checkout when the deploy starts, so a changed `deploy.sh` takes effect from the deploy after the one that brings it. Re-copy `deploy-forced.sh` by hand when it changes.
+- Remote output is wrapped in `::stop-commands::` so build output cannot inject workflow commands.
+- Progress and the result are also in `/var/log/locker24-deploy.log`; `journalctl -u 'locker24-deploy-*'` shows the unit.
+
+One-time setup:
+
+1. Generate a dedicated key pair on a trusted machine (never commit it): `ssh-keygen -t ed25519 -N "" -C github-deploy -f mdm_deploy_key`.
+2. GitHub repo Settings -> Secrets and variables -> Actions -> New repository secret `MDM_DEPLOY_SSH_KEY`, value = the whole private key file. Delete the local private key afterwards.
+3. On the droplet install the forced command script, then the key (one line; replace `<PUBLIC KEY>` with the key material from `mdm_deploy_key.pub`, the part after `ssh-ed25519`):
+
+```bash
+install -o root -g root -m 755 /opt/locker24/src/locker24-hmdm-server-v7/deploy/deploy-forced.sh /opt/locker24/deploy-forced.sh
+echo 'command="/opt/locker24/deploy-forced.sh",restrict ssh-ed25519 <PUBLIC KEY> github-deploy' >> /root/.ssh/authorized_keys
+```
+
+   `restrict` turns off port, agent and X11 forwarding, pty allocation and user rc in one go (OpenSSH 7.2+; Ubuntu 24.04 is fine). It is equivalent to `no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty,no-user-rc`.
+4. Check that root may log in with a key: `sshd -T | grep -i permitrootlogin` (`prohibit-password` is fine).
+5. Test: Actions -> Server deploy -> Run workflow with the SHA currently deployed (the tip of `main`). It rebuilds and swaps; the job log shows the deploy.
+
+Tests for the forced command (Docker, stubbed systemd and deploy.sh): `deploy/test/run-forced-test.sh`.
+
 ## Release a version
 
 Tag the commit on your machine. The tag is the Headwind version plus our counter:

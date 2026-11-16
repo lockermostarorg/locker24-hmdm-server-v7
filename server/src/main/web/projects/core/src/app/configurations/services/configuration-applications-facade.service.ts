@@ -1,7 +1,8 @@
 import { computed, effect, inject, Injectable, signal, WritableSignal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ConfirmDialog } from 'hmdm-ui-kit';
-import { filter, finalize, map, Observable, of, switchMap, take, tap } from 'rxjs';
+import { catchError, filter, finalize, map, Observable, of, switchMap, take, tap } from 'rxjs';
+import { AuthService } from '../../shared/services/auth.service';
 import { SnackBarService } from '../../shared/services/snack-bar.service';
 import { TOption, TTableSortState } from '../../../../../hmdm-ui-kit/src/public-api';
 import { ApplicationService } from '../../entity/application/services/application.service';
@@ -27,6 +28,7 @@ export class ConfigurationAppsFacadeService {
   private applicationService = inject(ApplicationService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBarService = inject(SnackBarService);
+  private readonly authService = inject(AuthService);
   private searchTerm: WritableSignal<string> = signal('');
 
   private readonly showSystemApps: WritableSignal<boolean> = signal(false);
@@ -304,12 +306,7 @@ export class ConfigurationAppsFacadeService {
   // Versions the app's row can be switched to, newest first. A version with no file can't be
   // installed, and one that another row of the same app already uses would make two rows claim it
   getVersionOptions(app: TApplicationDTO): Observable<TVersionDTO[]> {
-    const cached = this.versionsCache.get(app.id);
-    const versions$ = cached
-      ? of(cached)
-      : this.applicationService
-          .getVersionsByApplicationId(app.id)
-          .pipe(tap((versions) => this.versionsCache.set(app.id, versions)));
+    const versions$ = this.getAllVersions(app);
 
     return versions$.pipe(
       map((versions) =>
@@ -375,8 +372,10 @@ export class ConfigurationAppsFacadeService {
     );
   }
 
-  // The row follows the latest released version again (or is pinned where it is). Turning it on
-  // moves the row to the latest released version at once, as the server does on save
+  // The row follows the latest released version again (or is pinned where it is). The flags, the
+  // row's version and the main/content version ids change at once, because the server takes the
+  // flag, not the version; the versions list is fetched afterwards only to fill the row's text and
+  // URLs, and nothing depends on it
   setFollowLatest(app: TApplicationDTO, follow: boolean): void {
     this.configurationDetailsFacadeService.markUnsavedChanges();
 
@@ -389,35 +388,85 @@ export class ConfigurationAppsFacadeService {
       return;
     }
 
+    const latestId = app.latestVersion;
+
+    this._applications.update((apps) =>
+      apps
+        .filter((a) => a === app || !this.isHiddenLatestTwin(a, app))
+        .map((a) =>
+          a === app
+            ? {
+                ...a,
+                followLatest: true,
+                outdated: false,
+                usedVersionId: latestId,
+                version: app.latestVersionText ?? app.version,
+              }
+            : a,
+        ),
+    );
+
+    if (isMain || isContent) {
+      this.configurationDetailsFacadeService.setMDMAppVersionIds({
+        ...(isMain ? { mainAppId: latestId } : {}),
+        ...(isContent ? { contentAppId: latestId } : {}),
+      });
+    }
+    this.setFollowFlags(isMain, isContent, true);
+
+    if (!this.canLoadVersions()) {
+      return;
+    }
+
     this.getAllVersions(app)
       .pipe(take(1))
       .subscribe((versions) => {
-        const latest = versions.find((version) => version.id === app.latestVersion);
-
-        this.patchRow(app, {
-          followLatest: true,
-          outdated: false,
-          usedVersionId: app.latestVersion,
-          ...(latest
-            ? {
-                version: latest.version,
-                versionCode: latest.versionCode,
-                url: latest.url,
-                urlArmeabi: latest.urlArmeabi,
-                urlArm64: latest.urlArm64,
-                split: latest.split,
-              }
-            : { version: app.latestVersionText ?? app.version }),
-        });
-
-        if (isMain || isContent) {
-          this.configurationDetailsFacadeService.setMDMAppVersionIds({
-            ...(isMain ? { mainAppId: app.latestVersion } : {}),
-            ...(isContent ? { contentAppId: app.latestVersion } : {}),
-          });
+        const latest = versions.find((version) => version.id === latestId);
+        if (!latest) {
+          return;
         }
-        this.setFollowFlags(isMain, isContent, true);
+
+        this._applications.update((apps) =>
+          apps.map((a) =>
+            a.id === app.id && a.usedVersionId === latestId && a.followLatest === true
+              ? {
+                  ...a,
+                  version: latest.version,
+                  versionCode: latest.versionCode,
+                  url: latest.url,
+                  urlArmeabi: latest.urlArmeabi,
+                  urlArm64: latest.urlArm64,
+                  split: latest.split,
+                }
+              : a,
+          ),
+        );
       });
+  }
+
+  // The main or content selector moved to another app: its flag follows that app, not the one
+  // that was selected before. Follows when the app has a following install row, otherwise when
+  // the chosen version is the latest released one
+  syncFollowLatestFlagWithSelection(kind: 'main' | 'content', versionId: number | null): void {
+    if (!versionId) {
+      return;
+    }
+
+    const matches = (a: TApplicationDTO) =>
+      a.usedVersionId === versionId || a.latestVersion === versionId;
+    const chosen = this._applications().find(matches) ?? this._allApplications().find(matches);
+    if (!chosen) {
+      return;
+    }
+
+    const rows = this.installRowsOfPackage(chosen.pkg);
+    const follow = rows.length
+      ? rows.every((row) => row.followLatest !== false)
+      : versionId === chosen.latestVersion;
+
+    this.configurationDetailsFacadeService.setFollowLatestFlags(
+      kind === 'main' ? { followLatestMainApp: follow } : { followLatestContentApp: follow },
+    );
   }
 
   followsLatestMainApp(): boolean {
@@ -485,14 +534,33 @@ export class ConfigurationAppsFacadeService {
     this._sortState.set(state);
   }
 
+  private canLoadVersions(): boolean {
+    return this.authService.hasPermission('applications');
+  }
+
   private getAllVersions(app: TApplicationDTO): Observable<TVersionDTO[]> {
     const cached = this.versionsCache.get(app.id);
+    if (cached) {
+      return of(cached);
+    }
 
-    return cached
-      ? of(cached)
-      : this.applicationService
-          .getVersionsByApplicationId(app.id)
-          .pipe(tap((versions) => this.versionsCache.set(app.id, versions)));
+    return this.applicationService.getVersionsByApplicationId(app.id).pipe(
+      map((versions) => (Array.isArray(versions) ? versions : [])),
+      tap((versions) => {
+        if (versions.length) {
+          this.versionsCache.set(app.id, versions);
+        }
+      }),
+      catchError(() => of([] as TVersionDTO[])),
+    );
+  }
+
+  private isHiddenLatestTwin(candidate: TApplicationDTO, app: TApplicationDTO): boolean {
+    return (
+      candidate.id === app.id &&
+      candidate.usedVersionId === app.latestVersion &&
+      !this.isListed(candidate)
+    );
   }
 
   // Same meaning as the server: behind the latest released version. A row pinned to a held

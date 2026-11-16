@@ -1,5 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
+import { TranslateService } from '@ngx-translate/core';
 import { filter, take, switchMap } from 'rxjs';
 import { ConfirmDialog, InformDialog } from 'hmdm-ui-kit';
 import { ApplicationService } from '../../entity/application/services/application.service';
@@ -9,6 +10,7 @@ import { ApplicationConfigDialog } from '../components/application-config-dialog
 import { EditVersionDialog } from '../components/edit-version-dialog/edit-version-dialog';
 import { ReleaseVersionDialog } from '../components/release-version-dialog/release-version-dialog';
 import { VersionDialog } from '../components/version-dialog/version-dialog';
+import { releaseSummaryDialogData } from '../utils/release-summary';
 import { ApplicationFacadeService } from './application-facade.service';
 import { VersionFacadeService } from './version-facade.service';
 
@@ -18,6 +20,7 @@ export class VersionDialogService {
   private readonly versionService = inject(ApplicationService);
   private readonly versionFacadeService = inject(VersionFacadeService);
   private readonly applicationFacadeService = inject(ApplicationFacadeService);
+  private readonly translate = inject(TranslateService);
 
   openAddVersionDialog(applicationId: number): void {
     this.dialog
@@ -52,12 +55,7 @@ export class VersionDialogService {
   }
 
   showSummary(summary: TReleaseSummary): void {
-    this.dialog.open(InformDialog, {
-      data: {
-        message: summary.mode === 'hold' ? 'release.summary.held' : 'release.summary.released',
-        params: { configurations: summary.configurations, devices: summary.devices },
-      },
-    });
+    this.dialog.open(InformDialog, { data: releaseSummaryDialogData(summary, this.translate) });
   }
 
   openEditVersionDialog(version: TVersionDTO): void {

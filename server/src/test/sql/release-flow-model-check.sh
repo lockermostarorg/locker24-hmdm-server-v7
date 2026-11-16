@@ -274,6 +274,16 @@ expect "null: version link with no latest is pinned" "f" "$(fl "$C_H2" "$APP_H")
 expect "null: app list still returns an app with no latest" "1" "$(render javaconst "$APP_MAPPER" 'String SELECT_BASE =' | python3 -c "import sys; print('SELECT COUNT(*) FROM (' + sys.stdin.read().strip() + ' WHERE applications.id = $APP_H) t;')" | psqlq)"
 expect "null: configuration apps still return a held-only app, not outdated (4 expressions)" "0 0 0 0" "$(outdated_flags "$C_H1" "$APP_H")"
 
+q "INSERT INTO users (login, name, email, password, customerId, userRoleId) SELECT 'rel-named', 'Release Name', 'rn@example.com', 'x', c.id, r.id FROM customers c, userRoles r LIMIT 1" >/dev/null
+q "INSERT INTO users (login, name, email, password, customerId, userRoleId) SELECT 'rel-unnamed', '', 'ru@example.com', 'x', c.id, r.id FROM customers c, userRoles r LIMIT 1" >/dev/null
+q "UPDATE applicationVersions SET releasedBy = (SELECT id FROM users WHERE login = 'rel-named') WHERE id = $VH" >/dev/null
+version_by() { render javaconst "$APP_MAPPER" 'String SELECT_VERSION_BASE =' | python3 -c "import sys; print('SELECT COALESCE(releasedByName, \'none\') FROM (' + sys.stdin.read().strip() + ' WHERE applicationVersions.id = $1) t;')" | psqlq; }
+expect "version list returns the name of the releasing user" "Release Name" "$(version_by "$VH")"
+q "UPDATE applicationVersions SET releasedBy = (SELECT id FROM users WHERE login = 'rel-unnamed') WHERE id = $VH" >/dev/null
+expect "version list falls back to the login when the user has no name" "rel-unnamed" "$(version_by "$VH")"
+q "UPDATE applicationVersions SET releasedBy = NULL WHERE id = $VH" >/dev/null
+expect "version list has no name when nobody released it" "none" "$(version_by "$VH")"
+
 if [ "$FAILED" -ne 0 ]; then
   exit 1
 fi

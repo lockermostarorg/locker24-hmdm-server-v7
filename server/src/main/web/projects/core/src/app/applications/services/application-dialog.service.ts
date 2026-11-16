@@ -12,6 +12,8 @@ import {
   take,
   takeUntil,
 } from 'rxjs';
+import { TranslateService } from '@ngx-translate/core';
+import { releaseSummaryDialogData } from '../utils/release-summary';
 import { SnackBarService } from '../../shared/services/snack-bar.service';
 import { EApplicationType } from '../../entity/application/enum/application-type.enum';
 import { ApplicationService } from '../../entity/application/services/application.service';
@@ -27,14 +29,15 @@ import { TReleaseSummary } from '../../entity/application/types/release-mode.typ
 import { ApplicationFacadeService } from './application-facade.service';
 
 type TSaveResult =
-  | { outcome: 'saved'; entity: TApplicationDTO | null }
+  | { outcome: 'saved'; entity: TApplicationDTO | null; heldAsFirstVersion: boolean }
   | { outcome: 'version-saved'; applicationId: number; summary: TReleaseSummary }
   | { outcome: 'name-taken' }
   | { outcome: 'cancelled' };
 
-const saved = (entity: TApplicationDTO | null): TSaveResult => ({
+const saved = (entity: TApplicationDTO | null, heldAsFirstVersion = false): TSaveResult => ({
   outcome: 'saved',
   entity,
+  heldAsFirstVersion,
 });
 
 const versionSaved = (applicationId: number, summary: TReleaseSummary): TSaveResult => ({
@@ -49,6 +52,7 @@ export class ApplicationDialogService {
   private readonly applicationService = inject(ApplicationService);
   private readonly applicationFacadeService = inject(ApplicationFacadeService);
   private readonly snackBarService = inject(SnackBarService);
+  private readonly translate = inject(TranslateService);
 
   openAddApplicationDialog(): void {
     const dialogRef = this.dialog.open(ApplicationDialog, { minWidth: '600px' });
@@ -75,7 +79,7 @@ export class ApplicationDialogService {
           dialogRef.close();
           this.applicationFacadeService.searchApplications();
           this.dialog
-            .open(InformDialog, { data: this.summaryDialogData(result.summary) })
+            .open(InformDialog, { data: releaseSummaryDialogData(result.summary, this.translate) })
             .afterClosed()
             .pipe(take(1))
             .subscribe(() => this.openSelectConfigurationDialog(result.applicationId));
@@ -91,6 +95,15 @@ export class ApplicationDialogService {
 
         if (!this.applicationFacadeService.formData?.showSystem && res.system) {
           this.openSystemAppMessageDialog();
+        }
+
+        if (result.heldAsFirstVersion) {
+          this.dialog
+            .open(InformDialog, { data: { message: 'release.summary.first.version' } })
+            .afterClosed()
+            .pipe(take(1))
+            .subscribe(() => this.openSelectConfigurationDialog(res.id, res.usedVersionId));
+          return;
         }
 
         this.openSelectConfigurationDialog(res.id, res.usedVersionId);
@@ -127,7 +140,7 @@ export class ApplicationDialogService {
     isNewApp: boolean,
   ): Observable<TSaveResult> {
     if (data.type !== EApplicationType.APP || !data.filePath) {
-      return this.applicationService.createApplication(data).pipe(map(saved));
+      return this.applicationService.createApplication(data).pipe(map((entity) => saved(entity)));
     }
 
     const appData = data;
@@ -148,7 +161,9 @@ export class ApplicationDialogService {
     return this.applicationService.validatePkg(validateBody).pipe(
       switchMap((duplicates) => {
         if (!duplicates?.length) {
-          return this.applicationService.createApplication(data).pipe(map(saved));
+          return this.applicationService
+            .createApplication(data)
+            .pipe(map((entity) => saved(entity, appData.releaseMode === 'hold')));
         }
 
         // Single match, same name and a newer version → silently add a new version.
@@ -222,18 +237,13 @@ export class ApplicationDialogService {
               }
 
               // 'new-app' or 'change-pkg' — proceed with normal application creation
-              return this.applicationService.createApplication(data).pipe(map(saved));
+              return this.applicationService
+                .createApplication(data)
+                .pipe(map((entity) => saved(entity, appData.releaseMode === 'hold')));
             }),
           );
       }),
     );
-  }
-
-  summaryDialogData(summary: TReleaseSummary): Record<string, unknown> {
-    return {
-      message: summary.mode === 'hold' ? 'release.summary.held' : 'release.summary.released',
-      params: { configurations: summary.configurations, devices: summary.devices },
-    };
   }
 
   openSelectConfigurationDialog(applicationId: number, versionId?: number): void {

@@ -82,6 +82,7 @@ public interface ApplicationMapper {
                     "applicationVersions.releasedAt, " +
                     "applicationVersions.releaseMode, " +
                     "applicationVersions.releasedBy, " +
+                    "(SELECT COALESCE(NULLIF(ru.name, ''), ru.login) FROM users ru WHERE ru.id = applicationVersions.releasedBy) AS releasedByName, " +
                     "(usageData.usageCount > 0 OR versionsData.appVersionsCount = 1) AS deletionProhibited, " +
                     "customers.master AS commonApplication," +
                     "applications.system, " +

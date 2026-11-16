@@ -18,4 +18,5 @@ export type TVersionDTO = {
   releasedAt?: number | null;
   releaseMode?: string | null;
   releasedBy?: number | null;
+  releasedByName?: string | null;
 };

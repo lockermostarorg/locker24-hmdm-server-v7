@@ -1,11 +1,14 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { ApplicationService } from '../../entity/application/services/application.service';
 import { TApplicationDTO } from '../../entity/application/types/application-dto.type';
 import { TVersionDTO } from '../../entity/application/types/version-dto.type';
 import { ConfigurationService } from '../../entity/configuration/services/configuration.service';
 import { TConfigurationDTO } from '../../entity/configuration/types/configuration-dto.type';
+import { AuthService } from '../../shared/services/auth.service';
 import { baseTestProviders } from '../../testing/test-providers';
+import { provideRouter } from '@angular/router';
+import { ConfigurationDetails } from '../pages/configuration-details/configuration-details';
 import { ConfigurationAppsFacadeService } from './configuration-applications-facade.service';
 import { ConfigurationDetailsFacadeService } from './configuration-details-facade.service';
 
@@ -48,16 +51,21 @@ describe('ConfigurationAppsFacadeService release flow', () => {
   let facade: ConfigurationAppsFacadeService;
   let details: ConfigurationDetailsFacadeService;
 
+  let applicationService: jasmine.SpyObj<ApplicationService>;
+  let configurationService: jasmine.SpyObj<ConfigurationService>;
+  let canLoadVersions = true;
+
   function setup(apps: TApplicationDTO[], config: Partial<TConfigurationDTO> = {}): void {
-    const configurationService = jasmine.createSpyObj('ConfigurationService', [
+    configurationService = jasmine.createSpyObj('ConfigurationService', [
       'getConfigurationApps',
       'getConfigurationsById',
     ]);
+    canLoadVersions = true;
     configurationService.getConfigurationApps.and.returnValue(of(apps));
     configurationService.getConfigurationsById.and.returnValue(
       of({ id: 5, name: 'Cfg', ...config } as TConfigurationDTO),
     );
-    const applicationService = jasmine.createSpyObj('ApplicationService', [
+    applicationService = jasmine.createSpyObj('ApplicationService', [
       'search',
       'getVersionsByApplicationId',
     ]);
@@ -67,8 +75,10 @@ describe('ConfigurationAppsFacadeService release flow', () => {
     TestBed.configureTestingModule({
       providers: [
         ...baseTestProviders(),
+        provideRouter([]),
         { provide: ConfigurationService, useValue: configurationService },
         { provide: ApplicationService, useValue: applicationService },
+        { provide: AuthService, useValue: { hasPermission: () => canLoadVersions } },
       ],
     });
     facade = TestBed.inject(ConfigurationAppsFacadeService);
@@ -205,6 +215,207 @@ describe('ConfigurationAppsFacadeService release flow', () => {
 
       expect(facade.followsLatestMainApp()).toBeFalse();
       expect(details.currentConfiguration()?.followLatestMainApp).toBeFalse();
+    });
+  });
+
+  describe('turning following on', () => {
+    const pinned = (): TApplicationDTO =>
+      row({ usedVersionId: 10, version: '1.0', versionCode: 100, followLatest: false });
+
+    it('sets the flag, the version and the main flag before any fetch answers', () => {
+      setup([pinned()], { mainAppId: 10, followLatestMainApp: false });
+      const pending = new Subject<TVersionDTO[]>();
+      applicationService.getVersionsByApplicationId.and.returnValue(pending);
+
+      facade.setMainAppFollowsLatest(true);
+
+      expect(current().followLatest).toBeTrue();
+      expect(current().usedVersionId).toBe(11);
+      expect(details.currentConfiguration()?.mainAppId).toBe(11);
+      expect(details.currentConfiguration()?.followLatestMainApp).toBeTrue();
+    });
+
+    it('still follows when the versions request fails', () => {
+      setup([pinned()]);
+      applicationService.getVersionsByApplicationId.and.returnValue(
+        throwError(() => new Error('network')),
+      );
+
+      facade.setFollowLatest(current(), true);
+
+      expect(current().followLatest).toBeTrue();
+      expect(current().usedVersionId).toBe(11);
+    });
+
+    it('still follows when the versions answer is null, and caches nothing', () => {
+      setup([pinned()]);
+      applicationService.getVersionsByApplicationId.and.returnValue(
+        of(null as unknown as TVersionDTO[]),
+      );
+
+      facade.setFollowLatest(current(), true);
+
+      expect(current().followLatest).toBeTrue();
+      let options: TVersionDTO[] = [{} as TVersionDTO];
+      facade.getVersionOptions(current()).subscribe((versions) => (options = versions));
+      expect(options).toEqual([]);
+      expect(applicationService.getVersionsByApplicationId).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not ask for versions without the applications permission', () => {
+      setup([pinned()]);
+      canLoadVersions = false;
+
+      facade.setFollowLatest(current(), true);
+
+      expect(applicationService.getVersionsByApplicationId).not.toHaveBeenCalled();
+      expect(current().followLatest).toBeTrue();
+    });
+
+    it('fills the row text from the versions list when it arrives', () => {
+      setup([pinned()]);
+      applicationService.getVersionsByApplicationId.and.returnValue(of([V2, V1]));
+
+      facade.setFollowLatest(current(), true);
+
+      expect(current().url).toBe('https://x/2.0.apk');
+      expect(current().versionCode).toBe(200);
+    });
+
+    it('does not leave the hidden latest entry next to the row', () => {
+      const twin = row({ action: 0, usedVersionId: 11, version: '2.0', followLatest: null });
+      setup([pinned(), twin]);
+
+      facade.setFollowLatest(facade.applications()[0], true);
+
+      expect(facade.applications().length).toBe(1);
+    });
+  });
+
+  describe('selector change', () => {
+    const other = row({ id: 2, pkg: 'app.other', usedVersionId: 21, latestVersion: 21 });
+
+    it('follows when the new app has a following install row', () => {
+      setup([row(), other], { contentAppId: 11, followLatestContentApp: false });
+
+      facade.syncFollowLatestFlagWithSelection('content', 21);
+
+      expect(details.currentConfiguration()?.followLatestContentApp).toBeTrue();
+    });
+
+    it('is pinned when the new app has a pinned row', () => {
+      setup([row(), { ...other, followLatest: false }], {
+        contentAppId: 11,
+        followLatestContentApp: true,
+      });
+
+      facade.syncFollowLatestFlagWithSelection('content', 21);
+
+      expect(details.currentConfiguration()?.followLatestContentApp).toBeFalse();
+    });
+
+    it('follows without an install row when the chosen version is the latest released', () => {
+      setup([row(), { ...other, action: 0 }], { mainAppId: 11, followLatestMainApp: false });
+
+      facade.syncFollowLatestFlagWithSelection('main', 21);
+
+      expect(details.currentConfiguration()?.followLatestMainApp).toBeTrue();
+    });
+
+    it('is pinned without an install row when the chosen version is not the latest', () => {
+      setup([row(), { ...other, action: 0, usedVersionId: 20, latestVersion: 21 }], {
+        mainAppId: 11,
+        followLatestMainApp: true,
+      });
+
+      facade.syncFollowLatestFlagWithSelection('main', 20);
+
+      expect(details.currentConfiguration()?.followLatestMainApp).toBeFalse();
+    });
+  });
+
+  describe('save body', () => {
+    let saved: TConfigurationDTO;
+
+    function save(): void {
+      configurationService.updateConfiguration = jasmine
+        .createSpy('updateConfiguration')
+        .and.callFake((body: TConfigurationDTO) => {
+          saved = body;
+          return of(null);
+        });
+      const component = TestBed.runInInjectionContext(() => new ConfigurationDetails());
+      component.onSave();
+    }
+
+    const flags = (): (boolean | null | undefined)[] =>
+      (saved.applications as TApplicationDTO[]).map((a) => a.followLatest);
+
+    it('carries false for a picked version and the pinned main flag', () => {
+      setup([row()], { mainAppId: 11, followLatestMainApp: true });
+      facade.setAppVersion(current(), V1);
+
+      save();
+
+      expect(flags()).toEqual([false]);
+      expect(saved.mainAppId).toBe(10);
+      expect(saved.followLatestMainApp).toBeFalse();
+    });
+
+    it('carries true after toggling on, even if the versions fetch never answers', () => {
+      setup([row({ usedVersionId: 10, followLatest: false })], {
+        mainAppId: 10,
+        followLatestMainApp: false,
+      });
+      applicationService.getVersionsByApplicationId.and.returnValue(new Subject());
+
+      facade.setMainAppFollowsLatest(true);
+      save();
+
+      expect(flags()).toEqual([true]);
+      expect(saved.followLatestMainApp).toBeTrue();
+      expect(saved.mainAppId).toBe(11);
+    });
+
+    it('carries true after toggling on when the versions fetch fails', () => {
+      setup([row({ usedVersionId: 10, followLatest: false })]);
+      applicationService.getVersionsByApplicationId.and.returnValue(
+        throwError(() => new Error('x')),
+      );
+
+      facade.setFollowLatest(current(), true);
+      save();
+
+      expect(flags()).toEqual([true]);
+    });
+
+    it('sends one row per app after toggling on', () => {
+      setup([
+        row({ usedVersionId: 10, followLatest: false }),
+        row({ action: 0, usedVersionId: 11, followLatest: null }),
+      ]);
+
+      facade.setFollowLatest(facade.applications()[0], true);
+      save();
+
+      expect((saved.applications as TApplicationDTO[]).length).toBe(1);
+    });
+
+    it('carries true for an added row', () => {
+      setup([]);
+      facade.addApplication(row({ id: 3, followLatest: null }));
+
+      save();
+
+      expect(flags()).toEqual([true]);
+    });
+
+    it('echoes the stored flag of untouched rows', () => {
+      setup([row({ followLatest: false }), row({ id: 4, pkg: 'x', followLatest: true })]);
+
+      save();
+
+      expect(flags()).toEqual([false, true]);
     });
   });
 });

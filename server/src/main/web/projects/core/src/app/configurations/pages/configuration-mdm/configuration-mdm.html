@@ -12,7 +12,7 @@
         [options]="applicationOptions()"
       ></hmdm-select-search>
 
-      @if (formGroup.controls.mainAppId.value) {
+      @if (canFollowLatest && formGroup.controls.mainAppId.value) {
         <mat-slide-toggle
           class="mdm-follow"
           [checked]="followsMainApp()"
@@ -40,7 +40,7 @@
         [options]="applicationOptions()"
       ></hmdm-select-search>
 
-      @if (formGroup.controls.contentAppId.value) {
+      @if (canFollowLatest && formGroup.controls.contentAppId.value) {
         <mat-slide-toggle
           class="mdm-follow"
           [checked]="followsContentApp()"

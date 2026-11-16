@@ -1243,7 +1243,6 @@
   "form.application.release.mode.hold": "Hold (upload only)",
   "form.application.release.mode.hold.help": "The version is uploaded but not applied anywhere. Release it later from the versions list.",
   "form.application.release.version": "Version {{version}} is held. Choose how to apply it.",
-  "release.summary.released": "Released to {{configurations}} configurations ({{devices}} tablets)",
   "release.summary.held": "Held; not applied",
   "release.state.released": "Released",
   "release.state.held": "Held",
@@ -1251,5 +1250,11 @@
   "table.heading.application.version.state": "State",
   "form.configuration.app.follow.latest": "Follows latest",
   "form.configuration.app.follow.latest.title": "On: the app moves to each newly released version. Off: it stays on the chosen version.",
-  "form.configuration.app.pinned": "Pinned to {{version}}"
+  "form.configuration.app.pinned": "Pinned to {{version}}",
+  "release.summary.released": "Released to {{configurations}} ({{devices}})",
+  "release.summary.configuration.one": "{{count}} configuration",
+  "release.summary.configuration.other": "{{count}} configurations",
+  "release.summary.tablet.one": "{{count}} tablet",
+  "release.summary.tablet.other": "{{count}} tablets",
+  "release.summary.first.version": "Released on schedule: the first version of an application is always released, so it was not held."
 }

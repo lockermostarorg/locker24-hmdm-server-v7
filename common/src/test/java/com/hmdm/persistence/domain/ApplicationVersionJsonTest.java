@@ -14,7 +14,7 @@ public class ApplicationVersionJsonTest {
     @Test
     public void onlyReleaseModeIsReadFromRequestJson() throws Exception {
         ApplicationVersion version = mapper.readValue(
-                "{\"version\":\"1.0\",\"releaseState\":\"held\",\"releasedAt\":5,\"releaseMode\":\"immediate\",\"releasedBy\":7}",
+                "{\"version\":\"1.0\",\"releaseState\":\"held\",\"releasedAt\":5,\"releaseMode\":\"immediate\",\"releasedBy\":7,\"releasedByName\":\"Mallory\"}",
                 ApplicationVersion.class);
 
         assertEquals("1.0", version.getVersion());
@@ -22,6 +22,7 @@ public class ApplicationVersionJsonTest {
         assertNull(version.getReleasedAt());
         assertEquals("immediate", version.getReleaseMode());
         assertNull(version.getReleasedBy());
+        assertNull(version.getReleasedByName());
     }
 
     @Test
@@ -31,6 +32,7 @@ public class ApplicationVersionJsonTest {
         version.setReleasedAt(5L);
         version.setReleaseMode("schedule");
         version.setReleasedBy(7);
+        version.setReleasedByName("Ana");
 
         String json = mapper.writeValueAsString(version);
 
@@ -38,6 +40,7 @@ public class ApplicationVersionJsonTest {
         assertTrue(json, json.contains("\"releasedAt\":5"));
         assertTrue(json, json.contains("\"releaseMode\":\"schedule\""));
         assertTrue(json, json.contains("\"releasedBy\":7"));
+        assertTrue(json, json.contains("\"releasedByName\":\"Ana\""));
     }
 
     @Test

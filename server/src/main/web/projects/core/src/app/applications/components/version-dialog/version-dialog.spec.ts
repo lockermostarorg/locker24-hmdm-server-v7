@@ -100,5 +100,6 @@ describe('VersionDialog', () => {
     setup({ applicationId: 7, hasReleasedVersion: false });
 
     expect(fixture.componentInstance.allowHold).toBeFalse();
+    expect(fixture.nativeElement.querySelectorAll('mat-button-toggle').length).toBe(2);
   });
 });

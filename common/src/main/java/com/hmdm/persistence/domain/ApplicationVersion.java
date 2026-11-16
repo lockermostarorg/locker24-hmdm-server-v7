@@ -71,6 +71,10 @@ public class ApplicationVersion implements Serializable {
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Integer releasedBy;
 
+    @Schema(description = "Name of the user who released the version, or the login when the user has no name")
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private String releasedByName;
+
     @Schema(hidden = true)
     private boolean deletionProhibited;
 
@@ -214,6 +218,14 @@ public class ApplicationVersion implements Serializable {
 
     public void setReleasedBy(Integer releasedBy) {
         this.releasedBy = releasedBy;
+    }
+
+    public String getReleasedByName() {
+        return releasedByName;
+    }
+
+    public void setReleasedByName(String releasedByName) {
+        this.releasedByName = releasedByName;
     }
 
     public boolean isDeletionProhibited() {

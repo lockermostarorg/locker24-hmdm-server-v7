@@ -10,6 +10,7 @@ import {
   TextInputComponent,
   TranslatePipe,
 } from 'hmdm-ui-kit';
+import { AuthService } from '../../../shared/services/auth.service';
 import { ConfigurationMdmFormConfig } from '../../configs/configuration-mdm-form.config';
 import { ConfigurationDetailsFacadeService } from '../../services/configuration-details-facade.service';
 import { TConfigurationMDMForm } from '../../types/configuration-mdm-form.type';
@@ -43,6 +44,12 @@ export class ConfigurationMdm extends BaseComponent implements OnInit {
     ConfigurationAppsFacadeService,
   );
 
+  private readonly authService = inject(AuthService);
+
+  private selectedMainAppId: number | null = null;
+  private selectedContentAppId: number | null = null;
+
+  canFollowLatest = this.authService.hasPermission('applications');
   wifiSecurityOptions = WIFI_SECURITY_OPTIONS;
   applicationOptions = this.configurationApplicationsFacadeService.applicationsVersionIdOptions;
   formGroup: FormGroup<TConfigurationMDMForm> = this.configurationMdmFormConfig.getFormGroup();
@@ -100,6 +107,8 @@ export class ConfigurationMdm extends BaseComponent implements OnInit {
         { emitEvent: false },
       );
 
+      this.selectedMainAppId = this.formGroup.controls.mainAppId.value;
+      this.selectedContentAppId = this.formGroup.controls.contentAppId.value;
       this.isKioskMode.set(this.formGroup.controls.kioskMode.value);
     });
   }
@@ -115,6 +124,25 @@ export class ConfigurationMdm extends BaseComponent implements OnInit {
   ngOnInit(): void {
     this.formGroup.valueChanges.pipe(this.untilDestroyed()).subscribe(() => {
       this.configurationDetailsFacadeService.setMDMSettings(this.formGroup.getRawValue());
+
+      const newMainAppId = this.formGroup.controls.mainAppId.value;
+      if (newMainAppId !== this.selectedMainAppId) {
+        this.selectedMainAppId = newMainAppId;
+        this.configurationApplicationsFacadeService.syncFollowLatestFlagWithSelection(
+          'main',
+          newMainAppId,
+        );
+      }
+
+      const newContentAppId = this.formGroup.controls.contentAppId.value;
+      if (newContentAppId !== this.selectedContentAppId) {
+        this.selectedContentAppId = newContentAppId;
+        this.configurationApplicationsFacadeService.syncFollowLatestFlagWithSelection(
+          'content',
+          newContentAppId,
+        );
+      }
+
       this.isKioskMode.set(this.formGroup.controls.kioskMode.value);
     });
 

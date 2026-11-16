@@ -46,7 +46,7 @@ public interface ApplicationMapper {
                     "(usageData.usageCount > 0) AS deletionProhibited " +
             "FROM applications " +
             "INNER JOIN customers ON customers.id = applications.customerId " +
-            "INNER JOIN applicationVersions ON applicationVersions.id = applications.latestVersion " +
+            "LEFT JOIN applicationVersions ON applicationVersions.id = applications.latestVersion " +
             "LEFT JOIN (SELECT applicationVersions.applicationId AS id, COUNT(*) AS usageCount " +
             "            FROM applicationVersions " +
             "            INNER JOIN configurationApplications c ON applicationVersions.id = c.applicationVersionId" +
@@ -173,13 +173,13 @@ public interface ApplicationMapper {
             "       configurationApplications.remove   AS remove, " +
             "       latestAppVersion.version   AS latestVersionText, " +
             "       currentAppVersion.version   AS currentVersionText, " +
-            "       (configurationApplications.configurationId IS NOT NULL AND applications.latestVersion <> configurationApplications.applicationVersionId) AS outdated, " +
+            "       (configurationApplications.configurationId IS NOT NULL AND applications.latestVersion IS NOT NULL AND mdm_app_version_comparison_index(latestAppVersion.version) > mdm_app_version_comparison_index(currentAppVersion.version)) AS outdated, " +
             "       configurationApplications.action AS action " +
             "FROM configurations " +
             "         INNER JOIN users ON users.id = #{userId} " +
             "         LEFT JOIN userConfigurationAccess access ON configurations.id = access.configurationId AND access.userId = users.id " +
             "         LEFT JOIN applications ON applications.id = #{id} " +
-            "         INNER JOIN applicationVersions AS latestAppVersion ON latestAppVersion.applicationId = applications.id AND latestAppVersion.id=applications.latestversion " +
+            "         LEFT JOIN applicationVersions AS latestAppVersion ON latestAppVersion.applicationId = applications.id AND latestAppVersion.id=applications.latestversion " +
             "         LEFT JOIN configurationApplications ON configurations.id = configurationApplications.configurationId AND " +
             "                                                applications.id = configurationApplications.applicationId " +
             "         LEFT JOIN applicationVersions AS currentAppVersion ON currentAppVersion.applicationId = applications.id AND currentAppVersion.id=configurationApplications.applicationVersionId " +

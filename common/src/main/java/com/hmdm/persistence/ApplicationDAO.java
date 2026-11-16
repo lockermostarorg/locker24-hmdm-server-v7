@@ -677,6 +677,10 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
                     newAppVersion.setApplicationId(newAppId);
                     newAppVersion.setVersion(appVersionObject.getVersion());
                     newAppVersion.setUrl(newUrl);
+                    newAppVersion.setReleaseState(appVersionObject.getReleaseState());
+                    newAppVersion.setReleasedAt(appVersionObject.getReleasedAt());
+                    newAppVersion.setReleaseMode(appVersionObject.getReleaseMode());
+                    newAppVersion.setReleasedBy(appVersionObject.getReleasedBy());
 
                     this.mapper.insertApplicationVersion(newAppVersion);
 

@@ -2708,8 +2708,119 @@
                                   WHERE v.id = configurations.contentAppId);
         </sql>
         <rollback>
+            <!-- Rolling this back alone resets every pin to follow -->
             UPDATE configurationApplications SET followLatest = TRUE;
             UPDATE configurations SET followLatestMainApp = TRUE, followLatestContentApp = TRUE;
+        </rollback>
+    </changeSet>
+
+    <changeSet id="16.11.26-10:02-l24-3" author="locker24" context="common">
+        <comment>mdm_config_app_upgrade never moves a row down to a lower version</comment>
+        <createProcedure>
+            DROP FUNCTION IF EXISTS mdm_config_app_upgrade(BIGINT, BIGINT);
+
+            CREATE OR REPLACE FUNCTION mdm_config_app_upgrade(configId BIGINT, appId BIGINT)
+            RETURNS INT
+            AS
+            $$
+
+            BEGIN
+            -- Deleting existing record for latest version of app for configuration
+            DELETE
+            FROM configurationApplications
+            WHERE configurationId = configId
+            AND applicationId = appId
+            AND applicationVersionId = (SELECT latestVersion FROM applications WHERE applications.id = appId);
+
+            -- Change the current record for installed version of application to refer to latest version
+            UPDATE configurationApplications
+            SET applicationVersionId = (SELECT latestVersion FROM applications WHERE applications.id = appId)
+            WHERE configurationId = configId
+            AND applicationId = appId
+            AND action = 1
+            AND mdm_app_version_comparison_index((SELECT version FROM applicationVersions WHERE applicationVersions.id = applicationVersionId))
+            &lt; mdm_app_version_comparison_index((SELECT version FROM applicationVersions WHERE applicationVersions.id = (SELECT latestVersion FROM applications WHERE applications.id = appId)));
+
+
+            -- Upgrade reference to main application if necessary
+            UPDATE configurations
+            SET mainAppId = (SELECT latestVersion FROM applications WHERE applications.id = appId)
+            WHERE configurations.id = configId
+            AND NOT configurations.mainAppId IS NULL
+            AND mdm_app_version_comparison_index((SELECT version FROM applicationVersions WHERE applicationVersions.id = configurations.mainAppId))
+            &lt; mdm_app_version_comparison_index((SELECT version FROM applicationVersions WHERE applicationVersions.id = (SELECT latestVersion FROM applications WHERE applications.id = appId)))
+            AND EXISTS(SELECT 1
+            FROM applicationVersions
+            WHERE applicationVersions.id = configurations.mainAppId
+            AND applicationVersions.applicationId = appId);
+
+            -- Upgrade reference to content application if necessary
+            UPDATE configurations
+            SET contentAppId = (SELECT latestVersion FROM applications WHERE applications.id = appId)
+            WHERE configurations.id = configId
+            AND NOT configurations.contentAppId IS NULL
+            AND mdm_app_version_comparison_index((SELECT version FROM applicationVersions WHERE applicationVersions.id = configurations.contentAppId))
+            &lt; mdm_app_version_comparison_index((SELECT version FROM applicationVersions WHERE applicationVersions.id = (SELECT latestVersion FROM applications WHERE applications.id = appId)))
+            AND EXISTS(SELECT 1
+            FROM applicationVersions
+            WHERE applicationVersions.id = configurations.contentAppId
+            AND applicationVersions.applicationId = appId);
+
+            RETURN 0;
+            END;
+            $$
+            LANGUAGE 'plpgsql';
+        </createProcedure>
+        <rollback>
+            <createProcedure>
+            DROP FUNCTION IF EXISTS mdm_config_app_upgrade(BIGINT, BIGINT);
+
+            CREATE OR REPLACE FUNCTION mdm_config_app_upgrade(configId BIGINT, appId BIGINT)
+            RETURNS INT
+            AS
+            $$
+
+            BEGIN
+            -- Deleting existing record for latest version of app for configuration
+            DELETE
+            FROM configurationApplications
+            WHERE configurationId = configId
+            AND applicationId = appId
+            AND applicationVersionId = (SELECT latestVersion FROM applications WHERE applications.id = appId);
+
+            -- Change the current record for installed version of application to refer to latest version
+            UPDATE configurationApplications
+            SET applicationVersionId = (SELECT latestVersion FROM applications WHERE applications.id = appId)
+            WHERE configurationId = configId
+            AND applicationId = appId
+            AND action = 1;
+
+
+            -- Upgrade reference to main application if necessary
+            UPDATE configurations
+            SET mainAppId = (SELECT latestVersion FROM applications WHERE applications.id = appId)
+            WHERE configurations.id = configId
+            AND NOT configurations.mainAppId IS NULL
+            AND EXISTS(SELECT 1
+            FROM applicationVersions
+            WHERE applicationVersions.id = configurations.mainAppId
+            AND applicationVersions.applicationId = appId);
+
+            -- Upgrade reference to content application if necessary
+            UPDATE configurations
+            SET contentAppId = (SELECT latestVersion FROM applications WHERE applications.id = appId)
+            WHERE configurations.id = configId
+            AND NOT configurations.contentAppId IS NULL
+            AND EXISTS(SELECT 1
+            FROM applicationVersions
+            WHERE applicationVersions.id = configurations.contentAppId
+            AND applicationVersions.applicationId = appId);
+
+            RETURN 0;
+            END;
+            $$
+            LANGUAGE 'plpgsql';
+        </createProcedure>
         </rollback>
     </changeSet>
 

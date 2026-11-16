@@ -22,6 +22,7 @@
 package com.hmdm.persistence.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.io.Serializable;
@@ -56,15 +57,19 @@ public class ApplicationVersion implements Serializable {
     private String urlArm64;
 
     @Schema(description = "Release state of the version: released or held")
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String releaseState;
 
     @Schema(description = "Time the version was released, in milliseconds")
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Long releasedAt;
 
     @Schema(description = "How the version was released: schedule or immediate")
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String releaseMode;
 
     @Schema(description = "ID of the user who released the version")
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Integer releasedBy;
 
     @Schema(hidden = true)

@@ -909,6 +909,8 @@ public class Configuration implements CustomerData, Serializable {
 
         copy.setMainAppId(getMainAppId());
         copy.setContentAppId(getContentAppId());
+        copy.setFollowLatestMainApp(isFollowLatestMainApp());
+        copy.setFollowLatestContentApp(isFollowLatestContentApp());
         copy.setEventReceivingComponent(getEventReceivingComponent());
         copy.setKioskMode(isKioskMode());
         copy.setWifiSSID(getWifiSSID());

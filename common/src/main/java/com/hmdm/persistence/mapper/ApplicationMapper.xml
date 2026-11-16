@@ -40,7 +40,7 @@
         <foreach item="item" index="index" collection="confs"
                  open="" separator="," close="">
             (#{item.configurationId}, #{applicationId}, #{versionId}, #{item.remove}, #{item.showIcon}, #{item.action},
-            #{versionId} = (SELECT latestVersion FROM applications WHERE applications.id = #{applicationId}))
+            COALESCE(#{versionId} = (SELECT latestVersion FROM applications WHERE applications.id = #{applicationId}), FALSE))
         </foreach>
     </insert>
 
@@ -50,7 +50,7 @@
         <foreach item="item" index="index" collection="confs"
                  open="" separator="," close="">
             (#{item.configurationId}, #{applicationId}, #{versionId}, #{item.remove}, #{item.showIcon}, #{item.screenOrder}, #{item.keyCode}, #{item.bottom}, #{item.longTap}, #{item.action},
-            #{versionId} = (SELECT latestVersion FROM applications WHERE applications.id = #{applicationId}))
+            COALESCE(#{versionId} = (SELECT latestVersion FROM applications WHERE applications.id = #{applicationId}), FALSE))
         </foreach>
     </insert>
 

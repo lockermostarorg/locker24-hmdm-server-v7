@@ -101,7 +101,7 @@
                applications.latestVersion, applications.intent,
                latestAppVersion.version AS latestVersionText,
                (configurationApplications.configurationId IS NOT NULL) as selected,
-               (configurationApplications.configurationId IS NOT NULL AND applications.latestVersion &lt;&gt; applicationVersions.id) as outdated,
+               (configurationApplications.configurationId IS NOT NULL AND applications.latestVersion IS NOT NULL AND mdm_app_version_comparison_index(latestAppVersion.version) &gt; mdm_app_version_comparison_index(applicationVersions.version)) as outdated,
                customers.master AS commonApplication,
                COALESCE(configurationApplications.remove, FALSE) AS remove,
                CASE
@@ -117,7 +117,7 @@
                configurationApplications.followLatest AS followLatest,
                cap.skipVersionCheck AS skipVersion
         FROM applications
-        INNER JOIN applicationVersions AS latestAppVersion ON latestAppVersion.applicationId = applications.id AND latestAppVersion.id=applications.latestversion
+        LEFT JOIN applicationVersions AS latestAppVersion ON latestAppVersion.applicationId = applications.id AND latestAppVersion.id=applications.latestversion
         INNER JOIN customers ON customers.id = applications.customerId
         INNER JOIN applicationVersions ON applicationVersions.applicationId = applications.id
         LEFT JOIN ${tempTable} configurationApplications ON applicationVersions.id = configurationApplications.applicationVersionId AND configurationApplications.configurationId = #{id}
@@ -146,7 +146,7 @@
                applications.latestVersion, applications.intent,
                latestAppVersion.version AS latestVersionText,
                customers.master AS commonApplication,
-               (${caTableName}.configurationId IS NOT NULL AND applications.latestVersion &lt;&gt; applicationVersions.id) as outdated,
+               (${caTableName}.configurationId IS NOT NULL AND applications.latestVersion IS NOT NULL AND mdm_app_version_comparison_index(latestAppVersion.version) &gt; mdm_app_version_comparison_index(applicationVersions.version)) as outdated,
                COALESCE(${caTableName}.remove, FALSE) AS remove,
                COALESCE(${caTableName}.showIcon, applications.showIcon) AS showIcon,
                applications.useKiosk,
@@ -161,7 +161,7 @@
                    ELSE NULL
                END AS skipVersion
         FROM applications
-        INNER JOIN applicationVersions AS latestAppVersion ON latestAppVersion.applicationId = applications.id AND latestAppVersion.id=applications.latestversion
+        LEFT JOIN applicationVersions AS latestAppVersion ON latestAppVersion.applicationId = applications.id AND latestAppVersion.id=applications.latestversion
         INNER JOIN customers ON customers.id = applications.customerId
         INNER JOIN applicationVersions ON applicationVersions.applicationId = applications.id
         JOIN ${caTableName} ON applicationVersions.id = ${caTableName}.applicationVersionId AND ${caTableName}.configurationId = #{id}
@@ -188,7 +188,7 @@
                configurationApplications.applicationVersionId AS usedVersionId,
                applications.system, applications.customerId,
                applications.latestVersion, applications.intent,
-               (configurationApplications.configurationId IS NOT NULL AND applications.latestVersion &lt;&gt; applicationVersions.id) as outdated,
+               (configurationApplications.configurationId IS NOT NULL AND applications.latestVersion IS NOT NULL AND mdm_app_version_comparison_index((SELECT lv.version FROM applicationVersions lv WHERE lv.id = applications.latestVersion)) &gt; mdm_app_version_comparison_index(applicationVersions.version)) as outdated,
                COALESCE(configurationApplications.remove, FALSE) AS remove,
                COALESCE(configurationApplications.showIcon, applications.showIcon) AS showIcon,
                applications.useKiosk,

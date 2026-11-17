@@ -19,6 +19,11 @@ describe('SideMenu', () => {
   beforeEach(async () => {
     (window as any)['__DYNPLUGINS__'] = [
       { identifier: 'locked-plugin', nameLocalizationKey: 'plugin.locked', path: 'plugins/locked' },
+      {
+        identifier: 'locker24-health',
+        nameLocalizationKey: 'plugin.health',
+        path: 'plugins/locker24-health',
+      },
     ];
     const { SideMenu } = await import('./side-menu');
 
@@ -75,6 +80,17 @@ describe('SideMenu', () => {
     expect(hrefs).toContain('/home/devices');
     expect(hrefs).toContain('/home/applications');
     expect(hrefs).toContain('/home/settings/users');
+  });
+
+  it('lists Fleet health first, above the dashboard, and not again under Functions', async () => {
+    const { el } = await mount();
+    const hrefs = links(el).map((a) => a.getAttribute('href'));
+
+    expect(hrefs[0]).toBe('/home/plugins/locker24-health');
+    expect(hrefs.indexOf('/home/plugins/locker24-health')).toBeLessThan(
+      hrefs.indexOf('/home/dashboard'),
+    );
+    expect(hrefs.filter((h) => h === '/home/plugins/locker24-health').length).toBe(1);
   });
 
   it('marks the item of the current route active', async () => {

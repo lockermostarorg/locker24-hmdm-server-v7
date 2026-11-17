@@ -1,6 +1,22 @@
 import { TSideMenuNode } from '../types/side-menu-node.type';
 
+// Fleet health is the page operators open most, so it gets its own entry at the top
+// instead of sitting under Functions with the other plugins
+const TOP_LEVEL_PLUGINS = ['locker24-health'];
+
+const pluginEntry = (plugin: any): TSideMenuNode & { pluginName: string } => ({
+  name: plugin.nameLocalizationKey,
+  pluginName: plugin.identifier,
+  route: plugin.path,
+  icon: plugin.icon || 'extension',
+  permission: plugin.functionsPermission || null,
+  opts: { exact: true },
+});
+
 export const SIDE_MENU_TREE: TSideMenuNode[] = [
+  ...((window as any)['__DYNPLUGINS__'] || [])
+    .filter((plugin: any) => TOP_LEVEL_PLUGINS.includes(plugin.identifier))
+    .map(pluginEntry),
   {
     name: 'tab.dashboard',
     route: '/home/dashboard',
@@ -84,14 +100,9 @@ export const SIDE_MENU_TREE: TSideMenuNode[] = [
     name: 'menu.functions',
     icon: 'functions',
     children: [
-      ...(window as any)['__DYNPLUGINS__']?.map((plugin: any) => ({
-        name: plugin.nameLocalizationKey,
-        pluginName: plugin.identifier,
-        route: plugin.path,
-        icon: plugin.icon || 'extension',
-        permission: plugin.functionsPermission || null,
-        opts: { exact: true },
-      })),
+      ...(window as any)['__DYNPLUGINS__']
+        ?.filter((plugin: any) => !TOP_LEVEL_PLUGINS.includes(plugin.identifier))
+        .map(pluginEntry),
     ],
   },
 ];

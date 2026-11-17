@@ -8,6 +8,7 @@ import { isSuperAdminGuard } from './shared/guards/is-super-admin.guard';
 import { loadRemoteModule } from '@angular-architects/native-federation';
 import { isLicensesAvailableGuard } from './shared/guards/is-licenses-available.guard';
 import { isPluginValidGuard } from './shared/guards/is-plugin-valid.guard';
+import { homeRedirectGuard } from './shared/guards/home-redirect.guard';
 import { unsavedConfigurationGuard } from './shared/guards/unsaved-configuration.guard';
 
 export const routes: Routes = [
@@ -58,7 +59,8 @@ export const routes: Routes = [
       {
         path: '',
         pathMatch: 'full',
-        redirectTo: 'devices',
+        canActivate: [homeRedirectGuard],
+        children: [],
       },
       {
         path: 'licenses',

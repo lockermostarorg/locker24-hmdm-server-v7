@@ -5,9 +5,9 @@ import { TApplicationDTO } from '../../../entity/application/types/application-d
 import { AuthService } from '../../../shared/services/auth.service';
 import { baseTestProviders, useEnglish } from '../../../testing/test-providers';
 import { ConfigurationAppsFacadeService } from '../../services/configuration-applications-facade.service';
-import { AppsVersionCell } from './apps-version-cell';
+import { AppsFollowCell } from './apps-follow-cell';
 
-describe('AppsVersionCell', () => {
+describe('AppsFollowCell', () => {
   let facade: jasmine.SpyObj<ConfigurationAppsFacadeService>;
 
   const app = (patch: Partial<TApplicationDTO>): TApplicationDTO =>
@@ -27,7 +27,7 @@ describe('AppsVersionCell', () => {
   async function render(data: TApplicationDTO) {
     facade = jasmine.createSpyObj('ConfigurationAppsFacadeService', ['setFollowLatest']);
     TestBed.configureTestingModule({
-      imports: [AppsVersionCell],
+      imports: [AppsFollowCell],
       providers: [
         ...baseTestProviders(),
         { provide: ConfigurationAppsFacadeService, useValue: facade },
@@ -38,7 +38,7 @@ describe('AppsVersionCell', () => {
       ],
     });
     await useEnglish(TestBed.inject(TranslateService));
-    const fixture = TestBed.createComponent(AppsVersionCell);
+    const fixture = TestBed.createComponent(AppsFollowCell);
     fixture.componentRef.setInput('params', { data });
     fixture.detectChanges();
     return fixture;
@@ -67,6 +67,12 @@ describe('AppsVersionCell', () => {
 
   it('has no toggle for rows that are not installed', async () => {
     const fixture = await render(app({ action: 0 }));
+
+    expect(fixture.nativeElement.querySelector('mat-slide-toggle')).toBeNull();
+  });
+
+  it('has no toggle for system apps', async () => {
+    const fixture = await render(app({ system: true }));
 
     expect(fixture.nativeElement.querySelector('mat-slide-toggle')).toBeNull();
   });

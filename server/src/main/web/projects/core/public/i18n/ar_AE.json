@@ -948,6 +948,7 @@
   "table.heading.application.pkg": "الحزمة ID",
   "table.heading.application.name": "اسم التطبيق",
   "table.heading.application.version": "الإصدار",
+  "table.heading.application.follow.latest": "Follow latest",
   "table.heading.application.url": "URL",
   "table.heading.application.label": "أيقونة",
   "table.heading.application.actions": "الإجراءات",

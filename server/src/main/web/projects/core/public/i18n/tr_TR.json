@@ -948,6 +948,7 @@
   "table.heading.application.pkg": "Paket Kimliği",
   "table.heading.application.name": "Uygulama Adı",
   "table.heading.application.version": "Sürüm",
+  "table.heading.application.follow.latest": "Follow latest",
   "table.heading.application.url": "URL",
   "table.heading.application.label": "Simge",
   "table.heading.application.actions": "Eylemler",

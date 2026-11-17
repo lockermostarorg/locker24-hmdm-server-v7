@@ -982,6 +982,7 @@
   "table.heading.application.pkg": "ID gói",
   "table.heading.application.name": "Tên ứng dụng",
   "table.heading.application.version": "Phiên bản",
+  "table.heading.application.follow.latest": "Follow latest",
   "table.heading.application.url": "URL",
   "table.heading.application.label": "Biểu tượng",
   "table.heading.application.actions": "Hành động",

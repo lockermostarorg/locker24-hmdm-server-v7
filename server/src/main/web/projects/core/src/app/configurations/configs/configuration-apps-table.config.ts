@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { TTableConfig } from 'hmdm-ui-kit';
 import { TApplicationDTO } from '../../entity/application/types/application-dto.type';
 import { AppsVersionCell } from '../components/apps-version-cell/apps-version-cell';
+import { AppsFollowCell } from '../components/apps-follow-cell/apps-follow-cell';
 import { AppsActionCell } from '../components/apps-action-cell/apps-action-cell';
 import { AppsNameCell } from '../components/apps-name-cell/apps-name-cell';
 import { AppsIconCell } from '../components/apps-icon-cell/apps-icon-cell';
@@ -28,6 +29,11 @@ export class ConfigurationAppsTableConfig {
           field: 'version',
           title: 'table.heading.application.version',
           cellRenderer: AppsVersionCell,
+        },
+        {
+          field: 'followLatest',
+          title: 'table.heading.application.follow.latest',
+          cellRenderer: AppsFollowCell,
         },
         {
           field: 'action',

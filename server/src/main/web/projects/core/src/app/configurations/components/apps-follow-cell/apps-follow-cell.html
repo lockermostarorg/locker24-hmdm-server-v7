@@ -1,0 +1,15 @@
+@if (canFollow()) {
+  <mat-slide-toggle
+    class="cell-follow"
+    [checked]="follows()"
+    [matTooltip]="'form.configuration.app.follow.latest.title' | translate"
+    [matTooltipShowDelay]="500"
+    (change)="onFollowChange($event.checked)"
+  >
+    @if (follows()) {
+      {{ 'form.configuration.app.follow.latest' | translate }}
+    } @else {
+      {{ 'form.configuration.app.pinned' | translate: { version: params().data.version } }}
+    }
+  </mat-slide-toggle>
+}

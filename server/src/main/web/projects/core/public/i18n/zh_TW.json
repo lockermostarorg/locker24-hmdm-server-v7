@@ -948,6 +948,7 @@
   "table.heading.application.pkg": "包裹ID",
   "table.heading.application.name": "應用程式名稱",
   "table.heading.application.version": "版本",
+  "table.heading.application.follow.latest": "Follow latest",
   "table.heading.application.url": "URL",
   "table.heading.application.label": "圖示",
   "table.heading.application.actions": "功能",

@@ -948,6 +948,7 @@
   "table.heading.application.pkg": "ID du package",
   "table.heading.application.name": "Nom de l'application",
   "table.heading.application.version": "Version",
+  "table.heading.application.follow.latest": "Follow latest",
   "table.heading.application.url": "URL",
   "table.heading.application.label": "Icône",
   "table.heading.application.actions": "Actions",

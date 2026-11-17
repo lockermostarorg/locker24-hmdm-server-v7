@@ -948,6 +948,7 @@
   "table.heading.application.pkg": "パッケージ ID",
   "table.heading.application.name": "アプリケーション名",
   "table.heading.application.version": "バージョン",
+  "table.heading.application.follow.latest": "Follow latest",
   "table.heading.application.url": "URL",
   "table.heading.application.label": "アイコン",
   "table.heading.application.actions": "アクション",

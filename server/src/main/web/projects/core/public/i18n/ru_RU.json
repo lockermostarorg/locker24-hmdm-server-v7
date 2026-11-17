@@ -949,6 +949,7 @@
   "table.heading.application.pkg": "ID пакета",
   "table.heading.application.name": "Название приложения",
   "table.heading.application.version": "Версия",
+  "table.heading.application.follow.latest": "Follow latest",
   "table.heading.application.url": "URL",
   "table.heading.application.label": "Ярлык",
   "table.heading.application.actions": "Действия",

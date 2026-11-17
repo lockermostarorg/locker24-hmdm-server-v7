@@ -131,7 +131,7 @@ Covers the release-flow, branding and dark-mode release (operator guide: `docs/l
 
 ### Rollout order
 
-0. **Remove stale web builds by hand once, before triggering the deploy that ships this release.** `deploy.sh` runs from a private copy taken when the deploy starts, so the new dist cleanup only takes effect from the deploy after this one. The sources of this release change, but the plugin up-to-date check is timestamp-based, so a stale dist left by an earlier failed build cannot be ruled out; do not rely on it:
+0. **Remove stale web builds by hand once, before triggering the deploy that ships this release. Do not run this while a deploy is running.** `deploy.sh` runs from a private copy taken when the deploy starts, so the new dist cleanup only takes effect from the deploy after this one. The sources of this release change, but the plugin up-to-date check is timestamp-based, so a stale dist left by an earlier failed build cannot be ruled out; do not rely on it:
    ```bash
    rm -rf /opt/locker24/src/locker24-hmdm-server-v7/server/src/main/web/dist /opt/locker24/src/locker24-hmdm-server-v7/plugins/*/src/main/web/dist
    ```

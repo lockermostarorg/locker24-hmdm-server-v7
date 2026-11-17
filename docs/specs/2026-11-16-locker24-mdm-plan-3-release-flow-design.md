@@ -146,11 +146,32 @@ A one-off, idempotent SQL script under `deploy/` (not a Liquibase changeset, bec
 
 ## Rollout
 
-1. Agent 6.40-l24.6 first (it only adds a push type; harmless without the server).
-2. Server deploy (auto on push to main): changesets add columns with defaults, so existing configurations start following.
-3. Run the demo cleanup script on the droplet.
-4. Document the release flow in `docs/locker24-release-flow.md` (how to release, hold, canary, pin).
-5. Set `rebranding.*` on the droplet if the build properties alone do not carry them (the deploy notes say which).
+1. Server deploy first (auto on push to `main`): the changesets add columns with defaults and migrate existing rows, so the configurations that are on the latest versions start following. Deploying the server first matters: the migration pins every row that is not on its application's latest version, and uploading agent 6.40-l24.6 before the server would make the real configurations look "behind" and migrate them pinned.
+2. Then upload agent 6.40-l24.6 (on schedule) to both configurations. It only adds a push type and the forced-app handling; older agents ignore the push.
+3. Post-deploy checks from `deploy/README.md`, including the query that lists pinned rows and flags.
+4. Run the demo cleanup script on the droplet at a quiet moment.
+5. Device checks R1 to R5 on M-01 (agent repo, `docs/locker24-pilot-config.md`).
+6. The release flow is documented in `docs/locker24-release-flow.md` (release, hold, canary, pin). The droplet needs no `rebranding.*` change: the values default to Locker24 in code.
+
+## Changes during build
+
+The build changed the design in these places. The rulings are in the SDD ledger (`.superpowers/sdd/2026-11-16-locker24-mdm-plan-3-release-flow/progress.md`); `docs/locker24-release-flow.md` describes the built behaviour.
+
+- **Immediately, per app, not per flow.** `forceAppUpdate` carries `{"apps":[{"pkg","version"}],"issuedAt"}`. The agent lifts the update window and the Wi-Fi-only rule only for the apps named (package and configured version match), ignores pushes older than 60 minutes, and installs its own update last in every flow. This replaces "`userInteraction = true` for the whole flow", which would have run unrelated scheduled installs mid-day (Agent section above).
+- **Errors are Headwind envelopes** (HTTP 200 with `status: ERROR` and an i18n key), not HTTP 400/404/409, because the panel only translates that path.
+- **First version always released.** An app whose only version is held would have no latest version and disappear from lists.
+- **Upgrade keeps pins.** The per-row Upgrade moves a pinned row to the latest and leaves it pinned (and does nothing for a row not behind).
+- **Save rule: an explicit `followLatest` wins.** true follows at the latest released version, false pins to the version sent, absent keeps the stored flag; a new row follows only when it is on the latest. This replaces the earlier "a version change pins" rule, which downgraded and pinned followers when a stale tab was saved after a release.
+- **"Check for updates":** download only stores the version on hold; "update all configurations" moves pinned rows too (they stay pinned), as an explicit administrator action.
+- **Duplicate version strings are refused** unless the file is identical (version code, size, SHA-256), because overwriting a file in place would ship to followers whatever the mode.
+- **Canaries rejoin on release.** Releasing a held version switches rows and main/content flags pinned to exactly that version back to following.
+- **Summary has `pushFailed` and `notLatest`; new "Notify tablets again"** (`POST /rest/private/applications/versions/{id}/notify`). `pushFailed` does not cover a disconnected MQTT broker. The tablet count is labelled "assigned tablets".
+- **Version release fields are not client-writable** except the requested `releaseMode` on a new version; `releasedByName` is added server-side (same customer or super admin only).
+- **`applications.latestVersion` rows with no released version** are kept visible (LEFT JOINs), and deleting the last released version while others exist is refused.
+- **Branding:** text-bearing primary is `#00719C` and accent `#B34700` (the brand `#009FD7` and `#FF6D00` stay for logos and accents) to meet WCAG AA; `rebranding.*` default to Locker24 in code, so the droplet needs no `ROOT.xml` edit; build-properties links for signup and terms are empty; the xtra (Headwind Enterprise upsell) plugin is disabled by changeset instead of removed.
+- **Theme:** the panel's plugin pages follow the same tokens; the info snackbar stripe uses the blue primary; status dots carry text labels or meet 3:1.
+- **Deploy script:** `deploy.sh` removes every web `dist` folder before the Maven build, so a failed earlier build left in the persistent checkout is never shipped.
+- **Cleanup script:** protects the default configuration for new devices, compares demo configurations with the seed (edited ones are kept), locks the affected tables and aborts if the data changed since the plan (exit 4).
 
 ## Left to the builder
 

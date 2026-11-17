@@ -93,7 +93,7 @@ deploy/deploy.sh l24-v7.04.1.1
 
 `<ref>` is a tag, a remote branch, or a commit SHA (7 to 40 hex digits) for a test deploy. The server is down only for the swap (about a minute, plus the Liquibase migration). The script:
 
-1. clones the repo if missing, 2. fetches and checks out the ref (refuses a dirty tree or untracked files), 3. builds with `mvn -B -DskipTests clean install` and records the built commit in `server/target/l24-build-sha`, 4. checks for 3 GB of free space and dumps the database to `/opt/locker24/backups/pre-deploy-<ref>-<time>.sql.gz`, 5. copies the current WAR to `/opt/locker24/backups/ROOT-before-<ref>-<time>.war` and prunes dumps and WAR backups older than 14 days (always keeping the newest 3 of each), 6. stops Tomcat, installs the WAR, removes Tomcat's completion signal file and starts Tomcat, 7. waits up to 180 s for the signal file to read `OK`, `https://mdm.locker24.app/` to return 200 and port 31000 to listen, 8. prints the ref and SHA and appends them to `/opt/locker24/last-deploy`.
+1. clones the repo if missing, 2. fetches and checks out the ref (refuses a dirty tree or untracked files), 3. removes every web `dist` folder (`server/src/main/web/dist`, `plugins/*/src/main/web/dist`), so a failed earlier build left in the persistent checkout is never shipped, builds with `mvn -B -DskipTests clean install` and records the built commit in `server/target/l24-build-sha`, 4. checks for 3 GB of free space and dumps the database to `/opt/locker24/backups/pre-deploy-<ref>-<time>.sql.gz`, 5. copies the current WAR to `/opt/locker24/backups/ROOT-before-<ref>-<time>.war` and prunes dumps and WAR backups older than 14 days (always keeping the newest 3 of each), 6. stops Tomcat, installs the WAR, removes Tomcat's completion signal file and starts Tomcat, 7. waits up to 180 s for the signal file to read `OK`, `https://mdm.locker24.app/` to return 200 and port 31000 to listen, 8. prints the ref and SHA and appends them to `/opt/locker24/last-deploy`.
 
 `--skip-build` installs the WAR from the last build, for a retry. It refuses unless the last build was made from the commit that is checked out now.
 
@@ -124,6 +124,51 @@ The health plugin's pop-ups go through Tomcat's internal alert endpoint, which a
    sudo -u postgres psql hmdm -c "SELECT d.number, l.received_at FROM locker24_device_health_latest l JOIN devices d ON d.id=l.device_id WHERE l.evaluated_at IS NULL AND l.received_at > (extract(epoch FROM now())*1000)::bigint - 600000"
    ```
    The query must return no rows. About 30 minutes after the start the `not_charging` pop-up of M-01 must arrive if M-01 is unplugged; until it does, the deploy is not verified (it proves the job, the alert service and the loopback call).
+
+## Release flow, branding and themes: rollout order and post-deploy checks
+
+Covers the release-flow, branding and dark-mode release (operator guide: `docs/locker24-release-flow.md`).
+
+### Rollout order
+
+1. **Server first.** Push to `main`; the automatic deploy runs the Liquibase changesets. The migration pins every install row (and main/content app) that is not on its application's latest version. Do this before uploading agent 6.40-l24.6.
+2. **Then upload agent 6.40-l24.6** (on schedule) to both configurations. If it were uploaded first and the server were deployed later, the real configurations would be on the older agent, not the latest, and would migrate pinned.
+3. Post-deploy checks below, including the pinned-rows query.
+4. Run `deploy/cleanup-demo-data.sh` (section "Removing Headwind demo data").
+5. Device checks R1 to R5 on M-01 (agent repo, `docs/locker24-pilot-config.md`).
+
+The agent installs its own update last in every update flow, so an agent upload never starves the other apps.
+
+### Checks after the deploy
+
+1. Liquibase applied the new changesets (six core ones, plus the xtra one):
+   ```bash
+   sudo -u postgres psql hmdm -c "SELECT id, dateexecuted, exectype FROM databasechangelog WHERE author = 'locker24' AND id LIKE '%l24%' ORDER BY orderexecuted"
+   ```
+   The list must end with `16.11.26-10:00-l24-1`, `16.11.26-10:01-l24-2`, `16.11.26-10:02-l24-3`, `16.11.26-10:03-l24-4`, `16.11.26-10:04-l24-5`, `17.11.26-09:00-l24-6` and `plugin-xtra-17.11.2026-09:01-l24`, all `EXECUTED` (earlier health plugin changesets also match). `17.11.26-09:00-l24-6` shows `MARK_RAN` only if the `plugins` table does not exist, which is not the case here.
+2. The xtra plugin (Headwind Enterprise advertising) is disabled, and its menu is gone from the panel:
+   ```bash
+   sudo -u postgres psql hmdm -c "SELECT identifier, disabled FROM plugins WHERE identifier = 'xtra'"   # disabled = t
+   ```
+3. Pinned rows. The migration pinned what was not on the latest version; this must list only pins you meant (compare with what the panel shows as "Pinned to X"). Note that holding or pinning on purpose later also shows here:
+   ```bash
+   sudo -u postgres psql hmdm -c "SELECT c.name AS configuration, a.pkg, av.version AS pinned_to, lv.version AS latest_released FROM configurationApplications ca JOIN configurations c ON c.id = ca.configurationId JOIN applications a ON a.id = ca.applicationId LEFT JOIN applicationVersions av ON av.id = ca.applicationVersionId LEFT JOIN applicationVersions lv ON lv.id = a.latestVersion WHERE ca.action = 1 AND NOT ca.followLatest ORDER BY c.name, a.pkg"
+   sudo -u postgres psql hmdm -c "SELECT name, followLatestMainApp, followLatestContentApp FROM configurations WHERE NOT followLatestMainApp OR NOT followLatestContentApp ORDER BY name"
+   ```
+   The two real configurations were on the latest agent and kiosk versions at design time, so both queries are expected to return nothing for them (the demo configurations may appear until the cleanup has run). A row listed here that should follow: open the configuration and switch "Follows latest" on (it then moves to the latest released version on save).
+4. Panel branding and theme: the login page, tab title and favicon say Locker24 MDM, the About dialog shows "Based on Headwind MDM (Apache License 2.0)" with a link to h-mdm.com, and the user menu (top right) has a Theme submenu with Light, Dark and System. Switch to Dark and open Fleet health and Device Log: both repaint.
+5. Emails and the panel name: the droplet needs no `ROOT.xml` change. `rebranding.name`, `rebranding.vendor.name`, `rebranding.vendor.link` and `rebranding.mobile.name` default to Locker24 MDM, Locker24, `https://locker24.app` and Locker24 MDM in code when they are absent from `ROOT.xml`. Check that `ROOT.xml` does not set them to something else: `grep -i rebranding /var/lib/tomcat10/conf/Catalina/localhost/ROOT.xml` (nothing, or the Locker24 values). An unreplaced `${...}` value counts as absent.
+6. A schedule release on M-01 end to end (this proves the server, the push and the agent): upload a new version of the kiosk app on schedule, confirm the summary says "Released to N configurations" with the configurations you expect, the version list shows Released with your name, and M-01 installs inside its window (or at once if the configuration has no window). The Tomcat log has the line `Release app=... mode=schedule by=... configurations=N ...`:
+   ```bash
+   grep 'Release app=' /var/lib/tomcat10/logs/catalina.out | tail -n 3
+   ```
+7. A first real look at Device Log in dark mode with real data (the screenshots used mock data).
+
+### Rolling back this release
+
+- Rolling back the data-migration changeset (`16.11.26-10:01-l24-2`) alone resets every pin: every row follows again, and the next upload moves canaries too. If you must roll it back, re-pin deliberately afterwards (the query in check 3 saved before the rollback tells you which).
+- An older WAR runs against the migrated schema (new columns have defaults).
+- `deploy.sh`'s automatic rollback is unchanged.
 
 ## Rollback
 
@@ -176,7 +221,11 @@ sudo bash /opt/locker24/src/locker24-hmdm-server-v7/deploy/cleanup-demo-data.sh 
 sudo bash /opt/locker24/src/locker24-hmdm-server-v7/deploy/cleanup-demo-data.sh --db NAME  # default: hmdm
 ```
 
-It deletes, in one transaction: demo device `h0001` if it never enrolled; the five demo configurations (matched by id and name) that no device uses (current or previous configuration); demo applications (matched by id and package) that nothing references. It keeps a demo configuration that is the default for new devices (`settings.newDeviceConfigurationId`) or whose rows, main app or content app differ from the seed (listed as "edited, kept"). It keeps any application used by a remaining configuration (rows, main or content app), with a version uploaded after install, or with a custom log rule or setting, and never touches `app.locker24.mdm`. The plan lists what is deleted and what is kept and why. The plan also counts cascaded rows (versions, configuration rows, device log records, ...). Apply locks the affected tables, recomputes the set and rolls back with exit 4 if it differs from the confirmed plan. Answering `n` exits 3. A second run prints `No Headwind demo data found` or `Nothing to delete`. Take a database backup first (`deploy/backup.sh`). Check script: `deploy/test/cleanup-demo-data-check.sh` (Docker).
+It deletes, in one transaction: demo device `h0001` if it never enrolled; the five demo configurations (matched by id and name) that no device uses (current or previous configuration); demo applications (matched by id and package) that nothing references. It keeps a demo configuration that is the default for new devices (`settings.newDeviceConfigurationId`) or whose rows, main app or content app differ from the seed (listed as "edited, kept"). It keeps any application used by a remaining configuration (rows, main or content app), with a version uploaded after install, or with a custom log rule or setting, and never touches `app.locker24.mdm`. The plan lists what is deleted and what is kept and why. The plan also counts cascaded rows (versions, configuration rows, device log records, ...). Apply locks the affected tables, recomputes the set and rolls back with exit 4 if it differs from the confirmed plan. Answering `n` exits 3. A second run prints `No Headwind demo data found` or `Nothing to delete`. Take a database backup first (`deploy/backup.sh`).
+
+Run it at a quiet moment, not while tablets are syncing or someone is editing configurations: the apply step takes a `SHARE ROW EXCLUSIVE` lock on nine tables with a 30 s lock timeout per lock, so it can wait up to 9 x 30 s for running transactions before it gives up (exit 4, nothing deleted) and blocks writers while it holds the locks.
+
+Exit codes: `0` done, nothing to delete, or `--help`; `1` not run as root, tables not readable, or no terminal and no `--yes` (nothing deleted); `2` bad arguments; `3` you answered no; `4` the apply failed or the data changed since the plan (rolled back, nothing deleted). Check script: `deploy/test/cleanup-demo-data-check.sh` (Docker).
 
 ## Notes and known risks
 

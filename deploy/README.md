@@ -131,6 +131,10 @@ Covers the release-flow, branding and dark-mode release (operator guide: `docs/l
 
 ### Rollout order
 
+0. **Remove stale web builds by hand once, before triggering the deploy that ships this release.** `deploy.sh` runs from a private copy taken when the deploy starts, so the new dist cleanup only takes effect from the deploy after this one. The sources of this release change, but the plugin up-to-date check is timestamp-based, so a stale dist left by an earlier failed build cannot be ruled out; do not rely on it:
+   ```bash
+   rm -rf /opt/locker24/src/locker24-hmdm-server-v7/server/src/main/web/dist /opt/locker24/src/locker24-hmdm-server-v7/plugins/*/src/main/web/dist
+   ```
 1. **Server first.** Push to `main`; the automatic deploy runs the Liquibase changesets. The migration pins every install row (and main/content app) that is not on its application's latest version. Do this before uploading agent 6.40-l24.6.
 2. **Then upload agent 6.40-l24.6** (on schedule) to both configurations. If it were uploaded first and the server were deployed later, the real configurations would be on the older agent, not the latest, and would migrate pinned.
 3. Post-deploy checks below, including the pinned-rows query.

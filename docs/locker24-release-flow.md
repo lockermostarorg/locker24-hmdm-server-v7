@@ -43,7 +43,7 @@ The server first sends the usual configuration update to every moved configurati
 
 ## Hold and release
 
-A held version appears in the versions list with state "Held". Choose Release on that row, then On each configuration's schedule or Immediately. The effect is the same as uploading with that choice: following rows move, tablets are pushed, the summary is shown. Releasing twice changes nothing (the original who and when are kept).
+A held version appears in the versions list with state "Held". Choose Release on that row, then On each configuration's schedule or Immediately. The effect is the same as uploading with that choice: following rows move, tablets are pushed, the summary is shown. Releasing a version that is already released is refused with "This version has already been released"; the original who and when are kept.
 
 The Release dialog notes: "Configurations pinned to this version will follow the latest version again." Releasing a held version switches every row (and main/content app) pinned to exactly that version back to following, in the same step. That is how a canary ends.
 
@@ -85,7 +85,7 @@ Panel menu, Check for updates (super admin, or the only customer) downloads appl
 
 ## Notify tablets again
 
-On a released version in the versions list, Notify tablets again re-sends the update (and the immediate push if you choose Immediately) to every configuration currently on that version. It moves nothing. Use it when the summary warns "Tablets of N configurations could not be notified", or to nudge offline tablets that have since come online.
+On a released version in the versions list, Notify tablets again re-sends the update (and the immediate push if you choose Immediately) to every configuration currently on that version. It moves nothing. The panel offers it on released versions only, although the server also accepts it for a held version (it then reaches only configurations pinned to it). Use it when the summary warns "Tablets of N configurations could not be notified", or to nudge offline tablets that have since come online.
 
 The warning counts configurations where sending threw an error (including the long-poll path). It does not detect a broker that is down: if the MQTT broker is disconnected the push is dropped silently and the summary still reports success. After an upload during a broker outage, run Notify tablets again once it is back.
 
@@ -110,7 +110,7 @@ These errors come as HTTP 200 with `{"status":"ERROR","message":"<i18n key>"}`, 
 
 - Versions list: the State column shows Released or Held, when, and by whom (the name is shown only for users of the same customer, or to a super admin; otherwise the user id).
 - Audit plugin: release and notify are audited (actions "Application version released" and "Tablets notified of application version").
-- Tomcat log (`catalina.out`): every non-hold release, Upgrade and Check for updates writes one INFO line, `Release app=<package> version=<v> mode=<schedule|immediate|upgrade> by=<login> configurations=<n> devices=<n>`; Upgrade and Check for updates also list `configurationIds`.
+- Tomcat log (`catalina.out`): every non-hold release, Notify tablets again (mode schedule or immediate), Upgrade and Check for updates writes one INFO line, `Release app=<package> version=<v> mode=<schedule|immediate|upgrade> by=<login> configurations=<n> devices=<n>`; Upgrade and Check for updates also list `configurationIds`.
 
 ## Remember when deploying this release
 

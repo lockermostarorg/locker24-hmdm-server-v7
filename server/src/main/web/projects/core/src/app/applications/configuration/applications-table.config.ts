@@ -3,10 +3,14 @@ import { BooleanCell, TTableConfig } from 'hmdm-ui-kit';
 import { TApplicationDTO } from '../../entity/application/types/application-dto.type';
 import { ApplicationActionCell } from '../components/application-action-cell/application-action-cell';
 import { UrlCell } from '../components/url-cell/url-cell';
+import { SizeCell } from '../../files/components/size-cell/size-cell';
 
 @Injectable()
 export class ApplicationsTableConfig {
-  getConfig(): TTableConfig {
+  /**
+   * @param sizeTitle Title (or translation key) of the Size column, may include the free storage quota.
+   */
+  getConfig(sizeTitle: string = 'table.heading.file.size'): TTableConfig {
     return {
       columns: [
         {
@@ -37,6 +41,16 @@ export class ApplicationsTableConfig {
             isShow: (data: TApplicationDTO) => {
               return data.showIcon;
             },
+          },
+        },
+        {
+          field: 'size',
+          title: sizeTitle,
+          cellRenderer: SizeCell,
+          headerAlign: 'end',
+          cellRendererParams: {
+            // Common app files are stored in the master customer's directory and are not counted
+            showZero: (data: TApplicationDTO) => data.commonApplication,
           },
         },
         {

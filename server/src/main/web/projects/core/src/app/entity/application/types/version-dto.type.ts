@@ -19,4 +19,6 @@ export type TVersionDTO = {
   releaseMode?: string | null;
   releasedBy?: number | null;
   releasedByName?: string | null;
+  /** Total size of locally stored version files, in bytes */
+  size?: number;
 };

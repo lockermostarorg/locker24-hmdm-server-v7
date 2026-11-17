@@ -87,6 +87,7 @@ export class VersionDialogService {
       )
       .subscribe(() => {
         this.versionFacadeService.initLast();
+        this.applicationFacadeService.markForReload();
       });
   }
 
@@ -111,6 +112,7 @@ export class VersionDialogService {
       )
       .subscribe(() => {
         this.versionFacadeService.initLast();
+        this.applicationFacadeService.markForReload();
       });
   }
 

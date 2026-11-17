@@ -3192,10 +3192,10 @@
     </changeSet>
 
     <changeSet id="17.11.26-09:00-l24-6" author="locker24" context="common">
-        <comment>The xtra plugin only advertises Headwind's paid edition; hide it</comment>
         <preConditions onFail="MARK_RAN">
             <tableExists tableName="plugins"/>
         </preConditions>
+        <comment>The xtra plugin only advertises Headwind's paid edition; hide it</comment>
         <sql>
             UPDATE plugins SET disabled = TRUE WHERE identifier = 'xtra';
         </sql>

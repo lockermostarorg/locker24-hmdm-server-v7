@@ -26,6 +26,7 @@ Rules that can surprise you:
 
 - The first version of an application is always released, whatever you choose (the Hold choice is hidden when the app has no released version). Nothing can follow a brand-new app, so releasing it moves nothing. To stage a brand-new app, upload it and pin the configurations you want to the version.
 - Uploading a version string that already exists is refused ("This version already exists. Increase the version number and upload again."). The one exception is uploading the identical file again (same version code, size and SHA-256): that changes nothing, and the summary reports the stored state (held stays held). Bump the version name for every rebuild.
+- File names: the file of a version is never overwritten while any application version (of any customer) still uses that file name. If the name is taken, the new upload is stored as `<name>-<versionCode>.apk` (a short content hash is added if that name is taken too) and the new version's URL points to it; an existing file that no version uses is replaced as before. It is still best to put the version into every APK file name.
 - Uploading a version lower than the latest released one stores and releases it, but moves nothing; the summary says "This version is lower than the latest released version; no configuration was moved."
 - Editing a version (URL, version string) never moves any configuration and sends no push. Use Release or Notify tablets again.
 - Deleting a version that a configuration uses stays refused. The last released version of an application cannot be deleted while other versions exist.
@@ -34,7 +35,7 @@ Rules that can surprise you:
 
 The server first sends the usual configuration update to every moved configuration, then a `forceAppUpdate` push naming the application and version (the version string exactly as stored).
 
-- **Agent 6.40-l24.6 or later** installs only the named app at once, ignoring the update window and the Wi-Fi-only restriction for that app. Everything else in the same configuration (other app updates, removals, files) still obeys the window and the Wi-Fi rule. Example: outside the window, an immediate release of the kiosk app installs the kiosk app now, while an agent update that was released on schedule keeps waiting for the window.
+- **Agent 6.40-l24.6 or later** installs only the named app at once, ignoring the update window and the Wi-Fi-only restriction for that app. Everything else in the same configuration (other app updates and removals) still obeys the window and the Wi-Fi rule; files never obey the update window, only the Wi-Fi rule. Example: outside the window, an immediate release of the kiosk app installs the kiosk app now, while an agent update that was released on schedule keeps waiting for the window.
 - The named app's package and the version configured on the tablet must both match the push, otherwise the app waits for the window. The push is ignored if it is more than 60 minutes old when the tablet processes it.
 - A forced app also bypasses the "this version failed to install last time" block, once per push.
 - **The agent installs its own update last in every flow** (forced or not): its own install restarts the process, so other apps are installed first.
@@ -110,10 +111,11 @@ These errors come as HTTP 200 with `{"status":"ERROR","message":"<i18n key>"}`, 
 
 - Versions list: the State column shows Released or Held, when, and by whom (the name is shown only for users of the same customer, or to a super admin; otherwise the user id).
 - Audit plugin: release and notify are audited (actions "Application version released" and "Tablets notified of application version").
-- Tomcat log (`catalina.out`): every non-hold release, Notify tablets again (mode schedule or immediate), Upgrade and Check for updates writes one INFO line, `Release app=<package> version=<v> mode=<schedule|immediate|upgrade> by=<login> configurations=<n> devices=<n>`; Upgrade and Check for updates also list `configurationIds`.
+- Tomcat log (`catalina.out`): every non-hold release, Notify tablets again (mode schedule or immediate), Upgrade and Check for updates writes one INFO line, `Release app=<package> version=<v> mode=<schedule|immediate|upgrade> by=<login> configurations=<n> devices=<n>`; every one of these lines also lists the moved `configurationIds`.
 
 ## Remember when deploying this release
 
 - Deploy the server first, then upload agent 6.40-l24.6 (`deploy/README.md`, "Rollout order"). If l24.6 is uploaded first and the server deployed afterwards, the data migration sees the configurations on the older agent version, which is no longer the latest, and migrates them pinned.
 - Rolling back the data-migration changeset alone resets every pin (every row follows again); see `deploy/README.md`.
-- The QR code's APK checksum and the launcher download link's checksum are computed once per app version and cached for that version. Because a different file under an existing version string is now refused, rebuild with a new version name every time; never replace the file on disk behind an existing version.
+- The QR code's APK checksum and the launcher download link's checksum are computed once per app version and cached for that version. Because a different file under an existing version string is now refused, rebuild with a new version name every time; the server keeps the file of an existing version when a new upload has the same file name (it stores the new one under another name), but never replace a file on disk by hand behind an existing version.
+- **QR code with a fixed `launcherUrl`:** the QR code takes the download URL from the configuration's `launcherUrl` but the checksum from the configuration's main app version, which changes with every agent release, so a QR code generated with a fixed `launcherUrl` stops working (checksum mismatch) after an agent release. Regenerate the QR code after each agent release, or do not set `launcherUrl` on configurations that follow the latest agent.

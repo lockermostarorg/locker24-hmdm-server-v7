@@ -171,7 +171,16 @@ The agent installs its own update last in every update flow, so an agent upload 
 ### Rolling back this release
 
 - Rolling back the data-migration changeset (`16.11.26-10:01-l24-2`) alone resets every pin: every row follows again, and the next upload moves canaries too. If you must roll it back, re-pin deliberately afterwards (the query in check 3 saved before the rollback tells you which).
-- An older WAR runs against the migrated schema (new columns have defaults).
+- An older WAR runs against the migrated schema (new columns have defaults). Caveats of running the Plan 2 WAR on the Plan 3 schema:
+  - every configuration save re-inserts the install rows with the default `followLatest = TRUE`, so the pins of that configuration are lost;
+  - the Plan 2 `recalculateLatestVersion` ignores `releaseState`, so any version insert, edit or delete can make a held version the latest version of its application;
+  - after rolling forward again, `applications.latestVersion` can still point at a held version, so the Upgrade link and the "outdated" marker would target it. Redeploying alone does not fix this; run once after the roll-forward:
+
+    ```bash
+    sudo -u postgres psql hmdm -c "UPDATE applications SET latestVersion = (SELECT apv1.id FROM applicationVersions apv1 WHERE apv1.applicationId = applications.id AND apv1.releaseState = 'released' AND mdm_app_version_comparison_index(apv1.version) = (SELECT MAX(mdm_app_version_comparison_index(apv2.version)) FROM applicationVersions apv2 WHERE apv2.applicationId = applications.id AND apv2.releaseState = 'released') LIMIT 1);"
+    ```
+
+    (the same statement as `ApplicationMapper.recalculateLatestVersion`, for every application).
 - `deploy.sh`'s automatic rollback is unchanged.
 
 ## Rollback

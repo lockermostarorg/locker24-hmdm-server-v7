@@ -728,4 +728,71 @@ public class ApplicationReleaseTest {
         assertEquals("schedule", inserted.getReleaseMode());
         assertEquals(Integer.valueOf(USER), inserted.getReleasedBy());
     }
+
+    private File storedApk(File files, String name, byte[] content) throws Exception {
+        File stored = new File(files, "c/" + name);
+        stored.getParentFile().mkdirs();
+        Files.write(stored.toPath(), content);
+        return stored;
+    }
+
+    private File tmpUpload(String name, byte[] content) throws Exception {
+        File tmp = com.hmdm.util.FileUtil.createTempFile(name);
+        Files.write(tmp.toPath(), content);
+        return tmp;
+    }
+
+    @Test
+    public void aSecondVersionWithTheSameFileNameKeepsTheFirstVersionsFile() throws Exception {
+        File files = Files.createTempDirectory("files").toFile();
+        File first = storedApk(files, "a.apk", new byte[]{1, 2, 3});
+        when(mapper.countVersionsReferencingFile("http://localhost/files/c/a.apk")).thenReturn(1);
+        ApplicationDAO fileDao = fileDao(files, mock(APKFileAnalyzer.class));
+        ApplicationVersion incoming = newVersion();
+        incoming.setUrl(null);
+        incoming.setFilePath(tmpUpload("a.apk", new byte[]{9, 9, 9, 9}).getAbsolutePath());
+
+        fileDao.insertApplicationVersionWithRelease(incoming, "hold", USER);
+
+        assertEquals(3, first.length());
+        File second = new File(files, "c/a-5.apk");
+        assertTrue(second.exists());
+        assertEquals(4, second.length());
+        assertEquals("http://localhost/files/c/a-5.apk", insertedVersion().getUrl());
+        verify(mapper, never()).updateApplicationVersion(any(ApplicationVersion.class));
+    }
+
+    @Test
+    public void aFileNoVersionReferencesIsStillReplaced() throws Exception {
+        File files = Files.createTempDirectory("files").toFile();
+        File first = storedApk(files, "a.apk", new byte[]{1, 2, 3});
+        when(mapper.countVersionsReferencingFile("http://localhost/files/c/a.apk")).thenReturn(0);
+        ApplicationDAO fileDao = fileDao(files, mock(APKFileAnalyzer.class));
+        ApplicationVersion incoming = newVersion();
+        incoming.setUrl(null);
+        incoming.setFilePath(tmpUpload("a.apk", new byte[]{9, 9, 9, 9}).getAbsolutePath());
+
+        fileDao.insertApplicationVersionWithRelease(incoming, "schedule", USER);
+
+        assertEquals(4, first.length());
+        assertEquals("http://localhost/files/c/a.apk", insertedVersion().getUrl());
+    }
+
+    @Test
+    public void whenTheCodeNameIsTakenTooTheContentHashMakesTheNameUnique() throws Exception {
+        File files = Files.createTempDirectory("files").toFile();
+        storedApk(files, "a.apk", new byte[]{1});
+        File withCode = storedApk(files, "a-5.apk", new byte[]{2});
+        when(mapper.countVersionsReferencingFile("http://localhost/files/c/a.apk")).thenReturn(1);
+        when(mapper.countVersionsReferencingFile("http://localhost/files/c/a-5.apk")).thenReturn(1);
+        ApplicationDAO fileDao = fileDao(files, mock(APKFileAnalyzer.class));
+        ApplicationVersion incoming = newVersion();
+        incoming.setUrl(null);
+        incoming.setFilePath(tmpUpload("a.apk", new byte[]{9, 9}).getAbsolutePath());
+
+        fileDao.insertApplicationVersionWithRelease(incoming, "hold", USER);
+
+        assertEquals(1, withCode.length());
+        assertTrue(insertedVersion().getUrl(), insertedVersion().getUrl().matches("http://localhost/files/c/a-5-[0-9a-f]{8}\\.apk"));
+    }
 }

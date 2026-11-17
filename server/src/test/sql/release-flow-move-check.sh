@@ -356,6 +356,14 @@ expect "release repin: a pin of another app stays" "$U1:1:false" "$(q "SELECT ap
 expect "release repin: second call changes nothing" "" "$(render "$APP_MAPPER" repinVersionToFollowing id="$R2" | psqlq | sort -n | paste -sd, -)"
 expect "version listing: configurations on a version (rows, main, content)" "$(printf '%s\n' "$C_R_CANARY" "$C_R_BOTH" "$C_R_MAINONLY" | sort -n | paste -sd, -)" "$(moved_list "$(render "$APP_MAPPER" getConfigurationIdsOnVersion id="$R2")" | psqlq | moved_of)"
 
+q "UPDATE applicationVersions SET url = 'http://x/files/c/kiosk.apk', urlArm64 = 'http://x/files/c/kiosk-64.apk' WHERE id = $R1" >/dev/null
+expect "file references: a file used as url or arm64 url is referenced, an unused name is not" "1|1|0" "$(render "$APP_MAPPER" countVersionsReferencingFile url="'http://x/files/c/kiosk.apk'" | psqlq)|$(render "$APP_MAPPER" countVersionsReferencingFile url="'http://x/files/c/kiosk-64.apk'" | psqlq)|$(render "$APP_MAPPER" countVersionsReferencingFile url="'http://x/files/c/other.apk'" | psqlq)"
+
+q "UPDATE applications SET latestVersion = $R2 WHERE id = $APP_R" >/dev/null
+DOC_SQL="$(grep -o "UPDATE applications SET latestVersion = (SELECT apv1.id[^\"]*" "$HERE/../../../../deploy/README.md" | head -1)"
+q "$DOC_SQL" >/dev/null
+expect "rollback doc: the roll-forward statement points latestVersion back at released versions" "$R1" "$(q "SELECT latestVersion FROM applications WHERE id = $APP_R")"
+
 if [ "$FAILED" -ne 0 ]; then
   exit 1
 fi

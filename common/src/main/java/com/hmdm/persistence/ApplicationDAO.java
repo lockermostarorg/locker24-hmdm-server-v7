@@ -126,16 +126,9 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
             final int customerId = SecurityContext.get().getCurrentUser().get().getCustomerId();
             Customer customer = customerDAO.findById(customerId);
 
-            File movedFile = null;
-            try {
-                movedFile = FileUtil.moveFile(customer, filesDirectory, null, filePath);
-            } catch (FileExistsException e) {
-                FileUtil.deleteFile(customer, filesDirectory, FileUtil.getNameFromTmpPath(filePath));
-                movedFile = FileUtil.moveFile(customer, filesDirectory, null, filePath);
-            }
+            final APKFileDetails apkFileDetails = this.apkFileAnalyzer.analyzeFile(filePath);
+            final File movedFile = moveUploadedApk(customer, filePath, apkFileDetails.getVersionCode());
             if (movedFile != null) {
-                final String fileName = movedFile.getAbsolutePath();
-                final APKFileDetails apkFileDetails = this.apkFileAnalyzer.analyzeFile(fileName);
 
                 // If URL is not specified explicitly for new app then set the application URL to reference to that
                 // file
@@ -242,6 +235,52 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
      * @param version an application version to check against duplicates.
      * @return id of a duplicated application if found, otherwise 0
      */
+    private File moveUploadedApk(Customer customer, String filePath, int versionCode) {
+        final String name = FileUtil.getNameFromTmpPath(filePath);
+        try {
+            return FileUtil.moveFile(customer, filesDirectory, null, filePath);
+        } catch (FileExistsException e) {
+            if (!isFileReferenced(customer, name)) {
+                FileUtil.deleteFile(customer, filesDirectory, name);
+                return FileUtil.moveFile(customer, filesDirectory, null, filePath);
+            }
+        }
+        final String withCode = nameWithSuffix(name, "-" + versionCode);
+        try {
+            return FileUtil.moveFile(customer, filesDirectory, null, filePath, withCode);
+        } catch (FileExistsException e) {
+            if (!isFileReferenced(customer, withCode)) {
+                FileUtil.deleteFile(customer, filesDirectory, withCode);
+                return FileUtil.moveFile(customer, filesDirectory, null, filePath, withCode);
+            }
+        }
+        final String withHash = nameWithSuffix(name, "-" + versionCode + "-" + contentHash(new File(filePath)));
+        try {
+            return FileUtil.moveFile(customer, filesDirectory, null, filePath, withHash);
+        } catch (FileExistsException e) {
+            FileUtil.deleteFile(customer, filesDirectory, withHash);
+            return FileUtil.moveFile(customer, filesDirectory, null, filePath, withHash);
+        }
+    }
+
+    private boolean isFileReferenced(Customer customer, String fileName) {
+        return this.mapper.countVersionsReferencingFile(
+                FileUtil.createFileUrl(this.baseUrl, customer.getFilesDir(), fileName)) > 0;
+    }
+
+    private static String nameWithSuffix(String name, String suffix) {
+        final int dot = name.lastIndexOf('.');
+        return dot <= 0 ? name + suffix : name.substring(0, dot) + suffix + name.substring(dot);
+    }
+
+    private static String contentHash(File file) {
+        try (java.io.InputStream in = new java.io.FileInputStream(file)) {
+            return DigestUtils.sha256Hex(in).substring(0, 8);
+        } catch (java.io.IOException e) {
+            return Long.toHexString(System.nanoTime());
+        }
+    }
+
     private static boolean sameContent(File a, File b) {
         try (java.io.InputStream ia = new java.io.FileInputStream(a); java.io.InputStream ib = new java.io.FileInputStream(b)) {
             return DigestUtils.sha256Hex(ia).equals(DigestUtils.sha256Hex(ib));
@@ -1068,13 +1107,7 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
             final int customerId = SecurityContext.get().getCurrentUser().get().getCustomerId();
             Customer customer = customerDAO.findById(customerId);
 
-            File movedFile = null;
-            try {
-                movedFile = FileUtil.moveFile(customer, filesDirectory, null, filePath);
-            } catch (FileExistsException e) {
-                FileUtil.deleteFile(customer, filesDirectory, FileUtil.getNameFromTmpPath(filePath));
-                movedFile = FileUtil.moveFile(customer, filesDirectory, null, filePath);
-            }
+            final File movedFile = moveUploadedApk(customer, filePath, incomingCode);
             if (movedFile != null) {
                 // If URL is not specified explicitly for new app then set the application URL to reference to that
                 // file

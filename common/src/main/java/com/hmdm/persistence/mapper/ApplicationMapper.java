@@ -387,6 +387,11 @@ public interface ApplicationMapper {
     @Options(flushCache = Options.FlushCachePolicy.TRUE, useCache = false)
     Integer lockApplication(@Param("id") int applicationId);
 
+    @Select("SELECT COUNT(*) FROM applicationVersions " +
+            "WHERE url = #{url} OR urlArmeabi = #{url} OR urlArm64 = #{url}")
+    @Options(flushCache = Options.FlushCachePolicy.TRUE, useCache = false)
+    int countVersionsReferencingFile(@Param("url") String url);
+
     @Select({"WITH r AS (UPDATE configurationApplications SET followLatest = TRUE",
             " WHERE applicationVersionId = #{id} AND action = 1 AND followLatest = FALSE RETURNING configurationId AS cid),",
             " c AS (UPDATE configurations SET",

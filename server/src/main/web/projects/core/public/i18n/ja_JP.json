@@ -1179,6 +1179,7 @@
   "device.limit.achieved": "制限に達したため、デバイスを追加できません。 一部のデバイスを削除するか、販売者に連絡してデバイスの制限を延長してください.",
 
   "menu.updates": "アップデートを確認",
+  "error.updates.disabled": "Updates come from the Locker24 release process.",
   "updates.title": "アップデート",
   "updates.disabled.custom": "カスタム バージョン、手動で更新してください",
   "updates.disabled.not_master": "ホスティング プロバイダーに更新を依頼する",

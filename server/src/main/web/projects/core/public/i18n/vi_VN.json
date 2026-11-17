@@ -1213,6 +1213,7 @@
   "device.limit.achieved": "Không thể thêm thiết bị vì bạn đã đạt giới hạn. Vui lòng xóa một số thiết bị hoặc liên hệ người bán để mở rộng giới hạn.",
 
   "menu.updates": "Kiểm tra cập nhật",
+  "error.updates.disabled": "Updates come from the Locker24 release process.",
   "updates.title": "Cập nhật",
   "updates.disabled.custom": "Phiên bản tùy chỉnh, vui lòng cập nhật thủ công",
   "updates.disabled.not_master": "Yêu cầu nhà cung cấp hosting cập nhật",

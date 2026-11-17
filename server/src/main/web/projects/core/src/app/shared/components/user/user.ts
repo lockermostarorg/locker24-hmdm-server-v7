@@ -63,8 +63,4 @@ export class User {
   onLicensesClick(): void {
     this.router.navigate(['/home/licenses']);
   }
-
-  onUpdatesClick(): void {
-    this.router.navigate(['/home/updates']);
-  }
 }

@@ -1180,6 +1180,7 @@
   "device.limit.achieved": "Impossible d'ajouter un appareil car vous avez atteint votre limite. Veuillez supprimer certains appareils ou contacter le vendeur pour étendre la limite de votre appareil.",
 
   "menu.updates": "Vérifier les mises à jour",
+  "error.updates.disabled": "Updates come from the Locker24 release process.",
   "updates.title": "Mises à jour",
   "updates.disabled.custom": "Version personnalisée, veuillez mettre à jour manuellement",
   "updates.disabled.not_master": "Demander à l'hébergeur de mettre à jour",

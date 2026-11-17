@@ -1179,6 +1179,7 @@
   "device.limit.achieved": "Impossibile aggiungere un dispositivo perché hai raggiunto il tuo limite. Rimuovi alcuni dispositivi o contatta il venditore per estendere il limite dei tuoi dispositivi.",
 
   "menu.updates": "Controlla aggiornamenti",
+  "error.updates.disabled": "Updates come from the Locker24 release process.",
   "updates.title": "Aggiornamenti",
   "updates.disabled.custom": "Versione personalizzata, aggiorna manualmente",
   "updates.disabled.not_master": "Chiedi al provider di hosting di aggiornare",

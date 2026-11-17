@@ -1180,6 +1180,7 @@
   "device.limit.achieved": "لا يمكن إضافة جهاز لأنك وصلت إلى الحد الأقصى. الرجاء إزالة بعض الأجهزة أو الاتصال بالبائع لتوسيع حد جهازك.",
 
   "menu.updates": "تحقق من وجود تحديثات",
+  "error.updates.disabled": "Updates come from the Locker24 release process.",
   "updates.title": "التحديثات",
   "updates.disabled.custom": "إصدار مخصص, يرجى التحديث يدويًا",
   "updates.disabled.not_master": "اطلب من مزود الاستضافة التحديث",

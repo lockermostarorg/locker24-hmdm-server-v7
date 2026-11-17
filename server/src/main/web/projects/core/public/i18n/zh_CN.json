@@ -1180,6 +1180,7 @@
   "device.limit.achieved": "由於您已达到极限，因此无法新增设备。请移除一些设备或与卖家联繫以扩展设备限制。",
 
   "menu.updates": "检查更新",
+  "error.updates.disabled": "Updates come from the Locker24 release process.",
   "updates.title": "更新",
   "updates.disabled.custom": "自定义版本，请手动更新",
   "updates.disabled.not_master": "要求主机提供商更新",

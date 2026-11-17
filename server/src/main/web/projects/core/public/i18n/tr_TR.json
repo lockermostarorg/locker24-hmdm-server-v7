@@ -1179,6 +1179,7 @@
   "device.limit.achieved": "Limitinize ulaştığınız için cihaz ekleyemiyorsunuz. Lütfen bazı cihazları kaldırın veya cihaz sınırınızı uzatmak için satıcıyla iletişime geçin.",
 
   "menu.updates": "Güncellemeleri kontrol edin",
+  "error.updates.disabled": "Updates come from the Locker24 release process.",
   "updates.title": "Güncellemeler",
   "updates.disabled.custom": "Özel sürüm, lütfen manuel olarak güncelleyin",
   "updates.disabled.not_master": "Barındırma sağlayıcısından güncelleme yapmasını isteyin",

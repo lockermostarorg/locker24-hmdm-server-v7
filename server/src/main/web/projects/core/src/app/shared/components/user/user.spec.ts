@@ -77,3 +77,36 @@ describe('User menu theme switch', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
   });
 });
+
+describe('User menu for a super admin', () => {
+  beforeEach(async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        ...baseTestProviders(),
+        provideRouter([]),
+        {
+          provide: AuthService,
+          useValue: {
+            currentUser: signal({ name: 'admin', superAdmin: true }),
+            hasPermission: () => true,
+          },
+        },
+        { provide: IdleService, useValue: { clearTimeout: () => {} } },
+        { provide: THEME_MEDIA_QUERY, useValue: null },
+        { provide: THEME_STORAGE, useValue: null },
+      ],
+    });
+    await useEnglish(TestBed.inject(TranslateService));
+  });
+
+  it('lists licenses but no updates entry', async () => {
+    const fixture = TestBed.createComponent(User);
+    fixture.detectChanges();
+    const menu = await TestbedHarnessEnvironment.loader(fixture).getHarness(MatMenuHarness);
+    await menu.open();
+    const labels = await Promise.all((await menu.getItems()).map((item) => item.getText()));
+
+    expect(labels.some((label) => /Licenses/i.test(label))).toBeTrue();
+    expect(labels.some((label) => /updates/i.test(label))).toBeFalse();
+  });
+});

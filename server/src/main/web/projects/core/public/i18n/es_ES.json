@@ -1180,6 +1180,7 @@
   "device.limit.achieved": "No se puede agregar un dispositivo porque alcanzó su límite. Quite algunos dispositivos o comuníquese con el vendedor para ampliar el límite de dispositivos.",
 
   "menu.updates": "Buscar actualizaciones",
+  "error.updates.disabled": "Updates come from the Locker24 release process.",
   "updates.title": "Actualizaciones",
   "updates.disabled.custom": "Versión personalizada, actualice manualmente",
   "updates.disabled.not_master": "Pídale al proveedor de alojamiento que actualice",

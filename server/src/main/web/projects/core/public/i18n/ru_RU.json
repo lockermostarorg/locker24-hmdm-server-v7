@@ -1181,6 +1181,7 @@
   "device.limit.achieved": "Нельзя добавить устройство - вы достигли лимита. Удалите устройства или свяжитесь с продавцом для увеличения лимита.",
 
   "menu.updates": "Проверить наличие обновлений",
+  "error.updates.disabled": "Updates come from the Locker24 release process.",
   "updates.title": "Обновления",
   "updates.disabled.custom": "Пользовательская версия, обновите ее вручную",
   "updates.disabled.not_master": "Попросите хостинг-провайдера обновить",

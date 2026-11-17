@@ -67,8 +67,7 @@ export const routes: Routes = [
       },
       {
         path: 'updates',
-        canActivate: [isLicensesAvailableGuard],
-        loadComponent: () => import('./updates/pages/updates/updates').then((m) => m.Updates),
+        redirectTo: 'dashboard',
       },
       {
         path: 'dashboard',

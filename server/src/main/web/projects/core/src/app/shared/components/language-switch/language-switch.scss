@@ -1,0 +1,19 @@
+@use '@angular/material' as mat;
+
+.language-switch {
+  @include mat.button-overrides(
+    (
+      text-label-text-color: var(--l24-on-primary-fill),
+    )
+  );
+  @include mat.icon-overrides(
+    (
+      color: var(--l24-on-primary-fill),
+    )
+  );
+}
+
+.language-switch-code {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}

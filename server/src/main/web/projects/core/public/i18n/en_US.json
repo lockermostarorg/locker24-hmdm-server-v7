@@ -1052,6 +1052,7 @@
   "menu.panel.main": "Main panel",
   "menu.logout": "Log out",
   "menu.theme": "Theme",
+  "menu.language": "Language",
   "menu.theme.light": "Light",
   "menu.theme.dark": "Dark",
   "menu.theme.system": "System",

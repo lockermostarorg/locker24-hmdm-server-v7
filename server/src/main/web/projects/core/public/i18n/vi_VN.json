@@ -1079,6 +1079,7 @@
   "menu.panel.main": "Bảng chính",
   "menu.logout": "Đăng xuất",
   "menu.theme": "Theme",
+  "menu.language": "Language",
   "menu.theme.light": "Light",
   "menu.theme.dark": "Dark",
   "menu.theme.system": "System",

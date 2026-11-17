@@ -1047,6 +1047,7 @@
   "menu.panel.main": "Основная панель",
   "menu.logout": "Выйти",
   "menu.theme": "Theme",
+  "menu.language": "Language",
   "menu.theme.light": "Light",
   "menu.theme.dark": "Dark",
   "menu.theme.system": "System",

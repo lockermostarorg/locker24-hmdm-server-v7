@@ -20,6 +20,10 @@ import {
   extractLanguageCode,
   LanguageService,
 } from '../shared/services/language.service';
+import { LANGUAGE_STORAGE_KEY } from '../shared/const/available-languages.const';
+import { SettingsFacadeService } from '../shared/services/settings-facade.service';
+import { THEME_STORAGE } from '../shared/services/theme.service';
+import { TSettingsDTO } from '../entity/settings/types/settings-dto.type';
 import { baseTestProviders, loadLocale, LOCALES } from './test-providers';
 
 type TLocale = Record<string, string>;
@@ -113,13 +117,28 @@ describe('extractLanguageCode', () => {
 });
 
 describe('detectBrowserLanguage', () => {
-  it('takes the first supported language from the browser list', () => {
-    expect(detectBrowserLanguage(['sl-SI', 'hr-HR', 'en-US'])).toBe('bs_BA');
-    expect(detectBrowserLanguage(['en-US', 'bs-BA'])).toBe('en_US');
-    expect(detectBrowserLanguage(['fi-FI', 'zh-Hant-TW'])).toBe('zh_TW');
-    expect(detectBrowserLanguage([undefined, '', 'de-AT'])).toBe('de_DE');
-    expect(detectBrowserLanguage(['fi-FI'])).toBe('en_US');
+  it('shows Bosnian for Bosnian, Croatian and Serbian browsers', () => {
+    for (const lang of ['bs', 'bs-BA', 'hr', 'hr-HR', 'sr', 'sr-Latn-RS', 'sr-Cyrl-BA', 'sh']) {
+      expect(detectBrowserLanguage([lang]))
+        .withContext(lang)
+        .toBe('bs_BA');
+    }
+  });
+
+  it('shows English for every other browser language', () => {
+    for (const lang of ['en-US', 'en-GB', 'de-AT', 'fr-FR', 'zh-TW', 'sl-SI', 'fi-FI']) {
+      expect(detectBrowserLanguage([lang]))
+        .withContext(lang)
+        .toBe('en_US');
+    }
     expect(detectBrowserLanguage([])).toBe('en_US');
+    expect(detectBrowserLanguage([undefined, ''])).toBe('en_US');
+  });
+
+  it('takes the first Bosnian-family or English entry of the browser list', () => {
+    expect(detectBrowserLanguage(['sl-SI', 'hr-HR', 'en-US'])).toBe('bs_BA');
+    expect(detectBrowserLanguage(['de-DE', 'en-US', 'bs-BA'])).toBe('en_US');
+    expect(detectBrowserLanguage(['en-US', 'bs-BA'])).toBe('en_US');
   });
 });
 
@@ -190,5 +209,89 @@ describe('LanguageService before sign-in', () => {
     TestBed.tick();
 
     expect(TestBed.inject(TranslateService).getCurrentLang()).toBe('bs_BA');
+  });
+});
+
+describe('LanguageService header choice', () => {
+  let store: Record<string, string>;
+
+  function setup(browser: string[], stored?: string) {
+    store = stored ? { [LANGUAGE_STORAGE_KEY]: stored } : {};
+    spyOnProperty(Object.getPrototypeOf(navigator), 'languages').and.returnValue(browser);
+    spyOnProperty(Object.getPrototypeOf(navigator), 'language').and.returnValue(browser[0]);
+    TestBed.configureTestingModule({
+      providers: [
+        ...baseTestProviders(),
+        {
+          provide: THEME_STORAGE,
+          useValue: {
+            getItem: (key: string) => store[key] ?? null,
+            setItem: (key: string, value: string) => (store[key] = value),
+          },
+        },
+      ],
+    });
+    const service = TestBed.inject(LanguageService);
+    TestBed.tick();
+    return { service, translate: TestBed.inject(TranslateService) };
+  }
+
+  afterEach(() => {
+    delete (window as any)['__DYNPLUGINS__'];
+  });
+
+  it('keeps the chosen language over the browser language', () => {
+    const { translate } = setup(['hr-HR'], 'en_US');
+
+    expect(translate.getCurrentLang()).toBe('en_US');
+  });
+
+  it('ignores a stored value that is not a panel language', () => {
+    const { translate } = setup(['hr-HR'], 'de_DE');
+
+    expect(translate.getCurrentLang()).toBe('bs_BA');
+  });
+
+  it('switches, remembers the choice and exposes it', () => {
+    const { service, translate } = setup(['en-US']);
+
+    service.setLanguage('bs_BA');
+
+    expect(translate.getCurrentLang()).toBe('bs_BA');
+    expect(service.language()).toBe('bs_BA');
+    expect(store[LANGUAGE_STORAGE_KEY]).toBe('bs_BA');
+  });
+
+  it('refuses languages the header does not offer', () => {
+    const { service, translate } = setup(['en-US']);
+
+    service.setLanguage('de_DE');
+
+    expect(translate.getCurrentLang()).toBe('en_US');
+    expect(store[LANGUAGE_STORAGE_KEY]).toBeUndefined();
+  });
+
+  it('keeps the chosen language when the settings ask for a fixed one', () => {
+    const { translate } = setup(['en-US'], 'bs_BA');
+
+    TestBed.inject(SettingsFacadeService).settings.set({
+      useDefaultLanguage: false,
+      language: 'en_US',
+    } as TSettingsDTO);
+    TestBed.tick();
+
+    expect(translate.getCurrentLang()).toBe('bs_BA');
+  });
+
+  it('uses the fixed settings language when nothing was chosen', () => {
+    const { translate } = setup(['hr-HR']);
+
+    TestBed.inject(SettingsFacadeService).settings.set({
+      useDefaultLanguage: false,
+      language: 'en_US',
+    } as TSettingsDTO);
+    TestBed.tick();
+
+    expect(translate.getCurrentLang()).toBe('en_US');
   });
 });

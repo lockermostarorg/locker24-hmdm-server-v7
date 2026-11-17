@@ -1044,6 +1044,7 @@
   "menu.panel.main": "メインパネル",
   "menu.logout": "ログアウト",
   "menu.theme": "Theme",
+  "menu.language": "Language",
   "menu.theme.light": "Light",
   "menu.theme.dark": "Dark",
   "menu.theme.system": "System",

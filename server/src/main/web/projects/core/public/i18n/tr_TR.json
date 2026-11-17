@@ -1045,6 +1045,7 @@
   "menu.panel.main": "Ana panel",
   "menu.logout": "Çıkış yap",
   "menu.theme": "Theme",
+  "menu.language": "Language",
   "menu.theme.light": "Light",
   "menu.theme.dark": "Dark",
   "menu.theme.system": "System",

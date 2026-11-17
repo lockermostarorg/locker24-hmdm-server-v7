@@ -1,10 +1,16 @@
 import { HttpClient, HttpContext } from '@angular/common/http';
-import { effect, inject, Injectable } from '@angular/core';
+import { DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
 import { TranslateService, TranslationObject } from '@ngx-translate/core';
 import { SKIP_ALERT } from 'hmdm-ui-kit';
 import { catchError, EMPTY, Observable } from 'rxjs';
-import { AVAILABLE_LANGUAGES, LANGUAGE_ALIASES } from '../const/available-languages.const';
+import {
+  AVAILABLE_LANGUAGES,
+  LANGUAGE_ALIASES,
+  LANGUAGE_STORAGE_KEY,
+  PANEL_LANGUAGES,
+} from '../const/available-languages.const';
 import { SettingsFacadeService } from './settings-facade.service';
+import { THEME_STORAGE } from './theme.service';
 
 export const DEFAULT_LANGUAGE = 'en_US';
 
@@ -39,11 +45,16 @@ export function extractLanguageCode(lang: string | null | undefined): string {
   return matchLanguage(lang) ?? DEFAULT_LANGUAGE;
 }
 
+export function isPanelLanguage(lang: string | null | undefined): lang is string {
+  return PANEL_LANGUAGES.some((l) => l.code === lang);
+}
+
+/** First browser language that is Bosnian/Croatian/Serbian (bs_BA) or English (en_US); en_US otherwise. */
 export function detectBrowserLanguage(preferred: readonly (string | null | undefined)[]): string {
   for (const lang of preferred) {
     const match = matchLanguage(lang);
 
-    if (match) {
+    if (isPanelLanguage(match)) {
       return match;
     }
   }
@@ -58,7 +69,14 @@ export class LanguageService {
   private readonly settingsFacadeService = inject(SettingsFacadeService);
   private readonly translateService = inject(TranslateService);
   private readonly http: HttpClient = inject(HttpClient);
+  private readonly storage = inject(THEME_STORAGE);
   private readonly defaultLanguage = DEFAULT_LANGUAGE;
+  private readonly languageState = signal<string>(
+    this.translateService.getCurrentLang() || DEFAULT_LANGUAGE,
+  );
+
+  /** The language the panel is shown in. */
+  readonly language = this.languageState.asReadonly();
 
   private currentLanguage: string | null = null;
   private useDefaultLanguage: boolean | null = null;
@@ -78,6 +96,7 @@ export class LanguageService {
 
     this.translateService.onLangChange.subscribe((event) => {
       this.currentLanguage = event.lang;
+      this.languageState.set(event.lang);
 
       if (!this.currentLanguage) {
         return;
@@ -85,6 +104,31 @@ export class LanguageService {
 
       this.loadPluginTranslations();
     });
+
+    const view = typeof window === 'undefined' ? null : window;
+    const onOtherTab = (event: StorageEvent) => {
+      if (event.key === LANGUAGE_STORAGE_KEY || event.key === null) {
+        this.init();
+      }
+    };
+    view?.addEventListener('storage', onOtherTab);
+    inject(DestroyRef).onDestroy(() => view?.removeEventListener('storage', onOtherTab));
+  }
+
+  /** Picks the panel language for this browser; it wins over the browser and the settings. */
+  setLanguage(language: string): void {
+    if (!isPanelLanguage(language)) {
+      return;
+    }
+
+    try {
+      this.storage?.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch {
+      // Storage blocked: the choice lasts for this page only.
+    }
+
+    this.currentLanguage = language;
+    this.translateService.use(language);
   }
 
   loadPluginTranslations() {
@@ -126,33 +170,33 @@ export class LanguageService {
 
   init(): void {
     const settings = this.settingsFacadeService.settings();
+    const stored = this.readStoredLanguage();
+    let language: string;
 
-    if (!settings) {
-      const language = this.getBrowserLanguage();
+    if (stored) {
+      language = stored;
+    } else if (!settings || settings.useDefaultLanguage) {
+      language = this.getBrowserLanguage();
+    } else {
+      language = this.extractLanguageCode(settings.language || this.defaultLanguage);
+    }
 
-      if (language !== this.currentLanguage) {
-        this.currentLanguage = language;
-        this.translateService.use(language);
-      }
-
+    if (settings) {
+      this.useDefaultLanguage = settings.useDefaultLanguage;
+    } else if (language === this.currentLanguage) {
       return;
     }
 
-    if (settings.useDefaultLanguage) {
-      const browserLang = this.getBrowserLanguage();
-      const language = this.extractLanguageCode(browserLang);
-      console.log('Setting language to browser language:', browserLang);
+    this.currentLanguage = language;
+    this.translateService.use(language);
+  }
 
-      this.useDefaultLanguage = true;
-      this.currentLanguage = language;
-      this.translateService.use(language);
-    } else {
-      const language = this.extractLanguageCode(settings.language || this.defaultLanguage);
-      console.log('Setting language to configured language:', language);
-
-      this.useDefaultLanguage = false;
-      this.currentLanguage = language;
-      this.translateService.use(language);
+  private readStoredLanguage(): string | null {
+    try {
+      const stored = this.storage?.getItem(LANGUAGE_STORAGE_KEY);
+      return isPanelLanguage(stored) ? stored : null;
+    } catch {
+      return null;
     }
   }
 

@@ -75,7 +75,7 @@ grep -q "step 3 for $A" <<<"$out" && ok "deploy output followed" || bad "deploy 
 grep -q "deploy of $A finished with exit code 0" <<<"$out" && ok "result line" || bad "result line"
 [ "$(launches)" = 1 ] && ok "exactly one launch" || bad "launch count"
 grep -q 'JAVA_HOME=/usr/lib/jvm/fake' /run/stub-allargs && ok "JAVA_HOME resolved from java and passed" || bad "JAVA_HOME not passed"
-grep -q 'RuntimeMaxSec=45min' /run/stub-allargs && ok "RuntimeMaxSec set" || bad "RuntimeMaxSec"
+grep -q 'RuntimeMaxSec=90min' /run/stub-allargs && ok "RuntimeMaxSec set" || bad "RuntimeMaxSec"
 grep -q 'StandardError=append:/var/log/locker24-deploy.log' /run/stub-allargs && ok "unit stderr goes to the deploy log" || bad "StandardError"
 
 echo 7 > /etc/stub-rc

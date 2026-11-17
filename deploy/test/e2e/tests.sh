@@ -76,7 +76,7 @@ n0=$(headers "$M2")
 ssh -T -i /root/client_key -o BatchMode=yes -o UserKnownHostsFile=/root/known root@localhost "deploy $M2 300-1" >/dev/null 2>&1 &
 p=$!; sleep 4; kill -9 $p
 systemctl is-active --quiet "locker24-deploy-${M2:0:12}.service" && ok "deploy keeps running after the SSH client dies" || bad "unit not active"
-systemctl show -p RuntimeMaxUSec "locker24-deploy-${M2:0:12}.service" | grep -q '45min' && ok "RuntimeMaxSec=45min on the unit" || bad "RuntimeMaxSec: $(systemctl show -p RuntimeMaxUSec "locker24-deploy-${M2:0:12}.service")"
+systemctl show -p RuntimeMaxUSec "locker24-deploy-${M2:0:12}.service" | grep -q '1h 30min' && ok "RuntimeMaxSec=90min on the unit" || bad "RuntimeMaxSec: $(systemctl show -p RuntimeMaxUSec "locker24-deploy-${M2:0:12}.service")"
 r "deploy $M1 300-1" >/tmp/other.out 2>&1; check "a different sha is refused while one deploys" 1 $?
 r "deploy $M2 300-2" >/tmp/attach.out 2>&1; check "same sha, new attempt attaches and reports success" 0 $?
 grep -q attaching /tmp/attach.out && ok "attached" || bad "attach message"

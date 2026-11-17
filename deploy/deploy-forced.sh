@@ -124,7 +124,7 @@ launch() {
     install -m 600 "$DEPLOY_SH" "$STATE_DIR/deploy-$key.sh"
     # shellcheck disable=SC2016
     if ! systemd-run --quiet --unit="${unit%.service}" --collect \
-        --property=TimeoutStartSec=0 --property=TimeoutStopSec=900 --property=RuntimeMaxSec=45min \
+        --property=TimeoutStartSec=0 --property=TimeoutStopSec=900 --property=RuntimeMaxSec=90min \
         --property=StandardError=append:"$LOG_FILE" \
         --setenv=HOME=/root --setenv=PATH="$PATH" ${java_home:+--setenv=JAVA_HOME="$java_home"} \
         /bin/bash -c 'trap : HUP INT TERM

@@ -36,7 +36,7 @@ jobs:
         )
       )
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 100
     environment: mdm-production
     env:
       SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}
@@ -144,7 +144,7 @@ jobs:
             else
               auth_failures=0
             fi
-            if [ $((SECONDS - start)) -gt 2400 ]; then
+            if [ $((SECONDS - start)) -gt 5700 ]; then
               break
             fi
             echo "SSH connection lost, reconnecting in 15 s"

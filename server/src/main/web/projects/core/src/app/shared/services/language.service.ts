@@ -114,6 +114,13 @@ export class LanguageService {
     const settings = this.settingsFacadeService.settings();
 
     if (!settings) {
+      const language = this.getBrowserLanguage();
+
+      if (language !== this.currentLanguage) {
+        this.currentLanguage = language;
+        this.translateService.use(language);
+      }
+
       return;
     }
 

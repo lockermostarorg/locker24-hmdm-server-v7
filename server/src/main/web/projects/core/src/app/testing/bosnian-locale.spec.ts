@@ -157,3 +157,19 @@ describe('LanguageService plugin translations', () => {
     expect(translate.instant('plugin.x.title')).toBe('plugin.x.title');
   });
 });
+
+describe('LanguageService before sign-in', () => {
+  afterEach(() => {
+    delete (window as any)['__DYNPLUGINS__'];
+  });
+
+  it('uses the browser language while no settings are loaded', () => {
+    spyOnProperty(Object.getPrototypeOf(navigator), 'language').and.returnValue('hr-HR');
+    TestBed.configureTestingModule({ providers: baseTestProviders() });
+    TestBed.inject(LanguageService);
+
+    TestBed.tick();
+
+    expect(TestBed.inject(TranslateService).getCurrentLang()).toBe('bs_BA');
+  });
+});

@@ -5,6 +5,7 @@ import { RouterOutlet } from '@angular/router';
 import { provideNgxMask } from 'ngx-mask';
 import { catchError, finalize, of, switchMap, take } from 'rxjs';
 import { AuthService } from './shared/services/auth.service';
+import { LanguageService } from './shared/services/language.service';
 import { SettingsFacadeService } from './shared/services/settings-facade.service';
 import { VersionCheckerService } from './shared/services/version-checker.service';
 import { environment } from '../environments/environment';
@@ -19,6 +20,7 @@ import { environment } from '../environments/environment';
 export class App implements OnInit {
   private authService: AuthService = inject(AuthService);
   private readonly settingsFacadeService = inject(SettingsFacadeService);
+  private readonly languageService = inject(LanguageService);
   private readonly versionCheckerService = inject(VersionCheckerService);
 
   isLoading: WritableSignal<boolean> = signal(true);

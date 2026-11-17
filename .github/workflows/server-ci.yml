@@ -72,6 +72,7 @@ jobs:
       - name: Panel tests
         working-directory: server/src/main/web
         run: |
+          sed "s/\${project\.version}/ci/" environment-templates/environment.ts.template > projects/core/src/environments/environment.ts
           pnpm install --frozen-lockfile
           pnpm exec ng test core --watch=false --browsers=ChromeHeadless
 

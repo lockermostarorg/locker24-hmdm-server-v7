@@ -2,6 +2,8 @@
 
 Our own code lives in `plugins/locker24-health`. These are the only upstream files we change. Re-apply them by hand when merging a new upstream release.
 
+Based on upstream v7.04.2 (Headwind MDM `hmdm-server-v7` commit 36d34ea, merged on branch `chore/upstream-7.04.2`).
+
 | File | Change | Why |
 |---|---|---|
 | `plugins/pom.xml` | One line in `<modules>`: `<module>locker24-health</module>` | Builds the fleet health plugin with the other plugins |
@@ -68,6 +70,8 @@ Our own code lives in `plugins/locker24-health`. These are the only upstream fil
 | `server/src/main/web/tools/check-colors.sh`, `tools/check-contrast.mjs` | `check-colors.sh` also scans every plugin's `src/main/web/projects` except `xtra` (disabled); `check-contrast.mjs` checks the info stripe on `--l24-primary`, the fleet health badges, notices, table rows and chart lines in both themes, and understands `name*percent` tints | Plugin pages stay on the tokens with AA contrast |
 | `server/src/main/java/com/hmdm/rest/resource/UpdateResource.java`; deleted `common/src/main/java/com/hmdm/util/StatsSender.java` and `UpdateSettings.java` | `GET /private/update/check` and `POST /private/update` make no outbound call and answer `Response.ERROR("error.updates.disabled")`; the h-mdm.com manifest check, the upstream download and the usage statistics sender are removed. Replaces the "Check for updates" rows above for the server side | Releases come through our own CI and deploy; no usage statistics go to a third party |
 | `server/src/main/web/projects/core/src/app/{app.routes.ts,shared/components/user/user.html,user.ts}`; deleted `updates/`; one `error.updates.disabled` line after `menu.updates` in all 13 `public/i18n/*.json` | The Updates menu entry and page are gone; `/home/updates` redirects to the dashboard; English text for the disabled-updates error in every locale file | Same: the panel must not offer upstream Headwind updates or the statistics switch |
+| `common/src/main/java/com/hmdm/persistence/ApplicationDAO.java` (`getOrphanedFiles`), `common/src/main/java/com/hmdm/persistence/mapper/ApplicationMapper.java` (new `getAllApplicationVersionUrls`); test `common/src/test/java/com/hmdm/persistence/ApplicationOrphanedFilesTest.java` | Upstream v7.04.2 added "Cleanup" of orphaned APK/XAPK files per customer (control panel). A file counts as referenced when any application version of any customer (held versions included) points at it, not only the scanned customer's versions; launcher URLs, external files and configuration files stay customer-scoped as upstream | Same rule as the unique file names above: never delete or replace a file that an application version still uses; customers without a files directory share the root directory |
+| `server/src/main/web/projects/core/src/app/applications/services/version-dialog.service.ts` (merge of v7.04.2) | Upstream marks the applications list for a later reload (`markForReload`) after add, edit and delete of a version; our add, release and notify paths keep reloading the list at once (`searchApplications`) and show the release summary; edit and delete use upstream's `markForReload` | The list shows the new latest released version right after a release |
 
 ## Upstream gap: path parameters skip Guice filters
 

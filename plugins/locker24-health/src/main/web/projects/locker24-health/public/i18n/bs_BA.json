@@ -55,7 +55,7 @@
   "plugin.locker24-health.column.groups.help": "Grupe uređaja u kojima je tablet.",
   "plugin.locker24-health.column.locker": "Ormarić",
   "plugin.locker24-health.column.locker.help": "Kratki UID ormarića s kojim je kiosk aplikacija uparena, prema izvještaju kiosk aplikacije.",
-  "plugin.locker24-health.column.lastSeen": "Posljednji put viđen",
+  "plugin.locker24-health.column.lastSeen": "Posljednja veza",
   "plugin.locker24-health.column.lastSeen.help": "Kada je server posljednji put primio izvještaj od tableta, prema satu servera. Zadržite pokazivač za tačno vrijeme.",
   "plugin.locker24-health.column.lastSeenAbsolute": "Posljednji primljeni izvještaj",
   "plugin.locker24-health.column.battery": "Baterija",

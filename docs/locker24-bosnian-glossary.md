@@ -34,7 +34,7 @@ Terms used in the Bosnian translation of the Locker24 MDM panel (`core/public/i1
 | hold (action), Hold | zadržati, Zadrži |
 | held (state) | na čekanju |
 | follow latest | prati najnoviju |
-| pinned to version X | fiksirano na verziji X |
+| pinned to X | fiksirano na X |
 | update (noun) | ažuriranje |
 | update (verb) | ažurirati |
 | upgrade / downgrade | nadograditi / vratiti na stariju verziju |
@@ -71,7 +71,7 @@ Terms used in the Bosnian translation of the Locker24 MDM panel (`core/public/i1
 | power (supply) | napajanje |
 | storage | memorija; prostor za pohranu (server quota) |
 | offline / online | van mreže / na mreži |
-| last seen | posljednji put viđen |
+| last seen | posljednja veza |
 | dashboard | kontrolna tabla |
 | log / logs | zapisnik / zapisnici |
 | audit / audit log | revizija / revizijski zapisnik |

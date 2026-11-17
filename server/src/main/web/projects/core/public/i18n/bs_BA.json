@@ -1267,7 +1267,7 @@
   "table.heading.application.version.state": "Stanje",
   "form.configuration.app.follow.latest": "Prati najnoviju",
   "form.configuration.app.follow.latest.title": "Uključeno: aplikacija prelazi na svaku novu objavljenu verziju. Isključeno: ostaje na odabranoj verziji.",
-  "form.configuration.app.pinned": "Fiksirano na verziji {{version}}",
+  "form.configuration.app.pinned": "Fiksirano na {{version}}",
   "release.summary.first.version": "Objavljeno prema rasporedu: prva verzija aplikacije se uvijek objavljuje, pa nije zadržana.",
   "release.summary.released": "Objavljeno — {{configurations}} ({{devices}})",
   "release.summary.notified": "Ažuriranje poslano — {{configurations}} ({{devices}})",

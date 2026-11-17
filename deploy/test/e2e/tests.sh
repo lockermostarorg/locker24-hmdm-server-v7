@@ -41,6 +41,21 @@ bash $SRC/deploy/deploy.sh "$M1" >/tmp/direct2.out 2>&1
 check "deploy.sh, branch named like the sha: commit asked for" "$M1" "$(head_of)"
 git -C $ORIGIN branch -D "$M1" >/dev/null
 
+# stale web builds from a failed earlier build must be gone before mvn runs
+for d in server/src/main/web/dist plugins/audit/src/main/web/dist plugins/locker24-health/src/main/web/dist; do
+    mkdir -p "$SRC/$d"; echo stale > "$SRC/$d/stale.js"
+done
+rm -f /tmp/mvn-saw-dist
+bash $SRC/deploy/deploy.sh "$M2" >/tmp/dist.out 2>&1; check "deploy.sh with stale dist folders present: exits 0" 0 $?
+[ -f /tmp/mvn-saw-dist ] && ok "mvn stub ran" || bad "mvn stub did not run"
+check "no web dist folder existed when mvn started" 0 "$(wc -l < /tmp/mvn-saw-dist)"
+check "no web dist folder left in the checkout" 0 "$(find $SRC/server/src/main/web $SRC/plugins -maxdepth 5 -name dist -type d | wc -l)"
+# --skip-build must not touch anything built
+mkdir -p "$SRC/server/src/main/web/dist"
+bash $SRC/deploy/deploy.sh --skip-build "$M2" >/dev/null 2>&1
+[ -d "$SRC/server/src/main/web/dist" ] && ok "--skip-build leaves dist alone" || bad "--skip-build removed dist"
+rm -rf "$SRC/server/src/main/web/dist"
+
 # (a) false success: status for an attempt this host never saw must not report an earlier result
 r "status $M2 999-1" >/dev/null 2>&1; check "status of an unseen attempt is unknown (3), not an old success" 3 $?
 

@@ -192,6 +192,7 @@ if [ "$SKIP_BUILD" -eq 1 ]; then
     fi
 elif [ "$DRY_RUN" -eq 1 ]; then
     note "[dry-run] copy server/build.properties and plugins/audit/build.properties from $LEGACY_CHECKOUT if missing"
+    note "[dry-run] remove server/src/main/web/dist and plugins/*/src/main/web/dist (stale web builds are never reused)"
     note "[dry-run] cd $SRC_DIR && mvn -B -DskipTests clean install  (about 17 min on 2 vCPU)"
     note "[dry-run] git rev-parse HEAD > $BUILD_SHA_FILE"
 else
@@ -199,6 +200,7 @@ else
     cd "$SRC_DIR"
     BUILD_START=$(date +%s)
     rm -f "$BUILD_SHA_FILE"
+    rm -rf "$SRC_DIR"/server/src/main/web/dist "$SRC_DIR"/plugins/*/src/main/web/dist
     mvn -B -DskipTests clean install
     git rev-parse HEAD > "$BUILD_SHA_FILE"
     note "build took $(( $(date +%s) - BUILD_START )) s"

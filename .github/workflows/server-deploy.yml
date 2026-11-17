@@ -36,7 +36,7 @@ jobs:
         )
       )
     runs-on: ubuntu-latest
-    timeout-minutes: 100
+    timeout-minutes: 110
     environment: mdm-production
     env:
       SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}

@@ -15,7 +15,11 @@ import pushBs from '../../../../../../../../../plugins/push/src/main/web/project
 import pushEn from '../../../../../../../../../plugins/push/src/main/web/projects/push/public/i18n/en_US.json';
 import { LANGUAGE_OPTIONS } from '../settings/const/language-options.const';
 import { AVAILABLE_LANGUAGES } from '../shared/const/available-languages.const';
-import { extractLanguageCode, LanguageService } from '../shared/services/language.service';
+import {
+  detectBrowserLanguage,
+  extractLanguageCode,
+  LanguageService,
+} from '../shared/services/language.service';
 import { baseTestProviders, loadLocale, LOCALES } from './test-providers';
 
 type TLocale = Record<string, string>;
@@ -108,6 +112,17 @@ describe('extractLanguageCode', () => {
   }
 });
 
+describe('detectBrowserLanguage', () => {
+  it('takes the first supported language from the browser list', () => {
+    expect(detectBrowserLanguage(['sl-SI', 'hr-HR', 'en-US'])).toBe('bs_BA');
+    expect(detectBrowserLanguage(['en-US', 'bs-BA'])).toBe('en_US');
+    expect(detectBrowserLanguage(['fi-FI', 'zh-Hant-TW'])).toBe('zh_TW');
+    expect(detectBrowserLanguage([undefined, '', 'de-AT'])).toBe('de_DE');
+    expect(detectBrowserLanguage(['fi-FI'])).toBe('en_US');
+    expect(detectBrowserLanguage([])).toBe('en_US');
+  });
+});
+
 describe('LanguageService plugin translations', () => {
   let http: HttpTestingController;
   let translate: TranslateService;
@@ -164,7 +179,11 @@ describe('LanguageService before sign-in', () => {
   });
 
   it('uses the browser language while no settings are loaded', () => {
-    spyOnProperty(Object.getPrototypeOf(navigator), 'language').and.returnValue('hr-HR');
+    spyOnProperty(Object.getPrototypeOf(navigator), 'languages').and.returnValue([
+      'sl-SI',
+      'hr-HR',
+    ]);
+    spyOnProperty(Object.getPrototypeOf(navigator), 'language').and.returnValue('sl-SI');
     TestBed.configureTestingModule({ providers: baseTestProviders() });
     TestBed.inject(LanguageService);
 

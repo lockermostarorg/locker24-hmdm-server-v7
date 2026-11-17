@@ -333,6 +333,8 @@
   "paginator.last.page": "Last page",
   "paginator.range": "{{start}} – {{end}} of {{length}}",
   "paginator.range.empty": "0 of {{length}}",
+  "date.range.start": "Start date",
+  "date.range.end": "End date",
 
   "Success.admin.created": "إنشاء حساب المسؤول:\n {{adminCredentials}}",
   "dialog.admin.credentials.title": "إنشاء حساب المسؤول",

@@ -332,6 +332,8 @@
   "paginator.last.page": "Last page",
   "paginator.range": "{{start}} – {{end}} of {{length}}",
   "paginator.range.empty": "0 of {{length}}",
+  "date.range.start": "Start date",
+  "date.range.end": "End date",
 
   "success.admin.created": "Cuenta de Administrador creada:\n {{adminCredentials}}",
   "dialog.admin.credentials.title": "Cuenta de Administrador creada",

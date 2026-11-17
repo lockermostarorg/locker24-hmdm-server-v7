@@ -8,9 +8,9 @@ import { SettingsFacadeService } from './settings-facade.service';
 
 export const DEFAULT_LANGUAGE = 'en_US';
 
-export function extractLanguageCode(lang: string | null | undefined): string {
-  if (!lang) {
-    return DEFAULT_LANGUAGE;
+export function matchLanguage(lang: string | null | undefined): string | null {
+  if (!lang?.trim()) {
+    return null;
   }
 
   const normalized = lang.trim().replace(/-/g, '_');
@@ -20,21 +20,35 @@ export function extractLanguageCode(lang: string | null | undefined): string {
     return exact;
   }
 
-  const base = normalized.split('_')[0].toLowerCase();
+  const [base, ...subtags] = normalized.toLowerCase().split('_');
   const alias = LANGUAGE_ALIASES[base];
 
   if (alias) {
     return alias;
   }
 
-  const region = normalized.split('_').slice(1).join('_').toLowerCase();
+  const region = subtags.find((tag) => /^[a-z]{2}$/.test(tag));
   const sameBase = AVAILABLE_LANGUAGES.filter((l) => l.toLowerCase().startsWith(base + '_'));
 
   return (
-    sameBase.find((l) => region && l.toLowerCase().endsWith('_' + region)) ||
-    sameBase[0] ||
-    DEFAULT_LANGUAGE
+    sameBase.find((l) => region && l.toLowerCase().endsWith('_' + region)) || sameBase[0] || null
   );
+}
+
+export function extractLanguageCode(lang: string | null | undefined): string {
+  return matchLanguage(lang) ?? DEFAULT_LANGUAGE;
+}
+
+export function detectBrowserLanguage(preferred: readonly (string | null | undefined)[]): string {
+  for (const lang of preferred) {
+    const match = matchLanguage(lang);
+
+    if (match) {
+      return match;
+    }
+  }
+
+  return DEFAULT_LANGUAGE;
 }
 
 @Injectable({
@@ -143,8 +157,11 @@ export class LanguageService {
   }
 
   private getBrowserLanguage(): string {
-    const navigatorLang = navigator.language || (navigator as any).userLanguage;
-    return navigatorLang ? this.extractLanguageCode(navigatorLang) : this.defaultLanguage;
+    return detectBrowserLanguage([
+      ...(navigator.languages ?? []),
+      navigator.language,
+      (navigator as any).userLanguage,
+    ]);
   }
 
   private extractLanguageCode(lang: string): string {

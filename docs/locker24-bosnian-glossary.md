@@ -56,11 +56,12 @@ Terms used in the Bosnian translation of the Locker24 MDM panel (`core/public/i1
 | role | uloga |
 | permission | dozvola |
 | customer | klijent |
+| tenant | klijent |
 | organization | organizacija |
 | administrator / Super-Administrator | administrator / superadministrator |
 | enrolment / enroll | registracija / registrovati |
-| alert | upozorenje |
-| warning (level) | upozorenje |
+| alert (Alerts page, health alerts, pop-ups) | alarm (Alarmi, bez alarma) |
+| warning (level, yellow status) | upozorenje |
 | severity | ozbiljnost |
 | notification | obavještenje |
 | notify | obavijestiti |
@@ -69,7 +70,7 @@ Terms used in the Bosnian translation of the Locker24 MDM panel (`core/public/i1
 | battery / battery level | baterija / nivo baterije |
 | charging / not charging | punjenje, puni se / ne puni se |
 | power (supply) | napajanje |
-| storage | memorija; prostor za pohranu (server quota) |
+| storage | memorija (RAM, device storage setting); slobodan prostor (free disk); prostor za pohranu (server quota) |
 | offline / online | van mreže / na mreži |
 | last seen | posljednja veza |
 | dashboard | kontrolna tabla |
@@ -122,6 +123,8 @@ Terms used in the Bosnian translation of the Locker24 MDM panel (`core/public/i1
 | Clear (filters) / Cleanup (files) | Očisti |
 | page / Items per page | stranica / Stavki po stranici |
 | 1 – 10 of 50 | 1 – 10 od 50 |
+| Start date / End date (range) | Početni datum / Krajnji datum |
+| DELETED (file) | OBRISANO |
 | Details | Detalji |
 | Back | Nazad |
 | ago (after a number) | ranije ("5 min ranije"); "prije {{count}} min" where the number is inside the key |

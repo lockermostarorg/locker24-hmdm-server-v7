@@ -1,5 +1,6 @@
 import { formatDate } from '@angular/common';
-import { inject, Injectable, Provider } from '@angular/core';
+import { DestroyRef, inject, Injectable, Provider } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   DateAdapter,
   MAT_DATE_FORMATS,
@@ -12,12 +13,21 @@ export const DATE_FORMAT = 'dd.MM.yyyy';
 export const DATE_TIME_FORMAT = 'dd.MM.yyyy HH:mm';
 export const DATE_TIME_SECONDS_FORMAT = 'dd.MM.yyyy HH:mm:ss';
 export const DATE_INPUT_HINT = 'DD.MM.YYYY';
+export const MONTH_FORMAT = 'MM.yyyy';
 
 export function formatDisplayDate(
   value: Date | number | string,
   format = DATE_TIME_FORMAT,
 ): string {
   return formatDate(value, format, 'en-US');
+}
+
+export function formatMonthLabel(yearMonth: string | null | undefined): string {
+  const match = /^(\d{4})-(\d{1,2})$/.exec(yearMonth ?? '');
+
+  return match
+    ? formatDisplayDate(new Date(Number(match[1]), Number(match[2]) - 1, 1), MONTH_FORMAT)
+    : (yearMonth ?? '');
 }
 
 export const HMDM_DATE_FORMATS: MatDateFormats = {
@@ -30,7 +40,8 @@ export const HMDM_DATE_FORMATS: MatDateFormats = {
   },
 };
 
-const DOTTED_DATE = /^\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?\s*$/;
+const DAY_FIRST_DATE = /^(\d{1,2})\s*([./-])\s*(\d{1,2})(?:\s*\2\s*(\d{4}|\d{2}))?\s*\2?$/;
+const ISO_DATE = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
 
 const CALENDAR_LOCALES: Record<string, string> = {
   bs_BA: 'sr-Latn-BA',
@@ -50,7 +61,9 @@ export class HmdmDateAdapter extends NativeDateAdapter {
 
     if (this.translate) {
       this.followLanguage(this.translate.getCurrentLang());
-      this.translate.onLangChange.subscribe((event) => this.followLanguage(event.lang));
+      this.translate.onLangChange
+        .pipe(takeUntilDestroyed(inject(DestroyRef)))
+        .subscribe((event) => this.followLanguage(event.lang));
     }
   }
 
@@ -67,22 +80,41 @@ export class HmdmDateAdapter extends NativeDateAdapter {
   }
 
   override parse(value: unknown, parseFormat?: unknown): Date | null {
-    if (typeof value === 'string') {
-      const match = DOTTED_DATE.exec(value);
-
-      if (match) {
-        const [day, month, year] = [Number(match[1]), Number(match[2]), Number(match[3])];
-        const date = new Date(year, month - 1, day);
-
-        return date.getFullYear() === year &&
-          date.getMonth() === month - 1 &&
-          date.getDate() === day
-          ? date
-          : this.invalid();
-      }
+    if (typeof value !== 'string') {
+      return super.parse(value, parseFormat);
     }
 
-    return super.parse(value, parseFormat);
+    const text = value.trim();
+
+    if (!text) {
+      return null;
+    }
+
+    const dayFirst = DAY_FIRST_DATE.exec(text);
+
+    if (dayFirst) {
+      const year = dayFirst[4]
+        ? Number(dayFirst[4]) + (dayFirst[4].length === 2 ? 2000 : 0)
+        : new Date().getFullYear();
+
+      return this.calendarDate(year, Number(dayFirst[3]), Number(dayFirst[1]));
+    }
+
+    const iso = ISO_DATE.exec(text);
+
+    if (iso) {
+      return this.calendarDate(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+    }
+
+    return this.invalid();
+  }
+
+  private calendarDate(year: number, month: number, day: number): Date {
+    const date = new Date(year, month - 1, day);
+
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+      ? date
+      : this.invalid();
   }
 
   private followLanguage(language: string | null | undefined): void {

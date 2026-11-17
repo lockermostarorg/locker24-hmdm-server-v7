@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { TestBed } from '@angular/core/testing';
 import { DateAdapter, MAT_DATE_FORMATS, MatDateFormats } from '@angular/material/core';
 import { MatPaginator, MatPaginatorIntl } from '@angular/material/paginator';
@@ -6,10 +7,13 @@ import { TranslateService } from '@ngx-translate/core';
 import {
   DATE_FORMAT,
   DATE_TIME_SECONDS_FORMAT,
+  DateRange,
   DatetimeCell,
   formatDisplayDate,
+  formatMonthLabel,
   provideHmdmDateAdapter,
 } from 'hmdm-ui-kit';
+import { SizeCell } from '../files/components/size-cell/size-cell';
 import { TranslatedPaginatorIntl } from '../shared/i18n/translated-paginator-intl';
 import { baseTestProviders, loadLocale } from './test-providers';
 
@@ -38,6 +42,12 @@ describe('panel date format', () => {
   it('formats a date-only value', () => {
     expect(formatDisplayDate(at, DATE_FORMAT)).toBe('07.11.2026');
   });
+
+  it('writes dashboard months as MM.yyyy', () => {
+    expect(formatMonthLabel('2026-09')).toBe('09.2026');
+    expect(formatMonthLabel('2026-11')).toBe('11.2026');
+    expect(formatMonthLabel('other')).toBe('other');
+  });
 });
 
 describe('panel datepicker adapter', () => {
@@ -56,12 +66,45 @@ describe('panel datepicker adapter', () => {
     expect(adapter.format(new Date(2026, 0, 5), formats.display.dateInput)).toBe('05.01.2026');
   });
 
-  it('parses dd.MM.yyyy typed by the user', () => {
-    const parsed = adapter.parse('5.1.2026', formats.parse.dateInput)!;
+  const ymd = (value: string): number[] | 'invalid' | null => {
+    const parsed = adapter.parse(value, formats.parse.dateInput);
 
-    expect([parsed.getFullYear(), parsed.getMonth(), parsed.getDate()]).toEqual([2026, 0, 5]);
-    expect(adapter.isValid(adapter.parse('31.02.2026', formats.parse.dateInput)!)).toBeFalse();
-  });
+    if (parsed === null) {
+      return null;
+    }
+
+    return adapter.isValid(parsed)
+      ? [parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate()]
+      : 'invalid';
+  };
+
+  const thisYear = new Date().getFullYear();
+  const typed: [string, number[] | 'invalid' | null][] = [
+    ['05.03.2026', [2026, 3, 5]],
+    ['5.3.2026', [2026, 3, 5]],
+    ['05.03.2026.', [2026, 3, 5]],
+    ['05.03.26', [2026, 3, 5]],
+    ['5.3.26', [2026, 3, 5]],
+    ['5.3.', [thisYear, 3, 5]],
+    ['05.03', [thisYear, 3, 5]],
+    ['05/03/2026', [2026, 3, 5]],
+    ['5/3/26', [2026, 3, 5]],
+    ['05-03-2026', [2026, 3, 5]],
+    ['2026-03-05', [2026, 3, 5]],
+    ['31.02.2026', 'invalid'],
+    ['03/15/2026', 'invalid'],
+    ['05.03/2026', 'invalid'],
+    ['March 5, 2026', 'invalid'],
+    ['5.3.2026 10:00', 'invalid'],
+    ['abc', 'invalid'],
+    ['  ', null],
+  ];
+
+  for (const [input, expected] of typed) {
+    it(`reads '${input}' day first`, () => {
+      expect(ymd(input)).toEqual(expected);
+    });
+  }
 
   it('follows the panel language for month names', async () => {
     const translate = TestBed.inject(TranslateService);
@@ -128,5 +171,58 @@ describe('translated paginator', () => {
     const intl = TestBed.inject(MatPaginatorIntl);
 
     expect(intl.getRangeLabel(0, 10, 0)).toBe('0 of 0');
+  });
+});
+
+@Component({
+  template: `<hmdm-date-range label="Period" [formControl]="range" />`,
+  imports: [DateRange, ReactiveFormsModule],
+})
+class DateRangeHost {
+  range = new FormControl(null);
+}
+
+describe('date range placeholders', () => {
+  it('are translated', async () => {
+    TestBed.configureTestingModule({ imports: [DateRangeHost], providers: baseTestProviders() });
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('bs_BA', await loadLocale('bs_BA'));
+    translate.use('bs_BA');
+    const fixture = TestBed.createComponent(DateRangeHost);
+    fixture.detectChanges();
+    const inputs = (fixture.nativeElement as HTMLElement).querySelectorAll('input');
+
+    expect(inputs[0].getAttribute('placeholder')).toBe('Početni datum');
+    expect(inputs[1].getAttribute('placeholder')).toBe('Krajnji datum');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('DD.MM.YYYY');
+  });
+});
+
+describe('size cell', () => {
+  beforeEach(async () => {
+    TestBed.configureTestingModule({ providers: baseTestProviders() });
+    const translate = TestBed.inject(TranslateService);
+    translate.setTranslation('bs_BA', await loadLocale('bs_BA'));
+    translate.use('bs_BA');
+  });
+
+  function render(value: unknown): string {
+    const fixture = TestBed.createComponent(SizeCell);
+    fixture.componentRef.setInput('params', { data: {}, value, rowIndex: 0, provided: {} });
+    fixture.detectChanges();
+    return (fixture.nativeElement as HTMLElement).textContent!.trim();
+  }
+
+  it('is empty when the size is unknown', () => {
+    expect(render(null)).toBe('');
+    expect(render(undefined)).toBe('');
+  });
+
+  it('translates a deleted file', () => {
+    expect(render(-1)).toBe('OBRISANO');
+  });
+
+  it('still shows known sizes', () => {
+    expect(render(2048)).toBe('2.00 KB');
   });
 });

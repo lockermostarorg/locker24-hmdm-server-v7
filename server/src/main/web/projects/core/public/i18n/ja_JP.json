@@ -332,6 +332,8 @@
   "paginator.last.page": "Last page",
   "paginator.range": "{{start}} – {{end}} of {{length}}",
   "paginator.range.empty": "0 of {{length}}",
+  "date.range.start": "Start date",
+  "date.range.end": "End date",
 
   "success.admin.created": "管理者アカウントが作成されました:\n {{adminCredentials}}",
   "dialog.admin.credentials.title": "管理者アカウントが作成されました",

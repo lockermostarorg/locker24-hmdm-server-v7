@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 import { BaseCellRenderer } from 'hmdm-ui-kit';
 
 @Component({
@@ -12,11 +13,17 @@ import { BaseCellRenderer } from 'hmdm-ui-kit';
  * cellRendererParams.showZero(row) - optional, returns true to display '0' instead of an empty cell for zero size.
  */
 export class SizeCell extends BaseCellRenderer {
+  private readonly translate = inject(TranslateService);
+
   getValue(): string {
     const size = this.params().value;
 
+    if (typeof size !== 'number' || Number.isNaN(size)) {
+      return '';
+    }
+
     if (size === -1) {
-      return 'DELETED';
+      return this.translate.instant('form.file.deleted');
     }
 
     if (size === 0) {

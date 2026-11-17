@@ -332,6 +332,8 @@
   "paginator.last.page": "Last page",
   "paginator.range": "{{start}} – {{end}} of {{length}}",
   "paginator.range.empty": "0 of {{length}}",
+  "date.range.start": "Start date",
+  "date.range.end": "End date",
 
   "success.admin.created": "管理员帐户已创建:\n {{adminCredentials}}",
   "dialog.admin.credentials.title": "管理员帐户已创建",

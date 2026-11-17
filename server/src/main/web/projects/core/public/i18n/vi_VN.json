@@ -322,6 +322,8 @@
   "paginator.last.page": "Last page",
   "paginator.range": "{{start}} – {{end}} of {{length}}",
   "paginator.range.empty": "0 of {{length}}",
+  "date.range.start": "Start date",
+  "date.range.end": "End date",
 
   "success.admin.created": "Tài khoản quản trị viên đã được tạo:\n {{adminCredentials}}",
   "dialog.admin.credentials.title": "Tài khoản quản trị viên đã được tạo",

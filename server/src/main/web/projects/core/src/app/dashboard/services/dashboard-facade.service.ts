@@ -1,7 +1,7 @@
 import { computed, inject, Injectable, signal, WritableSignal } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { ChartConfiguration } from 'chart.js';
-import { themeToken } from 'hmdm-ui-kit';
+import { formatMonthLabel, themeToken } from 'hmdm-ui-kit';
 import { SummaryService } from '../../entity/summary/services/summary.service';
 import { TSummaryResponse } from '../../entity/summary/types/summary-response.type';
 import { ThemeService } from '../../shared/services/theme.service';
@@ -73,7 +73,7 @@ export class DashboardFacadeService {
     c: ChartColours,
   ): ChartConfiguration['data'] {
     return {
-      labels: summary.deviceEnrolledMonthly?.map((item) => item.stringAttr),
+      labels: summary.deviceEnrolledMonthly?.map((item) => formatMonthLabel(item.stringAttr)),
       datasets: [
         {
           data: summary.deviceEnrolledMonthly?.map((item) => item.intAttr),

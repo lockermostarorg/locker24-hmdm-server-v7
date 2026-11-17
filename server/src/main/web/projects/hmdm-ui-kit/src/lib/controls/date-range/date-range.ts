@@ -7,6 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { BaseControlValueAccessor } from '../../shared/base/control-value-accessor';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { TranslatePipe } from '@ngx-translate/core';
 import { HelpTooltip } from '../help-tooltip/help-tooltip.component';
 import { DATE_INPUT_HINT, provideHmdmDateAdapter } from '../../shared/date/date-format';
 
@@ -26,6 +27,7 @@ import { DATE_INPUT_HINT, provideHmdmDateAdapter } from '../../shared/date/date-
     MatIconModule,
     MatSuffix,
     HelpTooltip,
+    TranslatePipe,
   ],
 })
 export class DateRange extends BaseControlValueAccessor<any> implements OnInit {

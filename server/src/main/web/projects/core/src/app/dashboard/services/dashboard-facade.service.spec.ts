@@ -56,9 +56,9 @@ describe('Dashboard theme colours', () => {
 
     theme.setMode('light');
     expect(facade.deviceCircleData().datasets[0].backgroundColor).toEqual([
-      '#3b82f6',
-      '#ff6363',
-      '#eab308',
+      '#1d4ed8',
+      '#d93636',
+      '#b07800',
     ]);
 
     theme.setMode('dark');

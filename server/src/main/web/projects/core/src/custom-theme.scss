@@ -40,6 +40,11 @@ $danger: var(--l24-danger);
   padding: 0;
 }
 
+.mat-mdc-snack-bar-container .mdc-snackbar__surface {
+  border: 1px solid var(--l24-border);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--l24-shadow) 20%, transparent);
+}
+
 html {
   @include mat.theme(
     (
@@ -100,6 +105,14 @@ html {
       container-shape: 8px,
       item-hover-state-layer-color: var(--l24-primary-fill),
       item-focus-state-layer-color: var(--l24-primary-fill),
+    )
+  );
+
+  @include mat.snack-bar-overrides(
+    (
+      container-color: var(--l24-dialog-bg),
+      supporting-text-color: var(--l24-text),
+      button-color: var(--l24-primary),
     )
   );
 
@@ -308,11 +321,7 @@ a {
   text-decoration: none;
 
   &:hover {
-    color: color-mix(
-      in srgb,
-      var(--mat-sys-on-primary) calc(var(--mat-sys-hover-state-layer-opacity) * 100%),
-      var(--mat-sys-primary)
-    );
+    color: var(--l24-link-hover);
   }
 }
 

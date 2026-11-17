@@ -12,7 +12,7 @@
   border-radius: 8px;
   border: 1px solid var(--mat-sys-primary);
   border-top: 4px solid var(--mat-sys-primary);
-  background-color: var(--mat-sys-surface-container-high);
+  background-color: var(--l24-dialog-bg);
   box-shadow: 0 2px 12px color-mix(in srgb, var(--l24-shadow) 18%, transparent);
 
   &-header {
@@ -26,7 +26,7 @@
     margin: 0;
     font-size: 13px;
     line-height: 1.4;
-    color: var(--mat-sys-on-surface);
+    color: var(--l24-text);
   }
 
   &-actions {

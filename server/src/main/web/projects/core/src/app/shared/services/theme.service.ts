@@ -58,8 +58,19 @@ export class ThemeService {
     const onSystemChange = (event: { matches: boolean }) =>
       this.update(() => this.systemDark.set(event.matches));
     this.query?.addEventListener('change', onSystemChange);
+
+    const view = this.document.defaultView;
+    const onOtherTab = (event: StorageEvent) => {
+      if (event.key === THEME_STORAGE_KEY || event.key === null) {
+        const mode = isThemeMode(event.newValue) ? event.newValue : 'system';
+        this.update(() => this.modeState.set(mode));
+      }
+    };
+    view?.addEventListener('storage', onOtherTab);
+
     inject(DestroyRef).onDestroy(() => {
       this.query?.removeEventListener('change', onSystemChange);
+      view?.removeEventListener('storage', onOtherTab);
       this.changesSubject.complete();
     });
   }

@@ -3,14 +3,31 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const tokensFile = join(
-  dirname(fileURLToPath(import.meta.url)),
-  '..',
-  'projects/core/src/theme-tokens.scss',
-);
+const webRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const tokensFile = join(webRoot, 'projects/core/src/theme-tokens.scss');
+const indexFile = join(webRoot, 'projects/core/src/index.html');
 
 const TEXT = 4.5;
 const GRAPHIC = 3;
+
+// Material system colours the panel puts our tokens on, as emitted by mat.theme() for the
+// cyan/orange palettes in custom-theme.scss (light-dark() pairs in the built styles.css).
+const MATERIAL = {
+  light: {
+    'mat-surface': '#f7faf9',
+    'mat-surface-container': '#ebefed',
+    'mat-surface-container-high': '#e6e9e7',
+    'mat-error': '#ba1a1a',
+    'mat-on-surface-variant': '#3f4948',
+  },
+  dark: {
+    'mat-surface': '#101414',
+    'mat-surface-container': '#1c2020',
+    'mat-surface-container-high': '#272b2a',
+    'mat-error': '#ffb4ab',
+    'mat-on-surface-variant': '#dae5e4',
+  },
+};
 
 const textBackgrounds = [
   'page-bg',
@@ -21,7 +38,22 @@ const textBackgrounds = [
   'dialog-bg',
   'hover@surface',
 ];
-const textColours = ['text', 'text-muted', 'primary', 'accent', 'danger', 'success', 'warning'];
+const textColours = [
+  'text',
+  'text-muted',
+  'primary',
+  'link-hover',
+  'accent',
+  'danger',
+  'success',
+  'warning',
+  'mat-error',
+  'mat-on-surface-variant',
+];
+const statusColours = ['status-ok', 'status-error', 'status-warn', 'status-unknown'];
+const rowBackgrounds = ['page-bg', 'surface', 'surface-alt', 'hover@surface'];
+const chartFills = ['chart-blue', 'chart-blue-light', 'chart-red', 'chart-yellow'];
+const snackbarStripes = ['danger', 'success', 'accent', 'status-warn'];
 
 const checks = [
   ...textColours.flatMap((fg) => textBackgrounds.map((bg) => [fg, bg, TEXT])),
@@ -40,16 +72,18 @@ const checks = [
     ['page-bg', 'surface'].map((bg) => [fg, bg, TEXT]),
   ),
   ['border-strong', 'field-bg', GRAPHIC],
+  ...statusColours.flatMap((fg) => rowBackgrounds.map((bg) => [fg, bg, GRAPHIC])),
+  ...chartFills.flatMap((fg) => ['page-bg', 'surface'].map((bg) => [fg, bg, GRAPHIC])),
+  ...snackbarStripes.map((fg) => [fg, 'dialog-bg', GRAPHIC]),
+  ['text', 'dialog-bg', TEXT],
+  ['primary', 'mat-surface', TEXT],
+  ['text-muted', 'mat-surface', TEXT],
+  ['link-hover', 'mat-surface', TEXT],
+  ['primary', 'mat-surface-container', GRAPHIC],
+  ['primary', 'mat-surface-container-high', GRAPHIC],
 ];
 
-const informational = [
-  ...['status-ok', 'status-error', 'status-warn', 'status-unknown', 'status-alert'].map((fg) => [
-    fg,
-    'surface',
-  ]),
-  ...['chart-blue', 'chart-blue-light', 'chart-red', 'chart-yellow'].map((fg) => [fg, 'page-bg']),
-  ['brand', 'surface'],
-];
+const informational = [['brand', 'surface']];
 
 function parseBlocks(source) {
   const blocks = {};
@@ -118,7 +152,7 @@ for (const theme of ['light', 'dark']) {
   if (!blocks[theme]) {
     throw new Error(`theme block @mixin ${theme} missing`);
   }
-  const colour = resolver({ ...blocks.brand, ...blocks[theme] });
+  const colour = resolver({ ...MATERIAL[theme], ...blocks.brand, ...blocks[theme] });
   console.log(`\n${theme}`);
   for (const [fg, bg, min] of checks) {
     const background = colour(bg);
@@ -134,8 +168,25 @@ for (const theme of ['light', 'dark']) {
   }
 }
 
+const bootBlock = readFileSync(indexFile, 'utf8').match(
+  /l24-allow-color-start[\s\S]*?html\[data-theme='dark'\]\s*\{([^}]*)\}/,
+);
+const bootTokens = Object.fromEntries(
+  [...(bootBlock?.[1] ?? '').matchAll(/--l24-([\w-]+)\s*:\s*([^;]+);/g)].map((m) => [
+    m[1],
+    m[2].trim(),
+  ]),
+);
+const bootDiff = [...new Set([...Object.keys(blocks.dark), ...Object.keys(bootTokens)])].filter(
+  (name) => blocks.dark[name] !== bootTokens[name],
+);
+console.log(
+  `\nindex.html boot dark tokens ${bootDiff.length ? 'differ from theme-tokens.scss: ' + bootDiff.join(', ') : 'match theme-tokens.scss'}`,
+);
+failures += bootDiff.length;
+
 if (failures > 0) {
-  console.log(`\n${failures} contrast check(s) below WCAG AA`);
+  console.log(`\n${failures} check(s) failed`);
   process.exit(1);
 }
 console.log('\ncontrast check passed');

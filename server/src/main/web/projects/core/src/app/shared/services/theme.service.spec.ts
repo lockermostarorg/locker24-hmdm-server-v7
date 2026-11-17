@@ -151,6 +151,23 @@ describe('ThemeService', () => {
     expect(events).toEqual([{ mode: 'dark', effective: 'dark' }]);
   });
 
+  it('follows a theme change made in another tab without writing storage', () => {
+    const service = create();
+    const writes = spyOn(storage as MemoryStorage, 'setItem').and.callThrough();
+
+    window.dispatchEvent(new StorageEvent('storage', { key: THEME_STORAGE_KEY, newValue: 'dark' }));
+    expect(service.mode()).toBe('dark');
+    expect(root.getAttribute('data-theme')).toBe('dark');
+
+    window.dispatchEvent(new StorageEvent('storage', { key: 'other', newValue: 'light' }));
+    expect(service.mode()).toBe('dark');
+
+    window.dispatchEvent(new StorageEvent('storage', { key: null }));
+    expect(service.mode()).toBe('system');
+    expect(root.getAttribute('data-theme')).toBe('light');
+    expect(writes).not.toHaveBeenCalled();
+  });
+
   it('works when storage access throws (private mode)', () => {
     storage = new ThrowingStorage();
     const service = create();

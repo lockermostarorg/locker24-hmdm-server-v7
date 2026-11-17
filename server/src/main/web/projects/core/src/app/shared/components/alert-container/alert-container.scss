@@ -6,7 +6,7 @@
   }
 
   &.error::before {
-    background-color: var(--mat-sys-error);
+    background-color: var(--l24-danger);
   }
 
   &.success::before {

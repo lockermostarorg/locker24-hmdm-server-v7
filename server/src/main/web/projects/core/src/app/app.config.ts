@@ -4,6 +4,7 @@ import {
   ApplicationConfig,
   inject,
   isDevMode,
+  provideAppInitializer,
   provideBrowserGlobalErrorListeners,
   provideZoneChangeDetection,
 } from '@angular/core';
@@ -27,10 +28,14 @@ import { baseUrlInterceptor } from './shared/interceptors/base-url.interceptor';
 import { credentialsInterceptor } from './shared/interceptors/credentials.interceptor';
 import { responseAlertInterceptor } from './shared/interceptors/response-alert.interceptor';
 import { responseInterceptor } from './shared/interceptors/response.interceptor';
+import { ThemeService } from './shared/services/theme.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    provideAppInitializer(() => {
+      inject(ThemeService);
+    }),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideHttpClient(

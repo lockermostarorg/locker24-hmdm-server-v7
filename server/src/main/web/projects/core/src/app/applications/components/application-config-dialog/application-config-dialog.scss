@@ -28,32 +28,32 @@
   gap: 8px;
   margin-bottom: 8px;
   padding: 16px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--l24-border);
   border-radius: 4px;
-  background-color: #f9f9f9;
+  background-color: var(--l24-surface-alt);
 
   &-name {
     font-weight: 500;
-    color: #666;
+    color: var(--l24-text-muted);
   }
 
   &-value {
     font-weight: 600;
-    color: #333;
+    color: var(--l24-text);
   }
 }
 
 .loading-message {
   text-align: center;
   padding: 40px;
-  color: #666;
+  color: var(--l24-text-muted);
 }
 
 .error-message {
   padding: 16px;
-  background-color: #ffebee;
-  color: #c62828;
+  background-color: var(--l24-danger-bg);
+  color: var(--l24-danger);
   border-radius: 4px;
   margin-bottom: 16px;
-  border-left: 4px solid #c62828;
+  border-left: 4px solid var(--l24-danger);
 }

@@ -14,11 +14,11 @@ input[readonly] {
   cursor: pointer !important;
 
   &:hover {
-    background-color: rgba(var(--mat-sys-primary-rgb), 0.04);
+    background-color: color-mix(in srgb, var(--mat-sys-primary) 4%, transparent);
   }
 
   &:focus {
-    background-color: rgba(var(--mat-sys-primary-rgb), 0.08);
+    background-color: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
   }
 }
 
@@ -40,7 +40,7 @@ input[readonly] {
 
     &:hover {
       color: var(--mat-sys-primary);
-      background-color: rgba(var(--mat-sys-primary-rgb), 0.08);
+      background-color: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
     }
 
     &:disabled {

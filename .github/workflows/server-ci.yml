@@ -62,6 +62,13 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Branding, colour and contrast checks
+        working-directory: server/src/main/web
+        run: |
+          ./tools/check-branding.sh
+          ./tools/check-colors.sh
+          node tools/check-contrast.mjs
+
       - name: Panel tests
         working-directory: server/src/main/web
         run: |

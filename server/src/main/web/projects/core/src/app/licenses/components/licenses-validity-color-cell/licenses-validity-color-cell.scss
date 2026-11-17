@@ -5,19 +5,19 @@
   align-items: center;
   justify-content: flex-start;
   word-break: break-all;
-  color: #1A1B1F;
+  color: var(--l24-text);
 
   &.expiring {
-    color: #ED554DFF;
+    color: var(--l24-danger);
   }
 
   &.invalid {
-    color: #A7A7A7FF;
+    color: var(--l24-text-muted);
   }
 
   @include mat.icon-button-overrides(
       (
-        icon-color: var(--mat-sys-on-primary),
+        icon-color: var(--l24-on-primary-fill),
         disabled-icon-color: var(--mat-sys-outline),
       )
   );

@@ -51,7 +51,7 @@
 
   @include mat.icon-overrides(
     (
-      color: var(--mat-sys-on-primary),
+      color: var(--l24-sidenav-text),
     )
   );
 }
@@ -75,19 +75,19 @@ mat-tree-node {
   }
 
   &.active {
-    background-color: var(--mat-sys-primary);
-    color: var(--mat-sys-on-primary);
+    background-color: var(--l24-primary-fill);
+    color: var(--l24-on-primary-fill);
   }
 
   &:hover:not(.active) {
-    background-color: var(--mat-sys-primary);
-    color: var(--mat-sys-on-primary);
+    background-color: var(--l24-primary-fill);
+    color: var(--l24-on-primary-fill);
     cursor: pointer;
   }
 }
 
 .node-locked {
-  color: #9e9e9e !important;
+  color: var(--l24-sidenav-muted) !important;
   cursor: default;
 
   .menu-link {
@@ -95,7 +95,7 @@ mat-tree-node {
   }
 
   .menu-icon {
-    color: #9e9e9e !important;
+    color: var(--l24-sidenav-muted) !important;
   }
 
   &:hover {
@@ -107,9 +107,9 @@ mat-tree-node {
 .badge-locked {
   display: none;
 
-  background-color: #ffffff;
-  color: #616161;
-  border: 1px solid #e0e0e0;
+  background-color: var(--l24-field-bg);
+  color: var(--l24-text-muted);
+  border: 1px solid var(--l24-border);
   padding: 2px 6px;
   font-size: 11px;
   font-weight: bold;

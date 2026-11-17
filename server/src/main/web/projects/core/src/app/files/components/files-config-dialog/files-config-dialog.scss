@@ -4,17 +4,17 @@
   gap: 8px;
   margin-bottom: 24px;
   padding: 16px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--l24-border);
   border-radius: 4px;
-  background-color: #f9f9f9;
+  background-color: var(--l24-surface-alt);
 
   &-name {
     font-weight: 500;
-    color: #666;
+    color: var(--l24-text-muted);
   }
 
   &-value {
     font-weight: 600;
-    color: #333;
+    color: var(--l24-text);
   }
 }

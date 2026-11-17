@@ -10,7 +10,7 @@
       type="button"
       mat-icon-button
       matSuffix
-      [colorPicker]="formControl.value || '#000000'"
+      [colorPicker]="formControl.value || defaultColor"
       [cpOutputFormat]="'hex'"
       [cpAlphaChannel]="'disabled'"
       [cpPosition]="'auto'"
@@ -18,7 +18,7 @@
       (colorPickerChange)="onColorChange($event)"
       [disabled]="isDisabled()"
     >
-      <span class="color-swatch" [style.background]="formControl.value || '#000000'"></span>
+      <span class="color-swatch" [style.background]="formControl.value || defaultColor"></span>
     </button>
 
     @if (help()) {

@@ -18,7 +18,7 @@
   }
 
   &.warning::before {
-    background-color: #FFBF00;
+    background-color: var(--l24-status-alert);
   }
 
   &::before {

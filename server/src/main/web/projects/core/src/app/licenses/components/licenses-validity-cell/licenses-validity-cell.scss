@@ -7,12 +7,12 @@
   justify-content: center;
 
   mat-icon.expiring {
-    color: #ED554DFF;
+    color: var(--l24-danger);
   }
 
   @include mat.icon-button-overrides(
       (
-        icon-color: var(--mat-sys-on-primary),
+        icon-color: var(--l24-on-primary-fill),
         disabled-icon-color: var(--mat-sys-outline),
       )
   );

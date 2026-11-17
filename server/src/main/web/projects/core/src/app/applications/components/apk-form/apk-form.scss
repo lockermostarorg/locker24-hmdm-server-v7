@@ -19,7 +19,7 @@
     display: block;
     font-size: 12px;
     text-align: right;
-    color: rgba(0, 0, 0, 0.6);
+    color: var(--l24-text-muted);
   }
 
   &__success,
@@ -37,11 +37,11 @@
   }
 
   &__success {
-    color: #2e7d32;
+    color: var(--l24-success);
   }
 
   &__error {
-    color: #c62828;
+    color: var(--l24-danger);
   }
 }
 
@@ -50,7 +50,7 @@
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #e65100;
+  color: var(--l24-warning);
   margin-bottom: 8px;
 
   mat-icon {
@@ -61,7 +61,7 @@
 }
 
 .storage-warning {
-  color: #c62828;
+  color: var(--l24-danger);
   font-size: 13px;
   margin-top: 4px;
   border-radius: 4px;

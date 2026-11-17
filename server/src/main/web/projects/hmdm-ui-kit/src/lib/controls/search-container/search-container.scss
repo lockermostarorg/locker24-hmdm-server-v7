@@ -33,9 +33,9 @@
   top: 105%;
   left: 0;
   right: 0;
-  background: white;
+  background: var(--l24-field-bg);
   border-radius: 0 0 8px 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--l24-shadow) 15%, transparent);
   z-index: 1000;
   max-height: 0;
   overflow: hidden;

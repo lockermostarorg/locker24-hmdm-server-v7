@@ -25,6 +25,8 @@ import { HelpTooltip } from '../help-tooltip/help-tooltip.component';
   ],
 })
 export class ColorInputComponent extends BaseControlValueAccessor<string> {
+  readonly defaultColor = '#000000'; // l24-allow-color: picker value, not a UI colour
+
   onColorChange(color: string): void {
     this.formControl.setValue(color);
   }

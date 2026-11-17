@@ -1,0 +1,124 @@
+// Every colour of the panel; core, ui-kit and plugin remotes use these custom properties.
+// tools/check-contrast.mjs parses this file: one `--l24-name: value;` per line.
+
+@mixin brand {
+  --l24-brand: #009fd7;
+  --l24-brand-accent: #ff6d00;
+  --l24-brand-grey: #5c5c5c;
+}
+
+@mixin light {
+  color-scheme: light;
+
+  --l24-page-bg: #e9eaf4;
+  --l24-surface: #f6f8fc;
+  --l24-surface-alt: #f9f9f9;
+  --l24-surface-hover: #f5f5f5;
+  --l24-field-bg: #ffffff;
+  --l24-dialog-bg: #f7faf9;
+  --l24-hover: rgba(0, 0, 0, 0.06);
+  --l24-overlay: rgba(255, 255, 255, 0.8);
+  --l24-scrim: rgba(61, 61, 61, 0.583);
+  --l24-shadow: #000000;
+
+  --l24-text: #1f2123;
+  --l24-text-muted: #5f6368;
+  --l24-border: #e0e0e0;
+  --l24-border-strong: #8c8c8c;
+
+  --l24-primary: #00719c;
+  --l24-on-primary: #ffffff;
+  --l24-primary-fill: #00719c;
+  --l24-on-primary-fill: #ffffff;
+  --l24-accent: #b34700;
+
+  --l24-danger: #c62828;
+  --l24-danger-bg: #ffebee;
+  --l24-success: #2b7330;
+  --l24-success-bg: #e6fffa;
+  --l24-warning: #a84300;
+  --l24-warning-fill: #ff9800;
+  --l24-on-warning-fill: #1f2123;
+
+  --l24-sidenav-bg: #353a40;
+  --l24-sidenav-text: #ffffff;
+  --l24-sidenav-muted: #aaaaaa;
+
+  --l24-status-ok: #4caf82;
+  --l24-status-error: #ed554d;
+  --l24-status-warn: #ff9800;
+  --l24-status-unknown: #9e9e9e;
+  --l24-status-alert: #ffbf00;
+
+  --l24-chart-blue: #3b82f6;
+  --l24-chart-blue-light: #93c5fd;
+  --l24-chart-red: #ff6363;
+  --l24-chart-yellow: #eab308;
+  --l24-chart-blue-text: #1d4ed8;
+  --l24-chart-red-text: #c62828;
+  --l24-chart-yellow-text: #8a6100;
+  --l24-chart-text: #5f6368;
+  --l24-chart-grid: rgba(0, 0, 0, 0.1);
+
+  --l24-scrollbar-track: #f1f1f1;
+  --l24-scrollbar-thumb: #888888;
+  --l24-scrollbar-thumb-hover: #555555;
+}
+
+@mixin dark {
+  color-scheme: dark;
+
+  --l24-page-bg: #121417;
+  --l24-surface: #1b1d22;
+  --l24-surface-alt: #22252b;
+  --l24-surface-hover: #2a2e35;
+  --l24-field-bg: #202328;
+  --l24-dialog-bg: #23262c;
+  --l24-hover: rgba(255, 255, 255, 0.08);
+  --l24-overlay: rgba(18, 20, 23, 0.8);
+  --l24-scrim: rgba(0, 0, 0, 0.6);
+  --l24-shadow: #000000;
+
+  --l24-text: #e4e7eb;
+  --l24-text-muted: #aab1b9;
+  --l24-border: #3a3f46;
+  --l24-border-strong: #6b727b;
+
+  --l24-primary: #5cc6f2;
+  --l24-on-primary: #00293b;
+  --l24-primary-fill: #005f85;
+  --l24-on-primary-fill: #ffffff;
+  --l24-accent: #ff9d5c;
+
+  --l24-danger: #ff8a80;
+  --l24-danger-bg: #3b1d1f;
+  --l24-success: #7bcb80;
+  --l24-success-bg: #13301f;
+  --l24-warning: #ffb86b;
+  --l24-warning-fill: #ffb74d;
+  --l24-on-warning-fill: #2b1700;
+
+  --l24-sidenav-bg: #1e2227;
+  --l24-sidenav-text: #ffffff;
+  --l24-sidenav-muted: #a6a6a6;
+
+  --l24-status-ok: #5cc98f;
+  --l24-status-error: #ff6f68;
+  --l24-status-warn: #ffa726;
+  --l24-status-unknown: #9e9e9e;
+  --l24-status-alert: #ffbf00;
+
+  --l24-chart-blue: #60a5fa;
+  --l24-chart-blue-light: #bfdbfe;
+  --l24-chart-red: #ff7a7a;
+  --l24-chart-yellow: #eab308;
+  --l24-chart-blue-text: #93c5fd;
+  --l24-chart-red-text: #ff8a80;
+  --l24-chart-yellow-text: #facc15;
+  --l24-chart-text: #aab1b9;
+  --l24-chart-grid: rgba(255, 255, 255, 0.12);
+
+  --l24-scrollbar-track: #1b1d22;
+  --l24-scrollbar-thumb: #5a6068;
+  --l24-scrollbar-thumb-hover: #7a8088;
+}

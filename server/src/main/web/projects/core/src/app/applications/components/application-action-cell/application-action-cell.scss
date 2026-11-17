@@ -8,7 +8,7 @@
 
   @include mat.icon-button-overrides(
     (
-      icon-color: var(--mat-sys-on-primary),
+      icon-color: var(--l24-on-primary-fill),
       disabled-icon-color: var(--mat-sys-outline),
     )
   );

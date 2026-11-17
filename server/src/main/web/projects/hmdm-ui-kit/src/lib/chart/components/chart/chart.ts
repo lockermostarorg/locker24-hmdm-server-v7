@@ -1,6 +1,9 @@
-import { Component, input, InputSignal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { Component, computed, DestroyRef, inject, input, InputSignal, signal } from '@angular/core';
 import { ChartConfiguration, ChartType, Plugin } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
+import { THEME_CHANGE_EVENT } from '../../../shared/theme/theme';
+import { withThemeColours } from './chart-theme';
 
 /**
  * A reusable chart component that supports different chart types from Chart.js
@@ -39,4 +42,21 @@ export class Chart {
   plugins: InputSignal<Plugin[]> = input<Plugin[]>([]);
 
   height: InputSignal<number | string> = input<number | string>('400px');
+
+  private readonly themeChanges = signal(0);
+
+  /** Options with the axis, legend and border colours of the current theme */
+  themedOptions = computed(() => {
+    this.themeChanges();
+    return withThemeColours(this.options(), this.chartType());
+  });
+
+  constructor() {
+    const document = inject(DOCUMENT);
+    const onThemeChange = () => this.themeChanges.update((count) => count + 1);
+    document.addEventListener(THEME_CHANGE_EVENT, onThemeChange);
+    inject(DestroyRef).onDestroy(() =>
+      document.removeEventListener(THEME_CHANGE_EVENT, onThemeChange),
+    );
+  }
 }

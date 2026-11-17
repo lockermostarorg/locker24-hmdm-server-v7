@@ -1,53 +1,60 @@
-import { inject, Injectable, signal, WritableSignal } from '@angular/core';
+import { computed, inject, Injectable, signal, WritableSignal } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { ChartConfiguration } from 'chart.js';
+import { themeToken } from 'hmdm-ui-kit';
 import { SummaryService } from '../../entity/summary/services/summary.service';
 import { TSummaryResponse } from '../../entity/summary/types/summary-response.type';
+import { ThemeService } from '../../shared/services/theme.service';
 import { arraySum } from '../../shared/utils/array-sum';
+
+type ChartColours = { blue: string; blueLight: string; red: string; yellow: string };
 
 @Injectable({ providedIn: 'root' })
 export class DashboardFacadeService {
   private summaryService = inject(SummaryService);
   private translateService = inject(TranslateService);
+  private themeService = inject(ThemeService);
 
-  private _enrollmentCircleData: WritableSignal<ChartConfiguration['data']> = signal({
-    datasets: [],
-  });
-  private _enrollmentChartData: WritableSignal<ChartConfiguration['data']> = signal({
-    datasets: [],
-  });
-  private _deviceCircleData: WritableSignal<ChartConfiguration['data']> = signal({ datasets: [] });
-  private _deviceChartData: WritableSignal<ChartConfiguration['data']> = signal({ datasets: [] });
-  private _applicationCircleData: WritableSignal<ChartConfiguration['data']> = signal({
-    datasets: [],
-  });
-  private _applicationChartData: WritableSignal<ChartConfiguration['data']> = signal({
-    datasets: [],
-  });
   private _summary: WritableSignal<TSummaryResponse | null> = signal<TSummaryResponse | null>(null);
 
-  enrollmentCircleData = this._enrollmentCircleData.asReadonly();
-  enrollmentChartData = this._enrollmentChartData.asReadonly();
-  deviceCircleData = this._deviceCircleData.asReadonly();
-  deviceChartData = this._deviceChartData.asReadonly();
-  applicationCircleData = this._applicationCircleData.asReadonly();
-  applicationChartData = this._applicationChartData.asReadonly();
+  private colours = computed<ChartColours>(() => {
+    this.themeService.effective();
+    return {
+      blue: themeToken('--l24-chart-blue'),
+      blueLight: themeToken('--l24-chart-blue-light'),
+      red: themeToken('--l24-chart-red'),
+      yellow: themeToken('--l24-chart-yellow'),
+    };
+  });
+
+  enrollmentCircleData = this.chart((s, c) => this.buildEnrollmentCircle(s, c));
+  enrollmentChartData = this.chart((s, c) => this.buildEnrollmentChart(s, c));
+  deviceCircleData = this.chart((s, c) => this.buildDeviceCircle(s, c));
+  deviceChartData = this.chart((s, c) => this.buildDeviceChart(s, c));
+  applicationCircleData = this.chart((s, c) => this.buildApplicationCircle(s, c));
+  applicationChartData = this.chart((s, c) => this.buildApplicationChart(s, c));
   summary = this._summary.asReadonly();
 
   constructor() {
     this.summaryService.getSummary().subscribe((summary) => {
-      this.initEnrollmentCircleData(summary);
-      this.initEnrollmentChartData(summary);
-      this.initDeviceCircleData(summary);
-      this.initDeviceChartData(summary);
-      this.initApplicationCircleData(summary);
-      this.initApplicationChartData(summary);
       this._summary.set(summary);
     });
   }
 
-  private initEnrollmentCircleData(summary: TSummaryResponse): void {
-    this._enrollmentCircleData.set({
+  private chart(
+    build: (summary: TSummaryResponse, colours: ChartColours) => ChartConfiguration['data'],
+  ) {
+    return computed<ChartConfiguration['data']>(() => {
+      const summary = this._summary();
+      return summary ? build(summary, this.colours()) : { datasets: [] };
+    });
+  }
+
+  private buildEnrollmentCircle(
+    summary: TSummaryResponse,
+    c: ChartColours,
+  ): ChartConfiguration['data'] {
+    return {
       labels: [
         this.translateService.instant('summary.devices.enrolled.total'),
         this.translateService.instant('summary.devices.enrolled.earlier'),
@@ -55,26 +62,32 @@ export class DashboardFacadeService {
       datasets: [
         {
           data: [summary.devicesEnrolled, summary.devicesEnrolledLastMonth],
-          backgroundColor: ['#3b82f6', '#93c5fd'],
+          backgroundColor: [c.blue, c.blueLight],
         },
       ],
-    });
+    };
   }
 
-  private initEnrollmentChartData(summary: TSummaryResponse): void {
-    this._enrollmentChartData.set({
+  private buildEnrollmentChart(
+    summary: TSummaryResponse,
+    c: ChartColours,
+  ): ChartConfiguration['data'] {
+    return {
       labels: summary.deviceEnrolledMonthly?.map((item) => item.stringAttr),
       datasets: [
         {
           data: summary.deviceEnrolledMonthly?.map((item) => item.intAttr),
-          backgroundColor: '#3b82f6',
+          backgroundColor: c.blue,
         },
       ],
-    });
+    };
   }
 
-  private initDeviceCircleData(summary: TSummaryResponse): void {
-    this._deviceCircleData.set({
+  private buildDeviceCircle(
+    summary: TSummaryResponse,
+    c: ChartColours,
+  ): ChartConfiguration['data'] {
+    return {
       labels: [
         this.translateService.instant('summary.devices.active'),
         this.translateService.instant('summary.devices.offline'),
@@ -87,39 +100,42 @@ export class DashboardFacadeService {
             arraySum(summary.statusOfflineByConfig),
             arraySum(summary.statusIdleByConfig),
           ],
-          backgroundColor: ['#3b82f6', '#ff6363', '#eab308'],
+          backgroundColor: [c.blue, c.red, c.yellow],
         },
       ],
-    });
+    };
   }
 
-  private initDeviceChartData(summary: TSummaryResponse): void {
+  private buildDeviceChart(summary: TSummaryResponse, c: ChartColours): ChartConfiguration['data'] {
     const datasets = [
       {
         label: this.translateService.instant('summary.devices.active'),
         data: summary.statusOnlineByConfig,
-        backgroundColor: '#3b82f6',
+        backgroundColor: c.blue,
       },
       {
         label: this.translateService.instant('summary.devices.offline'),
         data: summary.statusOfflineByConfig,
-        backgroundColor: '#ff6363',
+        backgroundColor: c.red,
       },
       {
         label: this.translateService.instant('summary.devices.idle'),
         data: summary.statusIdleByConfig,
-        backgroundColor: '#eab308',
+        backgroundColor: c.yellow,
       },
     ];
 
-    this._deviceChartData.set({
+    return {
       labels: summary.topConfigs,
       datasets: datasets,
-    });
+    };
   }
 
-  private initApplicationCircleData(summary: TSummaryResponse): void {
-    this._applicationCircleData.set({
+  private buildApplicationCircle(
+    summary: TSummaryResponse,
+    c: ChartColours,
+  ): ChartConfiguration['data'] {
+    return {
       labels: [
         this.translateService.instant('summary.devices.installation.failed'),
         this.translateService.instant('summary.devices.installation.mismatch'),
@@ -132,34 +148,37 @@ export class DashboardFacadeService {
             arraySum(summary.appMismatchByConfig),
             arraySum(summary.appSuccessByConfig),
           ],
-          backgroundColor: ['#ff6363', '#eab308', '#3b82f6'],
+          backgroundColor: [c.red, c.yellow, c.blue],
         },
       ],
-    });
+    };
   }
 
-  private initApplicationChartData(summary: TSummaryResponse): void {
+  private buildApplicationChart(
+    summary: TSummaryResponse,
+    c: ChartColours,
+  ): ChartConfiguration['data'] {
     const datasets = [
       {
         label: this.translateService.instant('summary.devices.installation.failed'),
         data: summary.appFailureByConfig,
-        backgroundColor: '#ff6363',
+        backgroundColor: c.red,
       },
       {
         label: this.translateService.instant('summary.devices.installation.mismatch'),
         data: summary.appMismatchByConfig,
-        backgroundColor: '#eab308',
+        backgroundColor: c.yellow,
       },
       {
         label: this.translateService.instant('summary.devices.installation.completed'),
         data: summary.appSuccessByConfig,
-        backgroundColor: '#3b82f6',
+        backgroundColor: c.blue,
       },
     ];
 
-    this._applicationChartData.set({
+    return {
       labels: summary.topConfigs,
       datasets: datasets,
-    });
+    };
   }
 }

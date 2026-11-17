@@ -8,6 +8,7 @@ import { AuthService } from '../../services/auth.service';
 import { IdleService } from '../../services/idle.service';
 import { AboutDialog } from '../about-dialog/about-dialog';
 import { Router } from '@angular/router';
+import { ThemeMode, ThemeService } from '../../services/theme.service';
 
 @Component({
   selector: 'core-user',
@@ -20,12 +21,20 @@ export class User {
   private readonly idleService = inject(IdleService);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
+  readonly themeService = inject(ThemeService);
+
+  readonly themeOptions: { mode: ThemeMode; label: string; icon: string }[] = [
+    { mode: 'light', label: 'menu.theme.light', icon: 'light_mode' },
+    { mode: 'dark', label: 'menu.theme.dark', icon: 'dark_mode' },
+    { mode: 'system', label: 'menu.theme.system', icon: 'brightness_auto' },
+  ];
 
   currentUser = this.authService.currentUser;
   isSuperAdmin = computed(() => !!this.currentUser()?.superAdmin);
-  isSuperAdminOrAdmin = computed(() =>
-    !!this.currentUser()?.superAdmin ||
-    !!(this.currentUser()?.singleCustomer && this.authService.hasPermission('settings'))
+  isSuperAdminOrAdmin = computed(
+    () =>
+      !!this.currentUser()?.superAdmin ||
+      !!(this.currentUser()?.singleCustomer && this.authService.hasPermission('settings')),
   );
   isOnControlPanel = computed(() => this.router.url.startsWith('/control-panel'));
 

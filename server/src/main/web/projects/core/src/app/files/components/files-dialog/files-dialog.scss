@@ -10,11 +10,11 @@ mat-progress-bar {
   display: block;
   font-size: 12px;
   text-align: right;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--l24-text-muted);
 }
 
 .storage-warning {
   padding: 8px;
   border-radius: 8px;
-  border: 2px solid var(--mat-sys-primary, #b00020);
+  border: 2px solid var(--mat-sys-primary);
 }

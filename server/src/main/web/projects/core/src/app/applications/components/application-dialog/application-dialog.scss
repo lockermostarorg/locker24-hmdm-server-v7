@@ -2,11 +2,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #c62828;
+  color: var(--l24-danger);
   font-size: 14px;
   margin-bottom: 12px;
   padding: 8px 12px;
-  background: #ffebee;
+  background: var(--l24-danger-bg);
   border-radius: 4px;
 
   mat-icon {
@@ -29,5 +29,5 @@
 .storage-warning {
   padding: 8px;
   border-radius: 8px;
-  border: 2px solid var(--mat-sys-primary, #b00020);
+  border: 2px solid var(--mat-sys-primary);
 }

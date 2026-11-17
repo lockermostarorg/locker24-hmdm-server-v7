@@ -4,29 +4,36 @@
 // Learn more about theming and how to use it for your application's
 // custom components at https://material.angular.dev/guide/theming
 @use '@angular/material' as mat;
+@use 'theme-tokens' as tokens;
 
-$brand-blue: #009fd7;
-$brand-orange: #ff6d00;
-$brand-grey: #5c5c5c;
-$primary-text: #0077a3;
-$accent-text: #c24e00;
 $primary: var(--l24-primary);
 $accent: var(--l24-accent);
+$danger: var(--l24-danger);
 
 @include mat.form-field-density(-4);
 
 :root {
-  --l24-brand: #{$brand-blue};
-  --l24-brand-accent: #{$brand-orange};
-  --l24-brand-grey: #{$brand-grey};
-  --l24-primary: #{$primary-text};
-  --l24-accent: #{$accent-text};
+  @include tokens.brand;
+  @include tokens.light;
+
   --mat-sys-primary: var(--l24-primary);
-  --mat-sidenav-content-background-color: #e9eaf4;
+  --mat-sys-on-primary: var(--l24-on-primary);
+  --mat-sidenav-content-background-color: var(--l24-page-bg);
   --mat-ripple-color: var(--l24-brand);
-  --mat-sys-success: #2e7d32;
+  --mat-sys-success: var(--l24-success);
   --mat-sys-info: var(--l24-accent);
   --mat-dialog-container-max-width: 980px;
+  --mat-dialog-container-color: var(--l24-dialog-bg);
+}
+
+:root[data-theme='dark'] {
+  @include tokens.dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    @include tokens.dark;
+  }
 }
 
 .mat-mdc-snack-bar-label.mdc-snackbar__label {
@@ -47,8 +54,8 @@ html {
 
   @include mat.sidenav-overrides(
     (
-      container-background-color: '#353a40',
-      container-text-color: var(--mat-sys-on-primary),
+      container-background-color: var(--l24-sidenav-bg),
+      container-text-color: var(--l24-sidenav-text),
       container-shape: 0px,
       container-width: 280px,
     )
@@ -56,8 +63,8 @@ html {
 
   @include mat.tree-overrides(
     (
-      container-background-color: '#353a40',
-      node-text-color: var(--mat-sys-on-primary),
+      container-background-color: var(--l24-sidenav-bg),
+      node-text-color: var(--l24-sidenav-text),
       node-text-size: '1rem',
     )
   );
@@ -65,20 +72,20 @@ html {
   @include mat.table-overrides(
     (
       background-color: transparent,
-      header-headline-color: white,
+      header-headline-color: var(--l24-on-primary-fill),
     )
   );
 
   @include mat.card-overrides(
     (
-      elevated-container-color: #f6f8fc,
+      elevated-container-color: var(--l24-surface),
     )
   );
 
   @include mat.toolbar-overrides(
     (
-      container-background-color: var(--mat-sys-primary),
-      container-text-color: white,
+      container-background-color: var(--l24-primary-fill),
+      container-text-color: var(--l24-on-primary-fill),
     )
   );
 
@@ -91,14 +98,20 @@ html {
   @include mat.menu-overrides(
     (
       container-shape: 8px,
-      item-hover-state-layer-color: var(--l24-primary),
-      item-focus-state-layer-color: var(--l24-primary),
+      item-hover-state-layer-color: var(--l24-primary-fill),
+      item-focus-state-layer-color: var(--l24-primary-fill),
+    )
+  );
+
+  @include mat.paginator-overrides(
+    (
+      container-background-color: transparent,
     )
   );
 
   @include mat.tabs-overrides(
     (
-      background-color: rgb(246, 248, 252),
+      background-color: var(--l24-surface),
     )
   );
 }
@@ -113,18 +126,14 @@ html {
 
   @include mat.icon-button-overrides(
     (
-      icon-color: var(--mat-sys-on-primary),
+      icon-color: var(--l24-on-primary-fill),
       disabled-icon-color: var(--mat-sys-outline),
     )
   );
 }
 
-$danger: #d32f2f;
-$info: #9167a1;
-$success: #2e7d32;
-
 .mat-mdc-tab-group {
-  background-color: #f6f8fc;
+  background-color: var(--l24-surface);
   border-radius: 10px;
 }
 
@@ -198,34 +207,34 @@ $success: #2e7d32;
   }
 
   .mat-mdc-table-sticky-border-elem-right {
-    box-shadow: -2px 0 6px rgba(0, 0, 0, 0.336);
+    box-shadow: -2px 0 6px color-mix(in srgb, var(--l24-shadow) 33.6%, transparent);
   }
 
   .mat-mdc-header-row {
-    background-color: var(--mat-sys-primary);
+    background-color: var(--l24-primary-fill);
 
     .mdc-checkbox__background {
-      background-color: white;
+      background-color: var(--l24-on-primary-fill);
     }
 
     .mdc-checkbox:hover > .mdc-checkbox__native-control:not(:checked) ~ .mdc-checkbox__background,
     .mdc-checkbox:hover
       > .mdc-checkbox__native-control:not(:indeterminate)
       ~ .mdc-checkbox__background {
-      background-color: white;
+      background-color: var(--l24-on-primary-fill);
     }
 
-    --mat-checkbox-unselected-icon-color: white;
+    --mat-checkbox-unselected-icon-color: var(--l24-on-primary-fill);
 
     @include mat.checkbox-overrides(
       (
-        selected-icon-color: white,
-        selected-focus-icon-color: white,
-        selected-hover-icon-color: white,
-        selected-checkmark-color: var(--mat-sys-primary),
-        unselected-focus-icon-color: white,
-        unselected-hover-icon-color: white,
-        unselected-hover-state-layer-color: white,
+        selected-icon-color: var(--l24-on-primary-fill),
+        selected-focus-icon-color: var(--l24-on-primary-fill),
+        selected-hover-icon-color: var(--l24-on-primary-fill),
+        selected-checkmark-color: var(--l24-primary-fill),
+        unselected-focus-icon-color: var(--l24-on-primary-fill),
+        unselected-hover-icon-color: var(--l24-on-primary-fill),
+        unselected-hover-state-layer-color: var(--l24-on-primary-fill),
       )
     );
   }
@@ -248,12 +257,15 @@ div.mat-mdc-select-panel.mdc-menu-surface {
 button.mat-mdc-menu-item {
   transition: all 0.3s;
 
-  &:hover {
-    color: var(--mat-sys-on-primary);
+  &:hover,
+  &.mat-mdc-menu-item-highlighted,
+  &.cdk-keyboard-focused,
+  &.cdk-program-focused {
+    color: var(--l24-on-primary-fill);
 
     @include mat.icon-overrides(
       (
-        color: var(--mat-sys-on-primary),
+        color: var(--l24-on-primary-fill),
       )
     );
   }
@@ -268,7 +280,7 @@ td.mat-mdc-cell {
 }
 
 td.mat-mdc-table-sticky {
-  background-color: var(--mat-sys-primary);
+  background-color: var(--l24-primary-fill);
 }
 
 svg.mdc-checkbox__checkmark {
@@ -284,7 +296,7 @@ mat-card-title {
 }
 
 .field-notice {
-  color: #888;
+  color: var(--l24-text-muted);
   font-size: 14px;
   margin-top: -20px;
   margin-bottom: 25px;
@@ -305,11 +317,6 @@ a {
 }
 
 body {
-  // Default the application to a light color theme. This can be changed to
-  // `dark` to enable the dark color theme, or to `light dark` to defer to the
-  // user's system settings.
-  color-scheme: light;
-
   // Set a default background, font and text colors for the application using
   // Angular Material's system-level CSS variables. Learn more about these
   // variables at https://material.angular.dev/guide/system-variables

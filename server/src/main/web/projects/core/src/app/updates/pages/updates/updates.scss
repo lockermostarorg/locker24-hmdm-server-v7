@@ -18,7 +18,7 @@
   font-size: 28px;
   font-weight: 400;
   margin-bottom: 40px;
-  color: #333;
+  color: var(--l24-text);
   height: 40px;
 }
 
@@ -32,7 +32,7 @@
 
 .header {
   font-weight: 600;
-  color: #444;
+  color: var(--l24-text);
   border-bottom: 1px solid transparent;
   margin-bottom: 8px;
 }
@@ -46,7 +46,7 @@
 }
 
 .warning-text {
-  color: #ff3b30;
+  color: var(--l24-danger);
 }
 
 .text-center {
@@ -56,7 +56,7 @@
 .checkmark {
   font-size: 16px;
   font-weight: bold;
-  color: #222;
+  color: var(--l24-text);
 }
 
 .options-container {
@@ -72,7 +72,7 @@
   gap: 15px;
   cursor: pointer;
   font-size: 14px;
-  color: #444;
+  color: var(--l24-text);
 }
 
 .custom-checkbox {
@@ -80,10 +80,10 @@
   -webkit-appearance: none;
   width: 28px;
   height: 28px;
-  border: 1px solid #a0a0a0;
+  border: 1px solid var(--l24-border-strong);
   border-radius: 2px;
   outline: none;
-  background-color: #fff;
+  background-color: var(--l24-field-bg);
   cursor: pointer;
   display: grid;
   place-content: center;
@@ -92,7 +92,7 @@
 .hint-container {
   margin-top: 15px;
   font-size: 13px;
-  color: #8e8e93;
+  color: var(--l24-text-muted);
   line-height: 1.4;
 }
 
@@ -103,17 +103,17 @@
 }
 
 .btn-submit {
-  background-color: #f8f9fa;
-  border: 1px solid #d1d1d6;
+  background-color: var(--l24-surface-alt);
+  border: 1px solid var(--l24-border);
   border-radius: 4px;
   padding: 10px 24px;
   font-size: 14px;
-  color: #333;
+  color: var(--l24-text);
   cursor: pointer;
 }
 
 .btn-submit:hover:not(:disabled) {
-  background-color: #e5e5ea;
+  background-color: var(--l24-surface-hover);
 }
 
 .btn-submit:disabled {
@@ -130,6 +130,6 @@
   margin-bottom: 15px;
   border-radius: 4px;
 }
-.error-message { background-color: #fde8e8; color: #e53e3e; }
-.success-message { background-color: #e6fffa; color: #319795; }
+.error-message { background-color: var(--l24-danger-bg); color: var(--l24-danger); }
+.success-message { background-color: var(--l24-success-bg); color: var(--l24-success); }
 .loading-gif { width: 16px; height: 16px; margin-left: 10px; vertical-align: middle; }

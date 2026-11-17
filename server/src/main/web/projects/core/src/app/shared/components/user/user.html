@@ -20,7 +20,9 @@
     @if (isSuperAdmin()) {
       <button mat-menu-item (click)="onControlPanelClick()">
         <mat-icon>admin_panel_settings</mat-icon>
-        <span>{{ (isOnControlPanel() ? 'menu.panel.main' : 'menu.panel.master') | translate }}</span>
+        <span>{{
+          (isOnControlPanel() ? 'menu.panel.main' : 'menu.panel.master') | translate
+        }}</span>
       </button>
     }
 
@@ -36,9 +38,28 @@
       </button>
     }
 
+    <button mat-menu-item [matMenuTriggerFor]="themeMenu">
+      <mat-icon>contrast</mat-icon>
+      <span>{{ 'menu.theme' | translate }}</span>
+    </button>
+
     <button mat-menu-item (click)="onLogOut()">
       <mat-icon>logout</mat-icon>
       <span>{{ 'menu.logout' | translate }}</span>
     </button>
+  </mat-menu>
+
+  <mat-menu #themeMenu="matMenu">
+    @for (option of themeOptions; track option.mode) {
+      <button
+        mat-menu-item
+        role="menuitemradio"
+        [attr.aria-checked]="themeService.mode() === option.mode"
+        (click)="themeService.setMode(option.mode)"
+      >
+        <mat-icon>{{ themeService.mode() === option.mode ? 'check' : option.icon }}</mat-icon>
+        <span>{{ option.label | translate }}</span>
+      </button>
+    }
   </mat-menu>
 </div>

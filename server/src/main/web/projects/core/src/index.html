@@ -7,6 +7,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" sizes="32x32" />
+    <script>
+      (function () {
+        var mode = null;
+        try {
+          mode = window.localStorage.getItem('l24-theme');
+        } catch (e) {}
+        if (mode !== 'light' && mode !== 'dark') {
+          var media = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+          mode = media && media.matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', mode);
+      })();
+    </script>
     <link
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap"
       rel="stylesheet"
@@ -14,6 +27,11 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
 
     <style>
+      html[data-theme='dark'] {
+        color-scheme: dark;
+        background-color: #121417;
+      }
+
       .app-boot-loader {
         display: flex;
         align-items: center;

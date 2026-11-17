@@ -7,3 +7,5 @@ export * from './validators/index';
 export * from './services/index';
 
 export * from './http/skip-alert.context';
+
+export * from './theme/theme';

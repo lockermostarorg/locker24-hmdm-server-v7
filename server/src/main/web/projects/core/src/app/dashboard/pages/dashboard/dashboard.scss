@@ -58,15 +58,15 @@
       }
 
       .blue-value {
-        color: #3b82f6 !important;
+        color: var(--l24-chart-blue-text) !important;
       }
 
       .red-value {
-        color: #ff6363 !important;
+        color: var(--l24-chart-red-text) !important;
       }
 
       .yellow-value {
-        color: #eab308 !important;
+        color: var(--l24-chart-yellow-text) !important;
       }
     }
   }

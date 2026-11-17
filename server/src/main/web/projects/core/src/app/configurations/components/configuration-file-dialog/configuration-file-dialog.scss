@@ -15,11 +15,11 @@ mat-progress-bar {
   display: block;
   font-size: 12px;
   text-align: right;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--l24-text-muted);
 }
 
 .storage-warning {
-  color: #c62828;
+  color: var(--l24-danger);
   font-size: 13px;
   margin-top: 4px;
   border-radius: 4px;

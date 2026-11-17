@@ -56,7 +56,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9.15.0
+          version: 10.32.1
 
       - uses: actions/setup-node@v4
         with:
@@ -78,8 +78,8 @@ jobs:
       - name: Fleet health plugin tests
         working-directory: plugins/locker24-health/src/main/web
         run: |
-          pnpm install --frozen-lockfile
-          pnpm exec ng test --watch=false --browsers=ChromeHeadless
+          npx --yes pnpm@9.15.0 install --frozen-lockfile
+          npx --yes pnpm@9.15.0 exec ng test --watch=false --browsers=ChromeHeadless
 
   secrets:
     runs-on: ubuntu-latest

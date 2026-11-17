@@ -355,6 +355,12 @@ public interface ApplicationMapper {
             "WHERE applications.customerId = #{customerId}")
     List<ApplicationVersion> getCustomerApplicationVersionUrls(@Param("customerId") int customerId);
 
+    @Select("SELECT applicationVersions.id, applicationVersions.applicationId, applicationVersions.url, " +
+            "applicationVersions.urlArmeabi, applicationVersions.urlArm64 " +
+            "FROM applicationVersions")
+    @Options(flushCache = Options.FlushCachePolicy.TRUE, useCache = false)
+    List<ApplicationVersion> getAllApplicationVersionUrls();
+
     /**
      * <p>Gets the free-text file URLs set by the specified customer outside application versions:
      * launcher URLs of configurations and URLs of external files.</p>

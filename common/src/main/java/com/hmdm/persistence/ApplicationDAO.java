@@ -991,8 +991,8 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
 
     /**
      * <p>Gets the names of APK/XAPK files in the top level of the customer's files directory
-     * which are not referenced by the customer's application versions, configuration launcher URLs,
-     * external files or files linked to configurations.</p>
+     * which are not referenced by any application version (of any customer, held versions included),
+     * the customer's configuration launcher URLs, external files or files linked to configurations.</p>
      *
      * @param customer a customer owning the files.
      * @return a sorted list of orphaned file names.
@@ -1004,7 +1004,7 @@ public class ApplicationDAO extends AbstractLinkedDAO<Application, ApplicationCo
                 : Path.of(filesDirectory).toFile();
 
         final Set<String> urls = new HashSet<>();
-        for (ApplicationVersion version : this.mapper.getCustomerApplicationVersionUrls(customer.getId())) {
+        for (ApplicationVersion version : this.mapper.getAllApplicationVersionUrls()) {
             urls.addAll(getVersionUrls(version));
         }
         urls.addAll(this.mapper.getCustomerFreeTextUrls(customer.getId()));

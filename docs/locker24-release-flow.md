@@ -77,12 +77,9 @@ Details of saving:
 
 On a row whose version is behind the latest released version the configuration editor shows the existing Upgrade link. It moves that row to the latest released version, sends the configuration update to the configuration's tablets, and leaves the row's follow state alone: a pinned row stays pinned, now on the latest version. Use the toggle to resume following. On a row that is not behind (or when only a canary is ahead) it does nothing.
 
-## Check for updates
+## Check for updates (removed)
 
-Panel menu, Check for updates (super admin, or the only customer) downloads application updates from the update server and stores them as versions:
-
-- Download only: the version is stored on hold. Nothing moves; release it from the versions list.
-- Update all configurations: the version is released on schedule and the configurations that use the app are moved to it, including pinned rows, which stay pinned. This is an explicit administrator action, unlike an upload. Moved configurations get one configuration update push each.
+Headwind's own update check (Settings, Updates) and its usage statistics are removed from Locker24 MDM: new versions of the panel and of our apps come only through the Locker24 release process (our GitHub deploy for the server, uploads for apps). The server answers the old endpoints with "Updates come from the Locker24 release process."
 
 ## Notify tablets again
 

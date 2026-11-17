@@ -331,6 +331,13 @@
   "table.filtering.no.selected.group": "Nije odabrana nijedna grupa",
   "table.filtering.no.selected.permission": "Nije odabrana nijedna dozvola",
   "table.empty": "Nema dostupnih podataka",
+  "paginator.items.per.page": "Stavki po stranici:",
+  "paginator.next.page": "Sljedeća stranica",
+  "paginator.previous.page": "Prethodna stranica",
+  "paginator.first.page": "Prva stranica",
+  "paginator.last.page": "Posljednja stranica",
+  "paginator.range": "{{start}} – {{end}} od {{length}}",
+  "paginator.range.empty": "0 od {{length}}",
 
   "success.admin.created": "Administratorski račun je kreiran:\n{{adminCredentials}",
   "dialog.admin.credentials.title": "Administratorski račun je kreiran",

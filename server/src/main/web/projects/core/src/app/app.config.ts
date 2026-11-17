@@ -1,3 +1,4 @@
+import { DATE_PIPE_DEFAULT_OPTIONS } from '@angular/common';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import {
   APP_INITIALIZER,
@@ -8,16 +9,18 @@ import {
   provideBrowserGlobalErrorListeners,
   provideZoneChangeDetection,
 } from '@angular/core';
-import { provideNativeDateAdapter } from '@angular/material/core';
+import { MatPaginatorIntl } from '@angular/material/paginator';
 import { provideRouter } from '@angular/router';
 import { provideServiceWorker } from '@angular/service-worker';
 import { provideTranslateService } from '@ngx-translate/core';
 import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
 import {
   ConfigurationsOptionsService,
+  DATE_TIME_FORMAT,
   FileDownloadService,
   GlobalLoadingService,
   GroupsOptionsService,
+  provideHmdmDateAdapter,
   RebrandingService,
 } from 'hmdm-ui-kit';
 import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
@@ -27,6 +30,7 @@ import { routes } from './app.routes';
 import { baseUrlInterceptor } from './shared/interceptors/base-url.interceptor';
 import { credentialsInterceptor } from './shared/interceptors/credentials.interceptor';
 import { responseAlertInterceptor } from './shared/interceptors/response-alert.interceptor';
+import { TranslatedPaginatorIntl } from './shared/i18n/translated-paginator-intl';
 import { responseInterceptor } from './shared/interceptors/response.interceptor';
 import { ThemeService } from './shared/services/theme.service';
 
@@ -47,7 +51,9 @@ export const appConfig: ApplicationConfig = {
         responseAlertInterceptor,
       ]),
     ),
-    provideNativeDateAdapter(),
+    provideHmdmDateAdapter(),
+    { provide: DATE_PIPE_DEFAULT_OPTIONS, useValue: { dateFormat: DATE_TIME_FORMAT } },
+    { provide: MatPaginatorIntl, useClass: TranslatedPaginatorIntl },
     provideEnvironmentNgxMask(),
     provideCharts(withDefaultRegisterables()),
     provideTranslateService({

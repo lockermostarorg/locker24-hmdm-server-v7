@@ -72,7 +72,9 @@ describe('Fleet page', () => {
     expect(rows[1].textContent).toContain('plugin.locker24-health.status.admin');
     expect(rows[1].textContent).not.toContain('plugin.locker24-health.reason.kiosk_admin_off');
     expect(rows[1].textContent).toContain('plugin.locker24-health.battery.not_charging');
-    expect(rows[2].querySelector('time')?.getAttribute('title')).toContain('/');
+    expect(rows[2].querySelector('time')?.getAttribute('title')).toMatch(
+      /^\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2}/,
+    );
 
     fixture.destroy();
     discardPeriodicTasks();

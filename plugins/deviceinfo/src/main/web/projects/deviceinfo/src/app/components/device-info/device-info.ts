@@ -9,7 +9,7 @@ import {
   MOBILE2_PARAMS,
 } from '../../services/dynamic-data-parser.service';
 import { DatePipe } from '@angular/common';
-import { TranslatePipe } from 'hmdm-ui-kit';
+import { DATE_TIME_SECONDS_FORMAT, TranslatePipe } from 'hmdm-ui-kit';
 
 @Component({
   selector: 'di-device-info',
@@ -18,6 +18,8 @@ import { TranslatePipe } from 'hmdm-ui-kit';
   imports: [DatePipe, TranslatePipe],
 })
 export class DeviceInfo {
+  readonly dateTimeFormat = DATE_TIME_SECONDS_FORMAT;
+
   private readonly detailsFacadeService = inject(DetailsFacadeService);
   private readonly dynamicDataParser = inject(DynamicDataParserService);
 

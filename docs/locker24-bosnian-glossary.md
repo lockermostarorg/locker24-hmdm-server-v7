@@ -10,7 +10,7 @@ Terms used in the Bosnian translation of the Locker24 MDM panel (`core/public/i1
 - Kept as-is: MDM, APK, QR, kiosk, Wi-Fi, URL, ID, push, IMEI, SIM, PIN, PUK, Android, Bluetooth, GPS, MQTT, HTTP, TCP, SSID, API, JSON, webhook, launcher, agent.
 - Product names are never translated: Locker24, Locker24 MDM, PostBox; Headwind MDM appears only in the About credit line.
 - Quotes and punctuation around UI names follow the English source ('Dodaj', «Uređaji», "Zapisnici").
-- Display date formats use `dd.MM.yyyy` (and `dd.MM.yy`); time stays `HH:mm`.
+- Dates are written `dd.MM.yyyy` and date-times `dd.MM.yyyy HH:mm` (24-hour, `:ss` where the panel shows seconds) in every language; the formats live in `hmdm-ui-kit/src/lib/shared/date/date-format.ts`.
 - Counts: Bosnian has three plural forms but the panel only has `one`/`other`, so counted phrases use the label form ("konfiguracije: 3", "dodijeljeni tableti: 12", "tableta: 40") instead of a noun after the number.
 
 ## Terms
@@ -120,6 +120,8 @@ Terms used in the Bosnian translation of the Locker24 MDM panel (`core/public/i1
 | Send | Pošalji |
 | Purge (old records) | Obriši |
 | Clear (filters) / Cleanup (files) | Očisti |
+| page / Items per page | stranica / Stavki po stranici |
+| 1 – 10 of 50 | 1 – 10 od 50 |
 | Details | Detalji |
 | Back | Nazad |
 | ago (after a number) | ranije ("5 min ranije"); "prije {{count}} min" where the number is inside the key |

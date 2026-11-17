@@ -5,7 +5,7 @@
         <tr>
           <th>{{ 'plugin.deviceinfo.title.time' | translate }}</th>
           <td>
-            {{ deviceInfo.latestDynamicData.latestUpdateTime | date: 'dd.MM.yy HH:mm:ss' }}
+            {{ deviceInfo.latestDynamicData.latestUpdateTime | date: dateTimeFormat }}
             @if (deviceInfo.latestDynamicData.latestUpdateTime) {
               <span>
                 ({{ deviceInfo.latestDynamicData.latestUpdateInterval }}

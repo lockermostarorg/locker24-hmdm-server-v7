@@ -23,7 +23,7 @@
           <div class="profile-info-row">
             <span class="profile-info-label">{{ 'form.customer.expiry.time' | translate }}</span>
             <span class="profile-info-value" [class.warning-text]="isExpiryWarning()">
-              {{ settings()!.expiryTime | date: 'dd/MM/yyyy' }}
+              {{ settings()!.expiryTime | date: dateFormat }}
             </span>
           </div>
         }

@@ -326,6 +326,13 @@
   "table.filtering.no.selected.group": "لا توجد مجموعات محددة",
   "table.filtering.no.selected.permission": "لم يتم تحديد أي أذونات",
   "table.empty": "لا توجد بيانات متاحة",
+  "paginator.items.per.page": "Items per page:",
+  "paginator.next.page": "Next page",
+  "paginator.previous.page": "Previous page",
+  "paginator.first.page": "First page",
+  "paginator.last.page": "Last page",
+  "paginator.range": "{{start}} – {{end}} of {{length}}",
+  "paginator.range.empty": "0 of {{length}}",
 
   "Success.admin.created": "إنشاء حساب المسؤول:\n {{adminCredentials}}",
   "dialog.admin.credentials.title": "إنشاء حساب المسؤول",

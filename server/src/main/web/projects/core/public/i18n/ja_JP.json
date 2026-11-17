@@ -325,6 +325,13 @@
   "table.filtering.no.selected.group": "グループが選択されていません",
   "table.filtering.no.selected.permission": "権限が選択されていません",
   "table.empty": "データがありません",
+  "paginator.items.per.page": "Items per page:",
+  "paginator.next.page": "Next page",
+  "paginator.previous.page": "Previous page",
+  "paginator.first.page": "First page",
+  "paginator.last.page": "Last page",
+  "paginator.range": "{{start}} – {{end}} of {{length}}",
+  "paginator.range.empty": "0 of {{length}}",
 
   "success.admin.created": "管理者アカウントが作成されました:\n {{adminCredentials}}",
   "dialog.admin.credentials.title": "管理者アカウントが作成されました",

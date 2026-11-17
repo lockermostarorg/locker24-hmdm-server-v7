@@ -325,6 +325,13 @@
   "table.filtering.no.selected.group": "未选择组合",
   "table.filtering.no.selected.permission": "未选择权限",
   "table.empty": "没有可用数据",
+  "paginator.items.per.page": "Items per page:",
+  "paginator.next.page": "Next page",
+  "paginator.previous.page": "Previous page",
+  "paginator.first.page": "First page",
+  "paginator.last.page": "Last page",
+  "paginator.range": "{{start}} – {{end}} of {{length}}",
+  "paginator.range.empty": "0 of {{length}}",
 
   "success.admin.created": "管理员帐户已创建:\n {{adminCredentials}}",
   "dialog.admin.credentials.title": "管理员帐户已创建",

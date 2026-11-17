@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { DatetimeCell, TTableConfig } from 'hmdm-ui-kit';
+import { DATE_TIME_SECONDS_FORMAT, DatetimeCell, TTableConfig } from 'hmdm-ui-kit';
 
 @Injectable({
   providedIn: 'root',
@@ -13,7 +13,7 @@ export class MessagesTableConfig {
           title: 'table.heading.plugin.push.dateTime',
           cellRenderer: DatetimeCell,
           cellRendererParams: {
-            timeFormat: 'dd/MM/yyyy, HH:mm:ss',
+            timeFormat: DATE_TIME_SECONDS_FORMAT,
           },
         },
         {

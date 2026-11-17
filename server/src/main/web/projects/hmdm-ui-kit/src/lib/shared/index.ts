@@ -9,3 +9,5 @@ export * from './services/index';
 export * from './http/skip-alert.context';
 
 export * from './theme/theme';
+
+export * from './date/date-format';

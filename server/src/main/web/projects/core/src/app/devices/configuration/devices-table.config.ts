@@ -1,8 +1,10 @@
 import { inject, Injectable } from '@angular/core';
 import {
   BooleanCell,
+  DATE_TIME_SECONDS_FORMAT,
   DatetimeCell,
   EStatusColor,
+  formatDisplayDate,
   StatusCellRenderer,
   TStatus,
   TStatusCellParams,
@@ -274,8 +276,7 @@ export class DeviceTableConfig {
         this.translateService.instant('form.devices.status.years');
     }
 
-    const date = new Date(lastUpdate);
-    const formatted = date.toLocaleString('sv').replace('T', ' '); // yyyy-MM-dd HH:mm:ss
+    const formatted = formatDisplayDate(lastUpdate, DATE_TIME_SECONDS_FORMAT);
     return res + ' ' + this.translateService.instant('form.devices.status.ago') + '\n' + formatted;
   }
 

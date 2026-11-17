@@ -7,7 +7,7 @@
     }}</span>
     @if (params().data.releasedAt) {
       <span class="state-detail">
-        {{ params().data.releasedAt | date: 'yyyy-MM-dd HH:mm' }}
+        {{ params().data.releasedAt | date: dateTimeFormat }}
         @if (releasedBy(); as by) {
           {{ 'release.state.by' | translate: { user: by } }}
         }

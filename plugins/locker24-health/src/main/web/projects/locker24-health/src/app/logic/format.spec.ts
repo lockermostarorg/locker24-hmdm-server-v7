@@ -33,9 +33,15 @@ describe('format', () => {
   });
 
   it('formats absolute times in the given zone', () => {
-    expect(absoluteTime(now, 'Europe/Sarajevo')).toContain('16/11/2026, 13:00:00');
+    expect(absoluteTime(now, 'Europe/Sarajevo')).toContain('16.11.2026 13:00:00');
     expect(absoluteTime(now, 'UTC')).toContain('12:00:00');
     expect(absoluteTime(null, 'UTC')).toBe('');
+  });
+
+  it('writes dates as dd.MM.yyyy with a 24-hour time', () => {
+    expect(absoluteTime(now, 'UTC')).toBe('16.11.2026 12:00:00 UTC');
+    expect(absoluteTime(now, 'UTC', false)).toBe('16.11.2026 12:00 UTC');
+    expect(absoluteTime(Date.UTC(2026, 0, 5, 23, 4, 9), 'UTC')).toBe('05.01.2026 23:04:09 UTC');
   });
 
   it('falls back to the browser zone for an invalid zone', () => {
@@ -80,7 +86,7 @@ describe('format', () => {
     expect(week.map((t) => tickLabel(t, 'Europe/Sarajevo', 3 * 3_600_000))).toEqual(
       Array(7).fill('00:00'),
     );
-    expect(tickLabel(week[0], 'Europe/Sarajevo', 86_400_000)).toBe('10/11');
+    expect(tickLabel(week[0], 'Europe/Sarajevo', 86_400_000)).toBe('10.11.');
   });
 
   it('keeps day ticks on local midnight across the October DST change', () => {
@@ -90,8 +96,8 @@ describe('format', () => {
     const dates = ticks.map((t) => tickLabel(t, 'Europe/Sarajevo', 86_400_000));
     expect(hours).toEqual(Array(7).fill('00:00'));
     expect(new Set(dates).size).toBe(7);
-    expect(dates).toContain('25/10');
-    expect(dates).toContain('26/10');
+    expect(dates).toContain('25.10.');
+    expect(dates).toContain('26.10.');
   });
 
   it('keeps day ticks on local midnight across the March DST change', () => {
@@ -101,8 +107,8 @@ describe('format', () => {
     const dates = ticks.map((t) => tickLabel(t, 'Europe/Sarajevo', 86_400_000));
     expect(hours).toEqual(Array(7).fill('00:00'));
     expect(new Set(dates).size).toBe(7);
-    expect(dates).toContain('29/03');
-    expect(dates).toContain('30/03');
+    expect(dates).toContain('29.03.');
+    expect(dates).toContain('30.03.');
   });
 
   it('keeps 3-hour ticks on local hours across a DST change', () => {

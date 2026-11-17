@@ -28,7 +28,7 @@ describe('VersionStateCell', () => {
 
     expect(
       text({ releaseState: 'released', releasedAt: at, releasedBy: 4, releasedByName: 'Ana' }),
-    ).toBe('Released 2026-11-16 09:30 by Ana');
+    ).toBe('Released 16.11.2026 09:30 by Ana');
   });
 
   it('falls back to the user id when the name is not available', () => {

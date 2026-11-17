@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal, WritableSignal } from '@angular/core';
 import {
+  DATE_TIME_FORMAT,
   DialogBase,
   MAT_DIALOG_DATA,
   DialogTemplate,
@@ -18,6 +19,7 @@ import { DatePipe } from '@angular/common';
 export class AuditDetailsDialog extends DialogBase {
   data: TAuditDTO = inject(MAT_DIALOG_DATA);
   date: WritableSignal<Date> = signal(new Date(this.data.createTime));
+  readonly dateTimeFormat = DATE_TIME_FORMAT;
 
   override onSave(): void {
     // No save action needed for details dialog

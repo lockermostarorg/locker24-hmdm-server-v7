@@ -1,5 +1,11 @@
 import { Component, effect, inject, signal, ViewChild, WritableSignal } from '@angular/core';
-import { DatetimeCell, PageEvent, Table, TTableConfig } from 'hmdm-ui-kit';
+import {
+  DATE_TIME_SECONDS_FORMAT,
+  DatetimeCell,
+  PageEvent,
+  Table,
+  TTableConfig,
+} from 'hmdm-ui-kit';
 import { DynamicTableConfig } from '../../config/dynamic-table.config';
 import { DetailsFacadeService } from '../../services/details-facade.service';
 import { FieldsSelectionService } from '../../services/fields-selection.service';
@@ -35,7 +41,7 @@ export class DynamicTable {
               title: 'plugin.deviceinfo.title.time',
               cellRenderer: DatetimeCell,
               cellRendererParams: {
-                timeFormat: 'dd.MM.yyyy HH:mm:ss',
+                timeFormat: DATE_TIME_SECONDS_FORMAT,
               },
             },
             ...keys.map((key) => ({

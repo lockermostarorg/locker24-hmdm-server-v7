@@ -4,7 +4,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { take } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { TranslatePipe } from '@ngx-translate/core';
-import { MatButtonModule, TextInputComponent, Selector } from 'hmdm-ui-kit';
+import { DATE_FORMAT, MatButtonModule, TextInputComponent, Selector } from 'hmdm-ui-kit';
 import { AuthService } from '../../../shared/services/auth.service';
 import { SettingsFacadeService } from '../../../shared/services/settings-facade.service';
 import { ProfileUserFormConfig } from '../../configuration/profile-user-form';
@@ -34,6 +34,7 @@ export class ProfileUser implements OnInit {
   formGroup = this.profileUserFormConfig.getFormGroup();
 
   readonly alertLevelOptions = ALERT_LEVEL_OPTIONS;
+  readonly dateFormat = DATE_FORMAT;
 
   readonly settings = this.settingsFacadeService.settings;
   readonly storageLimit = this.settingsFacadeService.storageLimit;

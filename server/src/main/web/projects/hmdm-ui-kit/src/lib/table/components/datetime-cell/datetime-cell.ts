@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, signal, WritableSignal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
+import { DATE_TIME_FORMAT } from '../../../shared/date/date-format';
 import { BaseCellRenderer } from '../../base/base-cell-renderer';
 
 @Component({
@@ -13,7 +14,7 @@ export class DatetimeCell extends BaseCellRenderer implements OnInit {
   date: WritableSignal<Date | null> = signal(null);
 
   get timeFormat(): string {
-    return this.params().provided.timeFormat || 'short';
+    return this.params().provided.timeFormat || DATE_TIME_FORMAT;
   }
 
   ngOnInit(): void {

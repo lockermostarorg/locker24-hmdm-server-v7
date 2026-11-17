@@ -50,6 +50,14 @@ function formatter(timeZone: string | null | undefined, withSeconds: boolean): I
   return result;
 }
 
+function partsOf(dtf: Intl.DateTimeFormat, ms: number): Record<string, string> {
+  const parts: Record<string, string> = {};
+  for (const part of dtf.formatToParts(new Date(ms))) {
+    parts[part.type] = part.value;
+  }
+  return parts;
+}
+
 export function absoluteTime(
   ms: number | null | undefined,
   timeZone?: string | null,
@@ -58,7 +66,13 @@ export function absoluteTime(
   if (ms === null || ms === undefined) {
     return '';
   }
-  return formatter(timeZone, withSeconds).format(new Date(ms));
+  const p = partsOf(formatter(timeZone, withSeconds), ms);
+  const time = withSeconds
+    ? `${p['hour']}:${p['minute']}:${p['second']}`
+    : `${p['hour']}:${p['minute']}`;
+  return [`${p['day']}.${p['month']}.${p['year']}`, time, p['timeZoneName']]
+    .filter(Boolean)
+    .join(' ');
 }
 
 export function zoneOffsetMs(ms: number, timeZone: string | null | undefined): number {
@@ -134,13 +148,14 @@ export function tickLabel(ms: number, timeZone: string | null | undefined, stepM
     stepMs < DAY
       ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }
       : { day: '2-digit', month: '2-digit' };
+  let dtf: Intl.DateTimeFormat;
   try {
-    return new Intl.DateTimeFormat('en-GB', { ...options, timeZone: timeZone || undefined }).format(
-      new Date(ms),
-    );
+    dtf = new Intl.DateTimeFormat('en-GB', { ...options, timeZone: timeZone || undefined });
   } catch {
-    return new Intl.DateTimeFormat('en-GB', options).format(new Date(ms));
+    dtf = new Intl.DateTimeFormat('en-GB', options);
   }
+  const p = partsOf(dtf, ms);
+  return stepMs < DAY ? `${p['hour']}:${p['minute']}` : `${p['day']}.${p['month']}.`;
 }
 
 export function formatDuration(ms: number): string {

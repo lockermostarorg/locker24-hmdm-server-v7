@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { DatetimeCell, TranslateCell, TTableConfig } from 'hmdm-ui-kit';
+import { DATE_TIME_FORMAT, DatetimeCell, TranslateCell, TTableConfig } from 'hmdm-ui-kit';
 import { AuditDetailsCell } from '../components/audit-details-cell/audit-details-cell';
 
 @Injectable()
@@ -12,7 +12,7 @@ export class AuditTableConfig {
           field: 'createTime',
           cellRenderer: DatetimeCell,
           cellRendererParams: {
-            dateFormat: 'short',
+            timeFormat: DATE_TIME_FORMAT,
           },
         },
         {

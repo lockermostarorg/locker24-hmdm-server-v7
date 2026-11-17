@@ -325,6 +325,13 @@
   "table.filtering.no.selected.group": "Hiçbir grup seçilmedi",
   "table.filtering.no.selected.permission": "Hiçbir izin seçilmedi",
   "table.empty": "Mevcut veri yok",
+  "paginator.items.per.page": "Items per page:",
+  "paginator.next.page": "Next page",
+  "paginator.previous.page": "Previous page",
+  "paginator.first.page": "First page",
+  "paginator.last.page": "Last page",
+  "paginator.range": "{{start}} – {{end}} of {{length}}",
+  "paginator.range.empty": "0 of {{length}}",
 
   "success.admin.created": "Yönetici hesabı oluşturuldu:\n {{adminCredentials}}",
   "dialog.admin.credentials.title": "Yönetici hesabı oluşturuldu",

@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { DetailsFacadeService } from '../../services/details-facade.service';
 import { DatePipe, NgClass } from '@angular/common';
-import { TranslatePipe } from 'hmdm-ui-kit';
+import { DATE_TIME_SECONDS_FORMAT, TranslatePipe } from 'hmdm-ui-kit';
 
 @Component({
   selector: 'di-latest-dynamic',
@@ -10,6 +10,8 @@ import { TranslatePipe } from 'hmdm-ui-kit';
   imports: [DatePipe, NgClass, TranslatePipe],
 })
 export class LatestDynamic {
+  readonly dateTimeFormat = DATE_TIME_SECONDS_FORMAT;
+
   private readonly detailsFacadeService = inject(DetailsFacadeService);
 
   details = this.detailsFacadeService.details;

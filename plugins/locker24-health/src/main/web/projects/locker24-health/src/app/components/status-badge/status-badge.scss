@@ -3,7 +3,7 @@
 }
 
 .badge {
-  --l24-status-color: var(--mat-sys-outline, #74777f);
+  --l24-status-color: var(--l24-text-muted);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -11,27 +11,27 @@
   border: 1px solid var(--l24-status-color);
   border-radius: 12px;
   color: var(--l24-status-color);
-  background: color-mix(in srgb, var(--l24-status-color) 10%, transparent);
+  background: color-mix(in srgb, var(--l24-status-color) 10%, var(--l24-field-bg));
   font-size: 13px;
   font-weight: 500;
   line-height: 20px;
   white-space: nowrap;
 
   &--green {
-    --l24-status-color: var(--mat-sys-success, #2e7d32);
+    --l24-status-color: var(--l24-success);
   }
 
   &--yellow {
-    --l24-status-color: var(--mat-sys-warning, #8a5300);
+    --l24-status-color: var(--l24-warning);
   }
 
   &--admin {
-    --l24-status-color: var(--mat-sys-info, #4c788c);
+    --l24-status-color: var(--l24-primary);
     border-style: dashed;
   }
 
   &--red {
-    --l24-status-color: var(--mat-sys-error, #ba1a1a);
+    --l24-status-color: var(--l24-danger);
   }
 
   &-icon {

@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   BaseComponent,
@@ -47,6 +47,7 @@ import {
   TSeriesKey,
 } from '../../logic/history';
 import { displayStatus, kioskState, reasonKey } from '../../logic/status';
+import { onThemeChange } from '../../logic/theme';
 import { errorKey, HealthService } from '../../services/health.service';
 import { TFleetRow } from '../../types/fleet.type';
 import { THistory } from '../../types/history.type';
@@ -105,7 +106,7 @@ const CHARTS: TChartSpec[] = [
 export class Device extends BaseComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly health = inject(HealthService);
-  private readonly theme = chartTheme();
+  private readonly theme = signal(chartTheme());
   private readonly reload$ = new Subject<void>();
 
   readonly pluginRoot = this.route.parent;
@@ -165,6 +166,7 @@ export class Device extends BaseComponent implements OnInit {
       return [];
     }
     const zone = this.timeZone();
+    const theme = this.theme();
     return CHARTS.map((spec) => {
       const input = {
         label: spec.key,
@@ -173,12 +175,12 @@ export class Device extends BaseComponent implements OnInit {
         from: history.from,
         to: history.to,
         periods: history.offlinePeriods,
-        thresholds: spec.thresholds(this.theme),
+        thresholds: spec.thresholds(theme),
         timeZone: zone,
         yMin: spec.yMin,
         yMax: spec.yMax,
         ySuggestedMax: spec.ySuggestedMax,
-        theme: this.theme,
+        theme,
       };
       return {
         key: spec.key,
@@ -204,6 +206,11 @@ export class Device extends BaseComponent implements OnInit {
       duration: formatDuration(period.to - period.from),
     }));
   });
+
+  constructor() {
+    super();
+    inject(DestroyRef).onDestroy(onThemeChange(() => this.theme.set(chartTheme())));
+  }
 
   ngOnInit(): void {
     this.health

@@ -1,4 +1,5 @@
 import type { ChartConfiguration, Plugin } from 'chart.js';
+import { themeToken } from 'hmdm-ui-kit';
 import { TOfflinePeriod } from '../types/history.type';
 import { absoluteTime, alignedTicks, tickLabel, tickStepMs } from './format';
 import { TXY } from './history';
@@ -57,19 +58,6 @@ export const OVERLAY_PLUGIN: Plugin<'line', TOverlayOptions> = {
   },
 };
 
-export function cssToken(name: string, fallback: string): string {
-  if (typeof document === 'undefined' || !document.body) {
-    return fallback;
-  }
-  const probe = document.createElement('span');
-  probe.style.display = 'none';
-  probe.style.color = `var(${name}, ${fallback})`;
-  document.body.appendChild(probe);
-  const resolved = getComputedStyle(probe).color;
-  probe.remove();
-  return resolved || fallback;
-}
-
 export type TChartTheme = {
   line: string;
   band: string;
@@ -81,12 +69,12 @@ export type TChartTheme = {
 
 export function chartTheme(): TChartTheme {
   return {
-    line: cssToken('--mat-sys-primary', '#005cbb'),
-    band: cssToken('--mat-sys-error', '#ba1a1a'),
-    grid: cssToken('--mat-sys-outline-variant', '#c4c6d0'),
-    text: cssToken('--mat-sys-on-surface-variant', '#44474e'),
-    warn: cssToken('--mat-sys-warning', '#b26a00'),
-    error: cssToken('--mat-sys-error', '#ba1a1a'),
+    line: themeToken('--l24-primary'),
+    band: themeToken('--l24-status-error'),
+    grid: themeToken('--l24-chart-grid'),
+    text: themeToken('--l24-chart-text'),
+    warn: themeToken('--l24-status-warn'),
+    error: themeToken('--l24-status-error'),
   };
 }
 

@@ -101,6 +101,113 @@ describe('Device page', () => {
     expect(periodRows[1].textContent).toContain('1 h');
   });
 
+  describe('theme', () => {
+    const root = document.documentElement;
+    const original = root.getAttribute('data-theme');
+    const DARK = {
+      '--l24-primary': '#5cc6f2',
+      '--l24-chart-grid': 'rgba(255, 255, 255, 0.12)',
+      '--l24-chart-text': '#aab1b9',
+      '--l24-status-warn': '#ffa726',
+      '--l24-status-error': '#ff6f68',
+    };
+    const LIGHT = {
+      '--l24-primary': '#00719c',
+      '--l24-chart-grid': 'rgba(0, 0, 0, 0.1)',
+      '--l24-chart-text': '#5f6368',
+      '--l24-status-warn': '#b26a00',
+      '--l24-status-error': '#d93636',
+    };
+
+    function apply(theme: 'light' | 'dark') {
+      Object.entries(theme === 'dark' ? DARK : LIGHT).forEach(([name, value]) =>
+        root.style.setProperty(name, value),
+      );
+      root.setAttribute('data-theme', theme);
+    }
+
+    function colours(el: HTMLElement) {
+      const chart = el.querySelector('hmdm-chart') as unknown as {
+        data: { datasets: { borderColor: string }[] };
+        options: {
+          scales: Record<string, { grid: { color: string }; ticks: { color: string } }>;
+          plugins: { l24Overlay: { bandColor: string; thresholds: { color: string }[] } };
+        };
+      };
+      const overlay = chart.options.plugins.l24Overlay;
+      return {
+        line: chart.data.datasets[0].borderColor,
+        grid: chart.options.scales['x'].grid.color,
+        text: chart.options.scales['y'].ticks.color,
+        band: overlay.bandColor,
+        thresholds: overlay.thresholds.map((t) => t.color),
+      };
+    }
+
+    afterEach(() => {
+      Object.keys(LIGHT).forEach((name) => root.style.removeProperty(name));
+      if (original === null) {
+        root.removeAttribute('data-theme');
+      } else {
+        root.setAttribute('data-theme', original);
+      }
+    });
+
+    it('charts redraw with new token colours on theme change', async () => {
+      apply('dark');
+      const harness = await RouterTestingHarness.create();
+      await harness.navigateByUrl('/main/device/9', Device);
+      http.expectOne(`${BASE}/settings`).flush({
+        status: 'OK',
+        message: null,
+        data: { webhookUrlSet: false, timeZone: 'UTC', editable: false },
+      });
+      http.expectOne(`${BASE}/devices`).flush({
+        status: 'OK',
+        message: null,
+        data: { devices: [fleetRow({ deviceId: 9 })], truncated: false },
+      });
+      const to = Date.UTC(2026, 10, 16, 12);
+      http.expectOne((req) => req.url === `${BASE}/devices/9/history`).flush({
+        status: 'OK',
+        message: null,
+        data: {
+          from: to - 86_400_000,
+          to,
+          bucketMs: 300_000,
+          truncated: false,
+          points: [
+            { t: to - 3_600_000, batteryPct: 50, temperatureC: 30, rssiDbm: -60 },
+            { t: to - 600_000, batteryPct: 49, temperatureC: 31, rssiDbm: -61 },
+          ],
+          offlinePeriods: [{ from: to - 7_200_000, to: to - 5_400_000 }],
+        },
+      });
+      harness.detectChanges();
+      const el: HTMLElement = harness.routeNativeElement!;
+
+      expect(colours(el)).toEqual({
+        line: DARK['--l24-primary'],
+        grid: DARK['--l24-chart-grid'],
+        text: DARK['--l24-chart-text'],
+        band: DARK['--l24-status-error'],
+        thresholds: [DARK['--l24-status-warn'], DARK['--l24-status-error']],
+      });
+
+      apply('light');
+      await new Promise((resolve) => setTimeout(resolve));
+      harness.detectChanges();
+
+      expect(colours(el)).toEqual({
+        line: LIGHT['--l24-primary'],
+        grid: LIGHT['--l24-chart-grid'],
+        text: LIGHT['--l24-chart-text'],
+        band: LIGHT['--l24-status-error'],
+        thresholds: [LIGHT['--l24-status-warn'], LIGHT['--l24-status-error']],
+      });
+    });
+  });
+
   it('shows an access error for a device the user cannot see', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/main/device/404', Device);

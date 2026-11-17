@@ -53,7 +53,14 @@ const textColours = [
 const statusColours = ['status-ok', 'status-error', 'status-warn', 'status-unknown'];
 const rowBackgrounds = ['page-bg', 'surface', 'surface-alt', 'hover@surface'];
 const chartFills = ['chart-blue', 'chart-blue-light', 'chart-red', 'chart-yellow'];
-const snackbarStripes = ['danger', 'success', 'accent', 'status-warn'];
+const snackbarStripes = ['danger', 'success', 'primary', 'status-warn'];
+
+// Fleet health plugin: badge and notice text sits on a tint of its own colour (name*percent;
+// badges over the field background), red table rows are tinted with danger, hovered rows with
+// primary. Chart lines (primary, status-warn, status-error) are covered by the pairs above.
+const badgeColours = ['success', 'warning', 'danger', 'primary', 'text-muted'];
+const tintedRows = ['danger*5@surface', 'primary*6@surface'];
+const noticeColours = ['warning', 'danger', 'primary'];
 
 const checks = [
   ...textColours.flatMap((fg) => textBackgrounds.map((bg) => [fg, bg, TEXT])),
@@ -81,9 +88,19 @@ const checks = [
   ['link-hover', 'mat-surface', TEXT],
   ['primary', 'mat-surface-container', GRAPHIC],
   ['primary', 'mat-surface-container-high', GRAPHIC],
+  ...badgeColours.map((fg) => [fg, `${fg}*10@field-bg`, TEXT]),
+  ...['text', 'text-muted'].flatMap((fg) => tintedRows.map((bg) => [fg, bg, TEXT])),
+  ...noticeColours.flatMap((c) => [
+    ['text', `${c}*8@surface`, TEXT],
+    [c, `${c}*8@surface`, GRAPHIC],
+  ]),
+  ['status-warn', 'danger*5@surface', GRAPHIC],
 ];
 
-const informational = [['brand', 'surface']];
+const informational = [
+  ['brand', 'surface'],
+  ['status-error*15', 'surface'],
+];
 
 function parseBlocks(source) {
   const blocks = {};
@@ -131,9 +148,14 @@ function ratio(a, b) {
 
 function resolver(tokens) {
   const colour = (name) => {
-    if (name.includes('@')) {
-      const [top, base] = name.split('@');
-      return over(colour(top), colour(base));
+    const at = name.indexOf('@');
+    if (at >= 0) {
+      return over(colour(name.slice(0, at)), colour(name.slice(at + 1)));
+    }
+    const tint = name.match(/^([\w-]+)\*(\d+)$/);
+    if (tint) {
+      const [r, g, b, a] = colour(tint[1]);
+      return [r, g, b, (a * Number(tint[2])) / 100];
     }
     const value = tokens[name];
     if (value === undefined) {

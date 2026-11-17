@@ -14,27 +14,27 @@
   }
 
   .field-group {
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--l24-border);
     border-radius: 4px;
     padding: 15px;
-    background-color: #fafafa;
+    background-color: var(--l24-surface-alt);
 
     .group-header {
       margin-bottom: 12px;
       padding-bottom: 10px;
-      border-bottom: 1px solid #e0e0e0;
+      border-bottom: 1px solid var(--l24-border);
 
       .group-checkbox {
         ::ng-deep .mdc-form-field {
           font-weight: 600;
           font-size: 15px;
-          color: #333;
+          color: var(--l24-text);
         }
 
         .group-title {
           font-weight: 600;
           font-size: 15px;
-          color: #333;
+          color: var(--l24-text);
         }
       }
     }
@@ -47,12 +47,12 @@
       .field-checkbox {
         ::ng-deep .mdc-form-field {
           font-size: 14px;
-          color: #555;
+          color: var(--l24-text-muted);
         }
 
         &:hover {
           ::ng-deep .mdc-form-field {
-            color: #000;
+            color: var(--l24-text);
           }
         }
       }

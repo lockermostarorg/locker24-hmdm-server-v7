@@ -1,11 +1,11 @@
 .latest {
-  border: 1px solid #ddd;
+  border: 1px solid var(--l24-border);
   padding: 10px;
   border-radius: 16px;
 }
 
 .device-data-mismatch {
-  color: #d9534f;
+  color: var(--l24-danger);
   font-weight: bold;
 }
 
@@ -27,7 +27,7 @@
   }
 
   tr {
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--l24-border);
 
     &:last-child {
       border-bottom: none;

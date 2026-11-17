@@ -39,7 +39,7 @@
   padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid var(--l24-notice-color);
-  color: var(--mat-sys-on-surface);
+  color: var(--l24-text);
   background: color-mix(in srgb, var(--l24-notice-color) 8%, transparent);
 
   mat-icon {
@@ -48,27 +48,27 @@
   }
 
   &--warn {
-    --l24-notice-color: var(--mat-sys-warning, #8a5300);
+    --l24-notice-color: var(--l24-warning);
   }
 
   &--error {
-    --l24-notice-color: var(--mat-sys-error, #ba1a1a);
+    --l24-notice-color: var(--l24-danger);
   }
 
   &--info {
-    --l24-notice-color: var(--mat-sys-primary, #005cbb);
+    --l24-notice-color: var(--l24-primary);
   }
 }
 
 .muted {
-  color: var(--mat-sys-on-surface-variant);
+  color: var(--l24-text-muted);
   font-size: 12px;
 }
 
 .empty {
   margin: 24px 0;
   text-align: center;
-  color: var(--mat-sys-on-surface-variant);
+  color: var(--l24-text-muted);
 }
 
 .mono {
@@ -94,6 +94,6 @@
 
 a:focus-visible,
 button:focus-visible {
-  outline: 2px solid var(--mat-sys-primary);
+  outline: 2px solid var(--l24-primary);
   outline-offset: 2px;
 }

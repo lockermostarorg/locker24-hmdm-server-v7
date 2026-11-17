@@ -17,3 +17,9 @@
     max-height: 90%;
   }
 }
+
+mat-expansion-panel {
+  --mat-expansion-container-background-color: var(--l24-surface);
+  --mat-expansion-container-text-color: var(--l24-text);
+  --mat-expansion-header-text-color: var(--l24-text);
+}

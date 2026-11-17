@@ -1,8 +1,41 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { effect, inject, Injectable } from '@angular/core';
 import { TranslateService, TranslationObject } from '@ngx-translate/core';
-import { AVAILABLE_LANGUAGES } from '../const/available-languages.const';
+import { SKIP_ALERT } from 'hmdm-ui-kit';
+import { catchError, EMPTY, Observable } from 'rxjs';
+import { AVAILABLE_LANGUAGES, LANGUAGE_ALIASES } from '../const/available-languages.const';
 import { SettingsFacadeService } from './settings-facade.service';
+
+export const DEFAULT_LANGUAGE = 'en_US';
+
+export function extractLanguageCode(lang: string | null | undefined): string {
+  if (!lang) {
+    return DEFAULT_LANGUAGE;
+  }
+
+  const normalized = lang.trim().replace(/-/g, '_');
+  const exact = AVAILABLE_LANGUAGES.find((l) => l.toLowerCase() === normalized.toLowerCase());
+
+  if (exact) {
+    return exact;
+  }
+
+  const base = normalized.split('_')[0].toLowerCase();
+  const alias = LANGUAGE_ALIASES[base];
+
+  if (alias) {
+    return alias;
+  }
+
+  const region = normalized.split('_').slice(1).join('_').toLowerCase();
+  const sameBase = AVAILABLE_LANGUAGES.filter((l) => l.toLowerCase().startsWith(base + '_'));
+
+  return (
+    sameBase.find((l) => region && l.toLowerCase().endsWith('_' + region)) ||
+    sameBase[0] ||
+    DEFAULT_LANGUAGE
+  );
+}
 
 @Injectable({
   providedIn: 'root',
@@ -11,7 +44,7 @@ export class LanguageService {
   private readonly settingsFacadeService = inject(SettingsFacadeService);
   private readonly translateService = inject(TranslateService);
   private readonly http: HttpClient = inject(HttpClient);
-  private readonly defaultLanguage = 'en_US';
+  private readonly defaultLanguage = DEFAULT_LANGUAGE;
 
   private currentLanguage: string | null = null;
   private useDefaultLanguage: boolean | null = null;
@@ -48,8 +81,18 @@ export class LanguageService {
     }
 
     plugins.forEach((plugin: any) => {
-      this.http
-        .get<TranslationObject>(`${plugin.baseUrl}/i18n/${this.currentLanguage}.json`)
+      const language = this.currentLanguage!;
+
+      this.getPluginTranslations(plugin.baseUrl, language)
+        .pipe(
+          catchError(() =>
+            language === this.defaultLanguage
+              ? EMPTY
+              : this.getPluginTranslations(plugin.baseUrl, this.defaultLanguage).pipe(
+                  catchError(() => EMPTY),
+                ),
+          ),
+        )
         .subscribe((translations) => {
           if (!this.currentLanguage) {
             return;
@@ -58,6 +101,12 @@ export class LanguageService {
           // Merge with existing translations (true = merge, false = replace)
           this.translateService.setTranslation(this.currentLanguage, translations, true);
         });
+    });
+  }
+
+  private getPluginTranslations(baseUrl: string, language: string): Observable<TranslationObject> {
+    return this.http.get<TranslationObject>(`${baseUrl}/i18n/${language}.json`, {
+      context: new HttpContext().set(SKIP_ALERT, true),
     });
   }
 
@@ -92,14 +141,6 @@ export class LanguageService {
   }
 
   private extractLanguageCode(lang: string): string {
-    const languages = AVAILABLE_LANGUAGES;
-
-    if (languages.includes(lang)) {
-      return lang;
-    }
-
-    const partial = languages.find((l) => lang.startsWith(l.substring(0, 2)));
-
-    return partial || this.defaultLanguage;
+    return extractLanguageCode(lang);
   }
 }

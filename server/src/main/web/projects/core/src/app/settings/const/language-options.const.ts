@@ -2,6 +2,7 @@ import { TOption } from 'hmdm-ui-kit';
 
 export const LANGUAGE_OPTIONS: TOption<string>[] = [
   { value: 'ar_AE', viewValue: 'form.settings.lang.ar' },
+  { value: 'bs_BA', viewValue: 'form.settings.lang.bs' },
   { value: 'de_DE', viewValue: 'form.settings.lang.de' },
   { value: 'en_US', viewValue: 'form.settings.lang.en' },
   { value: 'es_ES', viewValue: 'form.settings.lang.es' },

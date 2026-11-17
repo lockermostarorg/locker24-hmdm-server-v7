@@ -13,6 +13,7 @@ export const baseTestProviders = (): (Provider | EnvironmentProviders)[] => [
 
 export const LOCALES = [
   'ar_AE',
+  'bs_BA',
   'de_DE',
   'en_US',
   'es_ES',

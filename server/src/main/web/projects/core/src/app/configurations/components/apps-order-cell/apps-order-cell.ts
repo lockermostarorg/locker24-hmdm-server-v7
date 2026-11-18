@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, effect, inject } from '@angular/core';
 import { BaseCellRenderer, TextInputComponent } from 'hmdm-ui-kit';
 import { TApplicationDTO } from '../../../entity/application/types/application-dto.type';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
@@ -17,18 +17,22 @@ function toScreenOrder(value: string | null): number | null {
   styleUrl: './apps-order-cell.scss',
   imports: [TextInputComponent, ReactiveFormsModule],
 })
-export class AppsOrderCell extends BaseCellRenderer<TApplicationDTO> implements OnInit {
+export class AppsOrderCell extends BaseCellRenderer<TApplicationDTO> {
   private readonly configurationAppsFacadeService = inject(ConfigurationAppsFacadeService);
 
   formControl: FormControl<string | null> = new FormControl(null);
 
-  ngOnInit(): void {
-    const app = this.params().data;
+  private readonly syncControlValue = effect(() => {
+    this.formControl.setValue(this.params().data.screenOrder?.toString() ?? null, {
+      emitEvent: false,
+    });
+  });
 
-    this.formControl.setValue(app.screenOrder?.toString() ?? null, { emitEvent: false });
+  constructor() {
+    super();
 
     this.formControl.valueChanges.pipe(this.untilDestroyed()).subscribe((value) => {
-      this.configurationAppsFacadeService.setAppOrder(app, toScreenOrder(value));
+      this.configurationAppsFacadeService.setAppOrder(this.params().data, toScreenOrder(value));
     });
   }
 

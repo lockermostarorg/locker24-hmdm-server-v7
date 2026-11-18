@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, WritableSignal } from '@angular/core';
+import { Component, computed, inject, Signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
@@ -13,14 +13,10 @@ import { FilesDialogService } from '../../services/files-dialog.service';
   styleUrl: './files-action-cell.scss',
   imports: [MatIconModule, MatButtonModule, MatTooltip, HasPermissionDirective],
 })
-export class FilesActionCell extends BaseCellRenderer<TFileDTO> implements OnInit {
+export class FilesActionCell extends BaseCellRenderer<TFileDTO> {
   private filesDialogService = inject(FilesDialogService);
 
-  copyTooltip: WritableSignal<string> = signal('');
-
-  ngOnInit(): void {
-    this.copyTooltip.set(this.params().data.url);
-  }
+  copyTooltip: Signal<string> = computed(() => this.params().data.url);
 
   onDeleteClick(): void {
     const file = this.params().data;

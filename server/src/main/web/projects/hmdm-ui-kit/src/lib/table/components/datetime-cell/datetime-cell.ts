@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, signal, WritableSignal } from '@angular/core';
+import { Component, computed, Signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { DATE_TIME_FORMAT } from '../../../shared/date/date-format';
 import { BaseCellRenderer } from '../../base/base-cell-renderer';
@@ -10,18 +10,14 @@ import { BaseCellRenderer } from '../../base/base-cell-renderer';
   styleUrl: './datetime-cell.css',
   imports: [DatePipe, TranslatePipe],
 })
-export class DatetimeCell extends BaseCellRenderer implements OnInit {
-  date: WritableSignal<Date | null> = signal(null);
+export class DatetimeCell extends BaseCellRenderer {
+  date: Signal<Date | null> = computed(() => {
+    const value = this.params().value;
+
+    return typeof value === 'number' ? new Date(value) : null;
+  });
 
   get timeFormat(): string {
     return this.params().provided.timeFormat || DATE_TIME_FORMAT;
-  }
-
-  ngOnInit(): void {
-    const value = this.params().value;
-
-    if (typeof value === 'number') {
-      this.date.set(new Date(value));
-    }
   }
 }
